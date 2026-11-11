@@ -12,7 +12,16 @@ from games.daily.timing.streak import (
     daily_streaks_for_user,
     streak_from_completion_dates,
 )
-from games.models import ClubEntitlement, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
+from games.models import (
+    ClubEntitlement,
+    ClubSubscription,
+    Game,
+    GameTaskGroup,
+    PlayerCompletedGame,
+    Profile,
+    Project,
+    TaskGroup,
+)
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -240,6 +249,36 @@ class DailyStreakLogicTests(TestCase):
         # Without access the unfinished yesterday breaks it, as before.
         ClubEntitlement.objects.filter(user=self.user).delete()
         self.assertEqual(self.streak('ladder')['ladder'], 0)
+
+    def test_solving_today_first_keeps_the_open_days_out_of_the_way(self):
+        # Sep 11: today is solved while 9 and 10 are still open for a member.
+        self.member(datetime(2026, 9, 1, tzinfo=MOSCOW))
+        for day in (6, 7, 8):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW))
+        self.completion('ladder', 11, self.now)
+        self.assertEqual(self.streak('ladder')['ladder'], 4)
+        statuses = daily_completion_statuses_for_actor(
+            game=self.games['ladder'],
+            links=[self.links['ladder'][day] for day in (6, 7, 8, 11)],
+            user=self.user,
+            now=self.now,
+        )
+        self.assertEqual(
+            {statuses[self.links['ladder'][day].task_group_id] for day in (6, 7, 8, 11)},
+            {'streak'},
+        )
+
+    def test_a_paid_until_without_an_entitlement_row_still_counts(self):
+        # A Tribute cancellation can extend paid_until without a paid row.
+        ClubSubscription.objects.create(
+            user=self.user, provider=ClubSubscription.PROVIDER_TRIBUTE,
+            status=ClubSubscription.STATUS_CANCELLED,
+            current_period_start=datetime(2026, 9, 1, tzinfo=MOSCOW),
+            paid_until=datetime(2026, 10, 1, tzinfo=MOSCOW),
+        )
+        self.completion('ladder', 9, datetime(2026, 9, 11, 6, tzinfo=MOSCOW))
+        self.completion('ladder', 10, datetime(2026, 9, 10, 18, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 2)
 
     def test_date_helper_keeps_unfinished_today(self):
         self.assertEqual(

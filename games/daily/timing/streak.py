@@ -34,12 +34,23 @@ def club_access_intervals(user):
     """
     if user is None or not getattr(user, 'is_authenticated', False):
         return []
-    from games.models import ClubEntitlement
+    from games.models import ClubEntitlement, ClubSubscription
 
-    return list(
+    intervals = list(
         ClubEntitlement.objects.filter(user_id=user.pk, revoked_at__isnull=True)
         .values_list('starts_at', 'ends_at')
     )
+    # ClubSubscription.grants_access also trusts paid_until, which a Tribute
+    # cancellation can extend without a paid entitlement row: cover that
+    # period too, so the archive and the streak agree on who is a member.
+    period = ClubSubscription.objects.filter(user_id=user.pk).values_list(
+        'current_period_start', 'last_payment_at', 'paid_until',
+    ).first()
+    if period:
+        start, paid_until = period[0] or period[1], period[2]
+        if start and paid_until and start < paid_until:
+            intervals.append((start, paid_until))
+    return intervals
 
 
 def _has_access_at(moment, intervals):
@@ -67,22 +78,53 @@ def _still_open_dates(publication_times, completed_dates, *, now, today, interva
     }
 
 
-def streak_from_completion_dates(completed_dates, *, today, open_dates=()):
-    """Return the current streak, keeping an unfinished today in the streak.
+def _recent_publication_times(game, now):
+    """Publication times of the editions published within the Club window.
 
-    ``open_dates`` are unfinished editions that can still be solved in time
-    (Club members); they are skipped rather than breaking the run.
+    The caller's links may be one page of rows; the still-open editions must
+    come from the whole section so they do not break the run shown there.
+    """
+    schedule = schedule_for(game.id)
+    if schedule is None:
+        return []
+    today = now.astimezone(MOSCOW).date()
+    candidates = {
+        schedule.number_for_date(game, today - timedelta(days=days_back))
+        for days_back in range(CLUB_STREAK_COMPLETION_WINDOW.days + 2)
+    } - {None}
+    existing = set(
+        GameTaskGroup.objects.filter(game=game, number__in=[str(n) for n in candidates])
+        .values_list('number', flat=True)
+    )
+    times = []
+    for number in candidates:
+        published_at = schedule.publish_at(game, number) if str(number) in existing else None
+        if published_at is not None:
+            times.append(published_at)
+    return times
+
+
+def _active_run(completed_dates, *, today, open_dates=()):
+    """Dates of the current run, newest first.
+
+    An unfinished today is kept. ``open_dates`` (unfinished editions a Club
+    member can still solve in time) neither count nor break the run, wherever
+    they fall in it.
     """
     dates = set(completed_dates)
     open_dates = set(open_dates)
     cursor = today if today in dates else today - timedelta(days=1)
-    while cursor not in dates and cursor in open_dates:
+    run = []
+    while cursor in dates or cursor in open_dates:
+        if cursor in dates:
+            run.append(cursor)
         cursor -= timedelta(days=1)
-    streak = 0
-    while cursor in dates:
-        streak += 1
-        cursor -= timedelta(days=1)
-    return streak
+    return run
+
+
+def streak_from_completion_dates(completed_dates, *, today, open_dates=()):
+    """Return the current streak, keeping an unfinished today in the streak."""
+    return len(_active_run(completed_dates, today=today, open_dates=open_dates))
 
 
 def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
@@ -262,15 +304,10 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         )
     }
     open_dates = _still_open_dates(
-        link_publication_times.values(), on_time_dates, now=now, today=today, intervals=intervals,
+        _recent_publication_times(game, now) if _has_access_at(now, intervals) else (),
+        on_time_dates, now=now, today=today, intervals=intervals,
     )
-    cursor = today if today in on_time_dates else today - timedelta(days=1)
-    while cursor not in on_time_dates and cursor in open_dates:
-        cursor -= timedelta(days=1)
-    active_dates = set()
-    while cursor in on_time_dates:
-        active_dates.add(cursor)
-        cursor -= timedelta(days=1)
+    active_dates = set(_active_run(on_time_dates, today=today, open_dates=open_dates))
 
     statuses = {}
     for group_id, completed_at in completed_at_by_group.items():
