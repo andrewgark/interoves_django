@@ -193,8 +193,10 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertTrue(_has_sense('сущность', 'sense:essence'))
         self.assertTrue(_has_sense('существовать', 'sense:existence'))
         self.assertTrue(_has_sense('присутствие', 'sense:presence'))
-        for lemma in ('суть', 'существо'):
-            self.assertTrue({'sense:essence', 'sense:existence'} <= _sense_set(lemma))
+        # «суть» (essence) and «существо» (essence, creature) do not open
+        # существовать; the verb «суть» reaches быть through pymorphy.
+        self.assertEqual(_sense_set('суть'), {'sense:essence'})
+        self.assertEqual(_sense_set('существо'), {'sense:essence', 'sense:creature'})
 
     def test_ability_aid_extortion_and_seeking_are_separate(self):
         expected = {
