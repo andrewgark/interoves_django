@@ -351,6 +351,13 @@ function clearKeyEvent(overrides) {
     duplicate: false,
     rare: true
   });
+  assert.deepStrictEqual(Path.feedbackForResult('near', 'краска'), {
+    word: 'КРАСКА',
+    message: 'Почти ответ!',
+    icon: 'ph-target',
+    duplicate: false,
+    rare: true
+  });
 })();
 
 (function testServerAnalyticsEventsAreForwarded() {

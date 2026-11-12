@@ -15,6 +15,7 @@ from games.puzzles.salad.rules import (
     load_state as load_word_salad_state,
     parse_task_data,
     parse_task_payload as parse_word_salad_task_payload,
+    parse_task_puzzle as parse_word_salad_task_puzzle,
     result_points_from_attempts,
     validate_task_data,
 )
@@ -40,6 +41,7 @@ def build_word_salad_board_data(
     attempts,
     user,
     anon_key,
+    near_words=(),
 ):
     """Build Salad's board UI and attach its optional share-card payload."""
     ui = build_word_salad_ui_context(
@@ -48,6 +50,7 @@ def build_word_salad_board_data(
         state,
         attempts=attempts,
         rare_words=rare_words,
+        near_words=near_words,
     )
     share_adapter = get_daily_share_adapter(game.id)
     if share_adapter is not None:
@@ -82,7 +85,7 @@ def prepare_word_salad_board_data(
 ):
     """Parse, resolve, and build one Salad board payload."""
     try:
-        grid, words, rare_words = parse_word_salad_task_payload(
+        grid, words, rare_words, near_words = parse_word_salad_task_puzzle(
             task.checker_data,
             task.answer,
         )
@@ -127,6 +130,7 @@ def prepare_word_salad_board_data(
         grid=grid,
         words=words,
         rare_words=rare_words,
+        near_words=near_words,
         state=state,
         attempts=board.attempts,
         user=user,
@@ -308,8 +312,9 @@ def merge_state(task, source_json, target_json):
         dump_state,
         load_state,
         normalize_word,
-        parse_task_payload,
+        parse_task_puzzle,
         removable_cells,
+        side_words_of,
     )
     source_state = load_state(source)
     target_state = load_state(target)
@@ -318,9 +323,11 @@ def merge_state(task, source_json, target_json):
     for index, count in (target_state.get('hint_counts') or {}).items():
         hint_counts[index] = max(int(hint_counts.get(index, 0) or 0), int(count or 0))
     try:
-        grid, words, rare_words = parse_task_payload(task.checker_data, task.answer)
+        grid, words, rare_words, near_words = parse_task_puzzle(task.checker_data, task.answer)
     except (TypeError, ValueError):
         return None
+    # found_rare indexes rares and near-answers together, in this order.
+    rare_words = side_words_of(rare_words, near_words)
     active = set(range(16))
     while True:
         removable = removable_cells(grid, words, active, solved)

@@ -26,6 +26,13 @@ RARE_FOUND_TOOLTIP = (
     'Редкая находка! Это слово технически тоже по теме, '
     'но для полного решения не требуется и баллов не даёт.'
 )
+NEAR_FOUND_COMMENT = 'Почти ответ'
+NEAR_FOUND_TOOLTIP = (
+    'Почти ответ! Как ответ загадана другая форма этого слова, '
+    'а эта находка баллов не даёт.'
+)
+# Configured side words: found and stored the same way, shown in two bands.
+SIDE_FOUND_COMMENTS = (RARE_FOUND_COMMENT, NEAR_FOUND_COMMENT)
 _FOUND_RARE_INDEX_LIMIT = 64
 _FOUND_EXTRA_LIMIT = 64
 NO_HINT_SQUARE = '🟩'
@@ -79,6 +86,14 @@ def parse_rare_words(value):
         value,
         allow_empty=True,
         duplicate_error='Редкие слова не должны повторяться.',
+    )
+
+
+def parse_near_words(value):
+    return parse_word_list(
+        value,
+        allow_empty=True,
+        duplicate_error='Слова «Почти ответ» не должны повторяться.',
     )
 
 
@@ -392,10 +407,11 @@ def all_words_solvable(grid, words, active):
     return all(find_paths(grid, word, active=active, limit=1) for word in words)
 
 
-def validate_puzzle(grid_value, words_value, rare_words_value=None):
+def validate_puzzle(grid_value, words_value, rare_words_value=None, near_words_value=None):
     grid = parse_grid(grid_value)
     words = parse_words(words_value)
     rare_words = parse_rare_words(rare_words_value)
+    near_words = parse_near_words(near_words_value)
     if not all_words_solvable(grid, words, range(16)):
         raise ValueError('Для каждого слова должна существовать хотя бы одна дорожка.')
     for cell in range(16):
@@ -411,6 +427,19 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None):
         )
     if rare_words and not all_words_solvable(grid, rare_words, range(16)):
         raise ValueError('Для каждого редкого слова должна существовать хотя бы одна дорожка.')
+    near_set = {normalize_word(word) for word in near_words}
+    overlap = sorted(answer_set & near_set)
+    if overlap:
+        raise ValueError(
+            'Слово «Почти ответ» не должно совпадать с обязательным ответом: {}.'.format(', '.join(overlap))
+        )
+    overlap = sorted(rare_set & near_set)
+    if overlap:
+        raise ValueError(
+            'Слово не может быть одновременно редким и «Почти ответом»: {}.'.format(', '.join(overlap))
+        )
+    if near_words and not all_words_solvable(grid, near_words, range(16)):
+        raise ValueError('Для каждого слова «Почти ответ» должна существовать хотя бы одна дорожка.')
     return grid, words
 
 
@@ -527,15 +556,18 @@ def extra_found_word_from_attempt(task, attempt, *, user=None, anon_key=None):
 
 
 def path_word_from_attempt(task, attempt):
-    """Return (written, required_words, rare_words) for a salad path attempt."""
+    """Return (written, required_words, side_words) for a salad path attempt.
+
+    Side words are the configured rare words and near-answers together.
+    """
     try:
         payload = json.loads(attempt.text or '')
         path = [int(index) for index in (payload.get('path') or [])]
-        grid, words, rare_words = parse_task_payload(getattr(task, 'checker_data', None), '')
+        grid, words, rare_words, near_words = parse_task_puzzle(getattr(task, 'checker_data', None), '')
         written = ''.join(grid[index] for index in path)
     except (TypeError, ValueError, IndexError, KeyError, json.JSONDecodeError):
         return '', [], []
-    return written, words, rare_words
+    return written, words, rare_words + near_words
 
 
 def theme_from_text(value):
@@ -567,7 +599,8 @@ class InvalidSaladTask(ValueError):
     """Stored task data does not parse; retrying the same revision cannot help."""
 
 
-def parse_task_payload(checker_data, answer):
+def parse_task_puzzle(checker_data, answer):
+    """Return (grid, words, rare_words, near_words) from stored task data."""
     try:
         data = json.loads(checker_data or '{}')
     except (TypeError, ValueError):
@@ -579,11 +612,23 @@ def parse_task_payload(checker_data, answer):
         words_raw = data.get('words') if data.get('words') is not None else answer
         words = parse_words(words_raw)
         rare_words = parse_rare_words(data.get('rare_words'))
+        near_words = parse_near_words(data.get('near_words'))
     except InvalidSaladTask:
         raise
     except ValueError as exc:
         raise InvalidSaladTask(str(exc)) from exc
+    return grid, words, rare_words, near_words
+
+
+def parse_task_payload(checker_data, answer):
+    """Return (grid, words, rare_words); near-answers come from parse_task_puzzle."""
+    grid, words, rare_words, _near_words = parse_task_puzzle(checker_data, answer)
     return grid, words, rare_words
+
+
+def side_words_of(rare_words, near_words):
+    """Configured side words in stored-index order: rare words, then near-answers."""
+    return list(rare_words or []) + list(near_words or [])
 
 
 def parse_task_data(checker_data, answer):
@@ -592,8 +637,8 @@ def parse_task_data(checker_data, answer):
 
 
 def validate_task_data(checker_data, answer):
-    grid, words, rare_words = parse_task_payload(checker_data, answer)
-    return validate_puzzle(grid, words, rare_words)
+    grid, words, rare_words, near_words = parse_task_puzzle(checker_data, answer)
+    return validate_puzzle(grid, words, rare_words, near_words)
 
 
 def format_grid_text(grid):
@@ -607,43 +652,50 @@ def format_words_text(words):
     return '\n'.join(parse_word_list(words, allow_empty=True))
 
 
-def serialize_task_data(grid_value, words_value, rare_words_value=None):
+def serialize_task_data(grid_value, words_value, rare_words_value=None, near_words_value=None):
     grid = parse_grid(grid_value)
     words = parse_words(words_value)
     rare_words = parse_rare_words(rare_words_value)
+    near_words = parse_near_words(near_words_value)
     payload = {'grid': grid, 'words': words}
     if rare_words:
         payload['rare_words'] = rare_words
+    if near_words:
+        payload['near_words'] = near_words
     return json.dumps(payload, ensure_ascii=False)
 
 
 def task_data_signature(checker_data, answer=''):
     """Return puzzle semantics without derived metadata fields."""
     try:
-        grid, words, rare_words = parse_task_payload(checker_data, answer)
+        grid, words, rare_words, near_words = parse_task_puzzle(checker_data, answer)
     except (TypeError, ValueError, json.JSONDecodeError):
         return (checker_data or '',)
     return (
         tuple(grid),
         tuple(normalize_word(word) for word in words),
         tuple(normalize_word(word) for word in rare_words),
+        tuple(normalize_word(word) for word in near_words),
     )
 
 
 def add_longest_missing_words(checker_data):
     """Add the saved dictionary snapshot to an already validated puzzle."""
     data = json.loads(checker_data or '{}')
-    grid, words, rare_words = parse_task_payload(checker_data, '')
+    grid, words, rare_words, near_words = parse_task_puzzle(checker_data, '')
     data['longest_missing_words'] = list(longest_dictionary_words(
         tuple(grid),
-        tuple(normalize_word(word) for word in words + rare_words),
+        tuple(normalize_word(word) for word in words + rare_words + near_words),
         limit=LONGEST_MISSING_CANDIDATES_LIMIT,
     ))
     return json.dumps(data, ensure_ascii=False)
 
 
 def side_finds_from_state(state, rare_words=None):
-    """Return (extra_words, rare_words_found) from chain state and current rares."""
+    """Return (extra_words, side_words_found) from chain state.
+
+    ``rare_words`` is the stored-index side list: rares, then near-answers.
+    """
     state = load_state(state)
     extra = list(state.get('found_extra') or [])
     rare_names = list(state.get('found_rare_words') or [])
@@ -657,11 +709,11 @@ def side_finds_from_state(state, rare_words=None):
     return extra, rare_names
 
 
-def classify_side_finds(state, words, rare_words=None):
-    """Split stored finds into rare pills and extra pills for the current lists."""
-    extra, rare_names = side_finds_from_state(state, rare_words)
+def classify_side_finds(state, words, rare_words=None, near_words=None):
+    """Split stored finds into rare, near-answer and extra pills for the current lists."""
+    extra, rare_names = side_finds_from_state(state, side_words_of(rare_words, near_words))
     answer_set = {normalize_word(item) for item in (words or [])}
-    rare_set = {normalize_word(item) for item in (rare_words or [])}
+    rare_set = {normalize_word(item) for item in side_words_of(rare_words, near_words)}
     found = []
     seen = set()
     for word in extra + rare_names:
@@ -669,18 +721,22 @@ def classify_side_finds(state, words, rare_words=None):
             continue
         seen.add(word)
         found.append(word)
-    rare_ui = []
-    for index, word in words_in_display_order(rare_words or []):
-        normalized = normalize_word(word)
-        if normalized not in seen or normalized in answer_set:
-            continue
-        rare_ui.append({
-            'index': index,
-            'original': word,
-            'normalized': normalized,
-        })
+
+    def found_pills(configured):
+        pills = []
+        for index, word in words_in_display_order(configured or []):
+            normalized = normalize_word(word)
+            if normalized not in seen or normalized in answer_set:
+                continue
+            pills.append({
+                'index': index,
+                'original': word,
+                'normalized': normalized,
+            })
+        return pills
+
     extra_ui = [word for word in found if word not in rare_set and word not in answer_set]
-    return rare_ui, extra_ui
+    return found_pills(rare_words), found_pills(near_words), extra_ui
 
 
 def board_key(grid):
@@ -693,13 +749,14 @@ def board_key(grid):
     return hashlib.sha1(''.join(grid or ()).encode('utf-8')).hexdigest()[:12]
 
 
-def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
+def build_ui_context(grid, words, state=None, attempts=None, rare_words=None, near_words=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
     hint_counts = state.get('hint_counts') or {}
     active = set(state.get('active', []))
     rare_words = list(rare_words or [])
-    rare_ui, extra_ui = classify_side_finds(state, words, rare_words)
+    near_words = list(near_words or [])
+    rare_ui, near_ui, extra_ui = classify_side_finds(state, words, rare_words, near_words)
     grid_rows = []
     for row_index in range(4):
         row = []
@@ -738,9 +795,13 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
         'board_key': board_key(grid),
         'words': words_ui,
         'rare_words': rare_ui,
+        'near_words': near_ui,
         'extra_words': extra_ui,
-        'rare_normalized': [normalize_word(word) for word in rare_words],
+        # Every configured side word: the page finds rares and near-answers alike.
+        'rare_normalized': [normalize_word(word) for word in rare_words + near_words],
+        'near_normalized': [normalize_word(word) for word in near_words],
         'rare_tooltip': RARE_FOUND_TOOLTIP,
+        'near_tooltip': NEAR_FOUND_TOOLTIP,
         'word_points': WORD_POINTS,
         'hint_penalty': HINT_PENALTY,
         'solved_indices': sorted(solved),

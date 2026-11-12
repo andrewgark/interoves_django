@@ -245,23 +245,24 @@ def _process_word_salad_sync_finds(request, ctx):
         return {'status': 'invalid_form'}
 
     from games.ops.workers.jobs.recheck import sync_word_salad_finds
-    from games.puzzles.salad.rules import build_ui_context, parse_task_payload
+    from games.puzzles.salad.rules import build_ui_context, parse_task_puzzle
 
     stats = sync_word_salad_finds(
         task, raw_words,
         team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot,
     )
-    grid, words, rares = parse_task_payload(task.checker_data, task.answer or '')
-    ui = build_ui_context(grid, words, stats['state'], rare_words=rares)
+    grid, words, rares, nears = parse_task_puzzle(task.checker_data, task.answer or '')
+    ui = build_ui_context(grid, words, stats['state'], rare_words=rares, near_words=nears)
     result = {
         'status': 'ok',
         'task_id': task.id,
         'word_salad_extras': ui['extra_words'],
-        'word_salad_rares': [word['normalized'] for word in ui['rare_words']],
+        # The page keeps rares and near-answers in one list and splits them itself.
+        'word_salad_rares': [word['normalized'] for word in ui['rare_words'] + ui['near_words']],
         'word_salad_credited': stats['credited'],
     }
     credited = stats['credited']
-    credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
+    credited_any = bool(credited['extra'] or credited['rare'] or credited['near'] or credited['answer'])
     current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
     ctx = dataclasses.replace(ctx, mode=current_mode)
     effects = apply_move_effects(

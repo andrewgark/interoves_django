@@ -282,6 +282,12 @@ class WordSaladTaskForm(ModelForm):
         widget=Textarea(attrs={'rows': 6, 'cols': 40}),
         help_text='Необязательные редкие находки: по теме, но слишком редкие, чтобы требовать их у всех. Очков не дают.',
     )
+    word_salad_near_words_text = forms.CharField(
+        required=False,
+        label='Word Salad near answers',
+        widget=Textarea(attrs={'rows': 4, 'cols': 40}),
+        help_text='Необязательные «Почти ответы»: другие формы загаданных слов (КРАСКА при ответе КРАСКИ). Очков не дают.',
+    )
 
     class Meta:
         model = Task
@@ -300,12 +306,15 @@ class WordSaladTaskForm(ModelForm):
             task_type = self.initial.get('task_type') or getattr(self.instance, 'task_type', None)
         if getattr(self.instance, 'task_type', None) == 'word_salad' and getattr(self.instance, 'checker_data', None):
             try:
-                from games.puzzles.salad.rules import format_grid_text, format_words_text, parse_task_payload
+                from games.puzzles.salad.rules import format_grid_text, format_words_text, parse_task_puzzle
 
-                grid, words, rare_words = parse_task_payload(self.instance.checker_data, self.instance.answer)
+                grid, words, rare_words, near_words = parse_task_puzzle(
+                    self.instance.checker_data, self.instance.answer,
+                )
                 self.fields['word_salad_grid_text'].initial = format_grid_text(grid)
                 self.fields['word_salad_words_text'].initial = format_words_text(words)
                 self.fields['word_salad_rare_words_text'].initial = format_words_text(rare_words)
+                self.fields['word_salad_near_words_text'].initial = format_words_text(near_words)
             except Exception:
                 pass
         if task_type == 'word_salad':
@@ -335,11 +344,13 @@ class WordSaladTaskForm(ModelForm):
                     cleaned.get('word_salad_grid_text'),
                     cleaned.get('word_salad_words_text'),
                     cleaned.get('word_salad_rare_words_text'),
+                    cleaned.get('word_salad_near_words_text'),
                 )
                 cleaned['checker_data'] = serialize_task_data(
                     cleaned.get('word_salad_grid_text'),
                     cleaned.get('word_salad_words_text'),
                     cleaned.get('word_salad_rare_words_text'),
+                    cleaned.get('word_salad_near_words_text'),
                 )
             except ValueError as exc:
                 raise forms.ValidationError(str(exc))

@@ -119,6 +119,7 @@ def offer_salad_detail(request, offer_id):
             grid_text=str(body.get('grid_text') or ''),
             words_text=str(body.get('words_text') or ''),
             rare_words_text=str(body.get('rare_words_text') or ''),
+            near_words_text=str(body.get('near_words_text') or ''),
             comment=str(body.get('comment') or ''),
         )
     except WordSaladOfferError as exc:

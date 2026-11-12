@@ -120,6 +120,38 @@ var rareOk = Editor.validateLive(
 );
 assert.strictEqual(rareOk.ok, true, rareOk.errors.join('; '));
 
+var nearOk = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  'ABC',
+  'ABCD'
+);
+assert.strictEqual(nearOk.ok, true, nearOk.errors.join('; '));
+
+var nearOverlap = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  '',
+  'ABCDEFGHIJKLMNOP'
+);
+assert.ok(nearOverlap.errors[0].indexOf('«Почти ответ» не должно совпадать') >= 0);
+
+var nearAndRare = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  'ABCD',
+  'ABCD'
+);
+assert.ok(nearAndRare.errors[0].indexOf('одновременно') >= 0);
+
+var nearMissing = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  '',
+  'AP'
+);
+assert.deepStrictEqual(nearMissing.missingWords, ['AP']);
+
 assert.ok(Editor.findPaths(
   Editor.parseGrid('B C D E\nI H G F\nJ K L M\nQ P O N'),
   'BCDE',

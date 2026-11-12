@@ -10,7 +10,9 @@ from games.puzzles.core.primitives import same_text_verdict
 from games.puzzles.salad.rules import (
     EXTRA_FOUND_COMMENT,
     EXTRA_NOT_FOUND_COMMENT,
+    NEAR_FOUND_COMMENT,
     RARE_FOUND_COMMENT,
+    SIDE_FOUND_COMMENTS,
     append_unique_word,
     dump_state,
     extra_found_word,
@@ -18,10 +20,11 @@ from games.puzzles.salad.rules import (
     load_state,
     neighbours,
     normalize_word,
-    parse_task_payload,
+    parse_task_puzzle,
     path_word_from_attempt,
     removable_cells,
     score_for_state,
+    side_words_of,
 )
 
 
@@ -96,13 +99,15 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
 
 
 def write_move_result(result, task, attempt, *, attempt_persisted, user, anon_key):
-    rare_found = attempt_persisted and (attempt.comment or '') == RARE_FOUND_COMMENT
+    rare_found = attempt_persisted and (attempt.comment or '') in SIDE_FOUND_COMMENTS
     extra_found = attempt_persisted and (attempt.comment or '') == EXTRA_FOUND_COMMENT
     result['word_salad_correct'] = bool(attempt_persisted) and not rare_found and not extra_found
     if rare_found:
         written, _words, _rare_words = path_word_from_attempt(task, attempt)
         if written:
             result['word_salad_rare'] = written
+            if (attempt.comment or '') == NEAR_FOUND_COMMENT:
+                result['word_salad_near'] = True
         result['word_salad_keep_selection'] = True
     elif extra_found:
         written, _words, _rare_words = path_word_from_attempt(task, attempt)
@@ -126,12 +131,12 @@ def client_verdict_of(attempt, persisted):
     """What an instant-verdict page should have shown for a solve path.
 
     'Ok' when the path solved a new answer word, 'Partial' when it found a
-    new rare word; an off-theme find, a word already found and a dropped wrong
+    new rare word or near-answer; an off-theme find, a word already found and a dropped wrong
     probe are all 'Wrong'.
     """
     if not persisted or attempt.status not in ('Ok', 'Partial'):
         return 'Wrong'
-    if (attempt.comment or '') == RARE_FOUND_COMMENT:
+    if (attempt.comment or '') in SIDE_FOUND_COMMENTS:
         return 'Partial'
     if (attempt.comment or '') == EXTRA_FOUND_COMMENT:
         return 'Wrong'
@@ -147,7 +152,10 @@ class WordSaladChecker(BaseChecker):
     """Проверяет JSON-путь по сетке и хранит найденные слова в chain state."""
 
     def __init__(self, data, last_attempt_state=None):
-        self.grid, self.words, self.rare_words = parse_task_payload(data, '')
+        self.grid, self.words, rare_words, near_words = parse_task_puzzle(data, '')
+        # Rares and near-answers are found alike; only the comment tells them apart.
+        self.rare_words = side_words_of(rare_words, near_words)
+        self.near_set = {normalize_word(word) for word in near_words}
         self.last_state = load_state(last_attempt_state)
 
     def check(self, text, attempt):
@@ -255,7 +263,7 @@ class WordSaladChecker(BaseChecker):
                 tournament_status,
                 score_for_state(next_state),
                 dump_state(next_state),
-                comment=RARE_FOUND_COMMENT,
+                comment=NEAR_FOUND_COMMENT if written in self.near_set else RARE_FOUND_COMMENT,
             )
         extra = extra_found_word(written, self.words, rare_words=self.rare_words)
         if extra:

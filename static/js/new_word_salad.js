@@ -479,11 +479,12 @@
   function feedbackForResult(result, word) {
     var duplicate = result === 'duplicate';
     var displayWord = String(word || '').trim().toUpperCase();
-    if (result === 'rare') {
+    if (result === 'rare' || result === 'near') {
+      // A near-answer (another form of an answer) is found like a rare word.
       return {
         word: displayWord,
-        message: 'Редкая находка!',
-        icon: 'ph-sparkle',
+        message: result === 'near' ? 'Почти ответ!' : 'Редкая находка!',
+        icon: result === 'near' ? 'ph-target' : 'ph-sparkle',
         duplicate: false,
         rare: true
       };
@@ -808,6 +809,9 @@
       var raresEl = root.querySelector('[data-word-salad-rares]');
       var raresListEl = root.querySelector('[data-word-salad-rares-list]');
       var rareTooltip = (raresEl && raresEl.getAttribute('data-rare-tooltip')) || '';
+      var nearsEl = root.querySelector('[data-word-salad-nears]');
+      var nearsListEl = root.querySelector('[data-word-salad-nears-list]');
+      var nearTooltip = (nearsEl && nearsEl.getAttribute('data-near-tooltip')) || '';
       var extrasKey = extrasStorageKey(root);
       var latestKey = latestStorageKey(root);
       var extraWords = [];
@@ -815,7 +819,13 @@
       var rareWords = [];
       var latestKind = '';
       var latestWord = '';
+      // Rare words and near-answers alike: found, stored and confirmed the
+      // same way, then shown in their own bands.
       var configuredRares = String(root.getAttribute('data-rare-words') || '')
+        .split(',')
+        .map(normalizeWord)
+        .filter(Boolean);
+      var configuredNears = String(root.getAttribute('data-near-words') || '')
         .split(',')
         .map(normalizeWord)
         .filter(Boolean);
@@ -1177,11 +1187,8 @@
           });
           if (match) return match;
         }
-        if (latestKind === 'rare' && raresListEl) {
-          match = Array.prototype.find.call(
-            raresListEl.querySelectorAll('.new-word-salad__rare'),
-            function (item) { return normalizeWord(item.textContent) === latestWord; }
-          );
+        if (latestKind === 'rare') {
+          match = sidePill(latestWord);
           if (match) return match;
         }
         if (latestKind === 'extra' && extrasListEl) {
@@ -1195,13 +1202,8 @@
           return answerRowWord(row) === latestWord;
         });
         if (match) return match;
-        if (raresListEl) {
-          match = Array.prototype.find.call(
-            raresListEl.querySelectorAll('.new-word-salad__rare'),
-            function (item) { return normalizeWord(item.textContent) === latestWord; }
-          );
-          if (match) return match;
-        }
+        match = sidePill(latestWord);
+        if (match) return match;
         if (extrasListEl) {
           match = Array.prototype.find.call(
             extrasListEl.querySelectorAll('.new-word-salad__extra'),
@@ -1338,26 +1340,49 @@
         }).then(applySyncedFinds).catch(function () {});
       }
 
-      function renderRareWords() {
-        if (!raresEl || !raresListEl) return;
-        raresListEl.textContent = '';
-        if (!rareWords.length) {
-          raresEl.hidden = true;
+      function renderSideBand(bandEl, listEl, words, className, tooltip) {
+        if (!bandEl || !listEl) return;
+        listEl.textContent = '';
+        if (!words.length) {
+          bandEl.hidden = true;
           return;
         }
-        raresEl.hidden = false;
-        rareWords.forEach(function (word) {
+        bandEl.hidden = false;
+        words.forEach(function (word) {
           var item = document.createElement('li');
-          item.className = 'new-word-salad__pill new-word-salad__rare';
+          item.className = className;
           item.textContent = word;
-          if (rareTooltip) item.title = rareTooltip;
-          raresListEl.appendChild(item);
+          if (tooltip) item.title = tooltip;
+          listEl.appendChild(item);
         });
       }
 
+      function renderRareWords() {
+        renderSideBand(
+          raresEl, raresListEl,
+          rareWords.filter(function (word) { return !isConfiguredNear(word); }),
+          'new-word-salad__pill new-word-salad__rare', rareTooltip
+        );
+        renderSideBand(
+          nearsEl, nearsListEl,
+          rareWords.filter(isConfiguredNear),
+          'new-word-salad__pill new-word-salad__rare is-near', nearTooltip
+        );
+      }
+
+      function sidePills() {
+        return [raresListEl, nearsListEl].reduce(function (pills, listEl) {
+          if (!listEl) return pills;
+          return pills.concat(Array.prototype.slice.call(listEl.querySelectorAll('.new-word-salad__rare')));
+        }, []);
+      }
+
+      function sidePill(word) {
+        return sidePills().find(function (item) { return normalizeWord(item.textContent) === word; }) || null;
+      }
+
       function readRarePills() {
-        if (!raresListEl) return [];
-        return Array.prototype.slice.call(raresListEl.querySelectorAll('.new-word-salad__rare')).map(function (item) {
+        return sidePills().map(function (item) {
           return normalizeWord(item.textContent);
         }).filter(Boolean);
       }
@@ -1376,6 +1401,14 @@
 
       function isConfiguredRare(word) {
         return configuredRares.indexOf(normalizeWord(word)) >= 0;
+      }
+
+      function isConfiguredNear(word) {
+        return configuredNears.indexOf(normalizeWord(word)) >= 0;
+      }
+
+      function sideFindResult(word) {
+        return isConfiguredNear(word) ? 'near' : 'rare';
       }
 
       function addExtraWord(word) {
@@ -1575,7 +1608,7 @@
         }
         if (opts.fromIdle && isConfiguredRare(selected) && addRareWord(selected)) {
           savePreviewState();
-          showAnswerToast(root, selected, 'rare');
+          showAnswerToast(root, selected, sideFindResult(selected));
           renderSelection();
           return;
         }
@@ -1652,7 +1685,7 @@
         });
         cancelIdleFind();
         addRareWord(word);
-        showAnswerToast(root, word, 'rare');
+        showAnswerToast(root, word, sideFindResult(word));
         renderSelection();
         flushSaladOutbox();
       }
@@ -1784,7 +1817,11 @@
             addRareWord(data.word_salad_rare);
             busy = false;
             setChecking(false);
-            showAnswerToast(root, data.word_salad_rare, 'rare');
+            showAnswerToast(
+              root,
+              data.word_salad_rare,
+              data.word_salad_near || isConfiguredNear(data.word_salad_rare) ? 'near' : 'rare'
+            );
             if (currentPath.join(',') !== pathKey) {
               maybeCheck();
               scheduleIdleFind();

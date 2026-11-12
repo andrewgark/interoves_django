@@ -12211,6 +12211,12 @@ html.new-ui-dark .new-word-salad__links line {
   color: var(--warning-hover);
 }
 
+.new-word-salad__rare.is-near {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--accent-hover);
+}
+
 .new-word-salad__extra {
   background: color-mix(in srgb, var(--muted) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--muted) 28%, var(--border));
@@ -12233,6 +12239,11 @@ html.new-ui-dark .new-word-salad__links line {
 .new-word-salad__rare.is-latest {
   background: color-mix(in srgb, var(--warning) 24%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.new-word-salad__rare.is-near.is-latest {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
 .new-word-salad__word.is-latest .new-word-salad__pill {

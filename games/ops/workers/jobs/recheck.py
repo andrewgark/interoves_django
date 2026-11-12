@@ -417,7 +417,7 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     from games.puzzles.core.check_runtime import CheckerFactory
     from games.puzzles.salad.rules import (
         EXTRA_FOUND_COMMENT,
-        RARE_FOUND_COMMENT,
+        SIDE_FOUND_COMMENTS,
         dump_state,
         load_state,
         score_for_state,
@@ -435,7 +435,7 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     )
     if retry.status not in ('Ok', 'Partial'):
         return result
-    if (retry.comment or '') in (RARE_FOUND_COMMENT, EXTRA_FOUND_COMMENT):
+    if (retry.comment or '') in (*SIDE_FOUND_COMMENTS, EXTRA_FOUND_COMMENT):
         merged = load_state(retry.state)
         original = load_state(last_state)
         merged['active'] = original.get('active', merged.get('active'))
@@ -857,16 +857,17 @@ def sync_word_salad_finds(
     game=None,
     replay_slot=None,
 ):
-    """Persist localStorage finds against the current answer/rare/extra lists."""
+    """Persist localStorage finds against the current answer/rare/near/extra lists."""
     from games.puzzles.salad.rules import (
         _FOUND_EXTRA_LIMIT,
         EXTRA_FOUND_COMMENT,
+        NEAR_FOUND_COMMENT,
         RARE_FOUND_COMMENT,
         classify_side_finds,
         find_paths,
         load_state,
         normalize_word,
-        parse_task_payload,
+        parse_task_puzzle,
     )
 
     if game is None:
@@ -885,7 +886,7 @@ def sync_word_salad_finds(
         if len(words_in) >= _FOUND_EXTRA_LIMIT:
             break
 
-    credited = {'extra': [], 'rare': [], 'answer': []}
+    credited = {'extra': [], 'rare': [], 'near': [], 'answer': []}
     if task.task_type != 'word_salad' or not words_in:
         return {'credited': credited, 'state': None}
 
@@ -906,7 +907,7 @@ def sync_word_salad_finds(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=mode, replay_slot=replay_slot,
         )
-        grid, required, rares = parse_task_payload(task.checker_data, task.answer or '')
+        grid, required, rares, nears = parse_task_puzzle(task.checker_data, task.answer or '')
         last_state = row.state
         state = load_state(last_state)
         existing = _word_salad_attempts(
@@ -926,8 +927,8 @@ def sync_word_salad_finds(
         checker_data = task.checker_data or ''
 
         def known_words():
-            rare_ui, extra_ui = classify_side_finds(state, required, rares)
-            names = {item['normalized'] for item in rare_ui}
+            rare_ui, near_ui, extra_ui = classify_side_finds(state, required, rares, nears)
+            names = {item['normalized'] for item in rare_ui + near_ui}
             names.update(extra_ui)
             solved = set(state.get('solved_indices') or [])
             for index, required_word in enumerate(required):
@@ -969,6 +970,8 @@ def sync_word_salad_finds(
                 comment = attempt.comment or ''
                 if comment == RARE_FOUND_COMMENT:
                     credited['rare'].append(word)
+                elif comment == NEAR_FOUND_COMMENT:
+                    credited['near'].append(word)
                 elif comment == EXTRA_FOUND_COMMENT:
                     credited['extra'].append(word)
                 else:

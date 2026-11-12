@@ -29,7 +29,7 @@ class DailyBoardBuilderTests(TestCase):
 
         self.assertIsNone(result)
 
-    @patch('games.puzzles.salad.puzzle.parse_word_salad_task_payload', side_effect=RuntimeError('bug'))
+    @patch('games.puzzles.salad.puzzle.parse_word_salad_task_puzzle', side_effect=RuntimeError('bug'))
     def test_salad_adapter_does_not_hide_unexpected_parser_errors(self, parse_task):
         adapter = get_daily_board_adapter('word_salad')
         with self.assertRaisesRegex(RuntimeError, 'bug'):
@@ -147,8 +147,8 @@ class DailyBoardBuilderTests(TestCase):
     @patch('games.puzzles.salad.puzzle.build_word_salad_board_data', return_value={'prepared': 'salad'})
     @patch('games.puzzles.salad.puzzle.latest_daily_state', return_value={'state': 'salad'})
     @patch(
-        'games.puzzles.salad.puzzle.parse_word_salad_task_payload',
-        return_value=(['A'], ['WORD'], []),
+        'games.puzzles.salad.puzzle.parse_word_salad_task_puzzle',
+        return_value=(['A'], ['WORD'], [], []),
     )
     def test_salad_adapter_pipeline_is_explicit(
         self, parse_task, resolve_state, build_board, load_board,

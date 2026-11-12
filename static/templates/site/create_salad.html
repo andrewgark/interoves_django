@@ -85,6 +85,10 @@
         <span>Редкие слова — по одному на строку, необязательно</span>
         <textarea id="offer-edit-rare-words" rows="5" spellcheck="false"></textarea>
       </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        <span>Почти ответ — по одному на строку, необязательно. Другие формы загаданных слов: например, КРАСКА, если в ответах КРАСКИ</span>
+        <textarea id="offer-edit-near-words" rows="3" spellcheck="false"></textarea>
+      </label>
       <p class="ws-grid-editor__status" id="offer-edit-validation" hidden></p>
     </div>
     <label class="support-ladders-field">
@@ -235,7 +239,8 @@
     var result = Editor.validateLive(
       gridApi ? gridApi.getGrid() : [],
       document.getElementById('offer-edit-words').value,
-      document.getElementById('offer-edit-rare-words').value
+      document.getElementById('offer-edit-rare-words').value,
+      document.getElementById('offer-edit-near-words').value
     );
     if (gridApi) gridApi.highlightRemovable(result.removableCells);
     if (!result.errors.length) {
@@ -260,7 +265,9 @@
 
   var composingFields = [];
   function isWordField(field) {
-    return field && (field.id === 'offer-edit-words' || field.id === 'offer-edit-rare-words');
+    return field && (
+      field.id === 'offer-edit-words' || field.id === 'offer-edit-rare-words' || field.id === 'offer-edit-near-words'
+    );
   }
   function isComposingField(field) {
     return composingFields.indexOf(field) >= 0;
@@ -279,6 +286,7 @@
       grid_text: gridApi ? gridApi.getGridText() : '',
       words_text: document.getElementById('offer-edit-words').value,
       rare_words_text: document.getElementById('offer-edit-rare-words').value,
+      near_words_text: document.getElementById('offer-edit-near-words').value,
       comment: document.getElementById('offer-edit-comment').value
     };
   }
@@ -291,8 +299,11 @@
     var rareWordsField = document.getElementById('offer-edit-rare-words');
     wordsField.value = payload.words_text || '';
     rareWordsField.value = payload.rare_words_text || '';
+    var nearWordsField = document.getElementById('offer-edit-near-words');
+    nearWordsField.value = payload.near_words_text || '';
     uppercaseField(wordsField);
     uppercaseField(rareWordsField);
+    uppercaseField(nearWordsField);
     document.getElementById('offer-edit-comment').value = payload.comment || '';
     if (editKind === 'full' && gridApi) gridApi.setGrid(payload.grid_text || '');
     updateValidation();
@@ -392,8 +403,11 @@
     var rareWordsField = document.getElementById('offer-edit-rare-words');
     wordsField.value = offer.words_text || '';
     rareWordsField.value = offer.rare_words_text || '';
+    var nearWordsField = document.getElementById('offer-edit-near-words');
+    nearWordsField.value = offer.near_words_text || '';
     uppercaseField(wordsField);
     uppercaseField(rareWordsField);
+    uppercaseField(nearWordsField);
     document.getElementById('offer-edit-comment').value = offer.comment || '';
     var preview = document.getElementById('offer-edit-preview');
     if (offer.is_playable && offer.play_url) {
@@ -419,7 +433,7 @@
     }
     var canEdit = !!offer.can_edit;
     gridEditable = canEdit;
-    ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-rare-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
+    ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-rare-words', 'offer-edit-near-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
       .forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.disabled = !canEdit;

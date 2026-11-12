@@ -32,6 +32,7 @@ from games.puzzles.salad.rules import (
     format_grid_text,
     format_words_text,
     parse_task_payload,
+    parse_task_puzzle,
     serialize_task_data,
     task_data_signature,
     validate_puzzle,
@@ -224,10 +225,10 @@ def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
     renumber_links(ordered_links, sync_links=sync_links)
 
 
-def _validated_checker_data(grid_value, words_value, rare_words_value=None) -> str:
+def _validated_checker_data(grid_value, words_value, rare_words_value=None, near_words_value=None) -> str:
     try:
-        validate_puzzle(grid_value, words_value, rare_words_value)
-        return serialize_task_data(grid_value, words_value, rare_words_value)
+        validate_puzzle(grid_value, words_value, rare_words_value, near_words_value)
+        return serialize_task_data(grid_value, words_value, rare_words_value, near_words_value)
     except ValueError as exc:
         raise WordSaladSupportError(str(exc)) from exc
 
@@ -348,7 +349,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
     try:
-        grid, words, rare_words = parse_task_payload(task.checker_data, '')
+        grid, words, rare_words, near_words = parse_task_puzzle(task.checker_data, '')
     except Exception as exc:
         raise WordSaladSupportError(str(exc)) from exc
     return {
@@ -363,6 +364,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'grid_text': format_grid_text(grid),
         'words_text': format_words_text(words),
         'rare_words_text': format_words_text(rare_words),
+        'near_words_text': format_words_text(near_words),
         'words_count': len(words),
         'author': str((task.tags or {}).get(AUTHOR_TAG) or ''),
         'preview_url': preview_task_group_url(
@@ -480,6 +482,7 @@ def update_word_salad(
     grid_text: str,
     words_text: str,
     rare_words_text: str = '',
+    near_words_text: str = '',
     author: str | None = None,
     intro: str | None = None,
     intro_is_important: bool = False,
@@ -494,7 +497,7 @@ def update_word_salad(
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    checker_data = _validated_checker_data(grid_text, words_text, rare_words_text)
+    checker_data = _validated_checker_data(grid_text, words_text, rare_words_text, near_words_text)
     previous_signature = task_data_signature(task.checker_data, task.answer)
     task.theme = (theme or '').strip()[:500]
     task.checker_data = checker_data
@@ -522,7 +525,7 @@ def update_word_salad(
         )
         enqueue_result = enqueue_word_salad_recheck(
             task=task, game=link.game, return_receipt=True,
-            # The snapshot also excludes answers and rare words, so refresh it
+            # The snapshot also excludes answers and side words, so refresh it
             # when any puzzle payload changes, not only when the grid changes.
             include_dictionary_scan=True,
         )

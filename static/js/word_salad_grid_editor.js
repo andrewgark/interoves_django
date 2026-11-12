@@ -129,7 +129,7 @@
     });
   }
 
-  function validateLive(gridValue, wordsValue, rareWordsValue) {
+  function validateLive(gridValue, wordsValue, rareWordsValue, nearWordsValue) {
     var grid = parseGrid(gridValue);
     var words = parseWords(wordsValue);
     var errors = [];
@@ -170,25 +170,47 @@
     if (removableCells.length) {
       errors.push('Букву в клетке ' + (removableCells[0] + 1) + ' можно убрать уже в начальной сетке.');
     }
-    var rares = parseWords(rareWordsValue);
-    var rareNormalized = rares.map(normalizeWord);
-    if (rareNormalized.some(function (word) { return !word; })) {
-      errors.push('Каждая строка редких слов должна содержать буквы или цифры.');
-    } else if (new Set(rareNormalized).size !== rareNormalized.length) {
-      errors.push('Редкие слова не должны повторяться.');
-    } else {
-      var overlap = rareNormalized.filter(function (word) { return normalized.indexOf(word) >= 0; });
+    // Optional side words: rare finds and near-answers share the same checks.
+    function checkSideWords(value, text) {
+      var side = parseWords(value);
+      var sideNormalized = side.map(normalizeWord);
+      if (sideNormalized.some(function (word) { return !word; })) {
+        errors.push(text.blankLine);
+        return [];
+      }
+      if (new Set(sideNormalized).size !== sideNormalized.length) {
+        errors.push(text.duplicate);
+        return [];
+      }
+      var overlap = sideNormalized.filter(function (word) { return normalized.indexOf(word) >= 0; });
       if (overlap.length) {
-        errors.push('Редкое слово не должно совпадать с обязательным ответом: ' + overlap.join(', ') + '.');
+        errors.push(text.overlap + overlap.join(', ') + '.');
       }
-      var missingRares = [];
-      rares.forEach(function (word) {
-        if (!findPaths(grid, word, null, 1).length) missingRares.push(word);
+      var missingSide = [];
+      side.forEach(function (word) {
+        if (!findPaths(grid, word, null, 1).length) missingSide.push(word);
       });
-      if (missingRares.length) {
-        errors.push('Для каждого редкого слова должна существовать хотя бы одна дорожка.');
-        missingWords = missingWords.concat(missingRares);
+      if (missingSide.length) {
+        errors.push(text.missing);
+        missingWords = missingWords.concat(missingSide);
       }
+      return sideNormalized;
+    }
+    var rareNormalized = checkSideWords(rareWordsValue, {
+      blankLine: 'Каждая строка редких слов должна содержать буквы или цифры.',
+      duplicate: 'Редкие слова не должны повторяться.',
+      overlap: 'Редкое слово не должно совпадать с обязательным ответом: ',
+      missing: 'Для каждого редкого слова должна существовать хотя бы одна дорожка.'
+    });
+    var nearNormalized = checkSideWords(nearWordsValue, {
+      blankLine: 'Каждая строка «Почти ответов» должна содержать буквы или цифры.',
+      duplicate: 'Слова «Почти ответ» не должны повторяться.',
+      overlap: 'Слово «Почти ответ» не должно совпадать с обязательным ответом: ',
+      missing: 'Для каждого слова «Почти ответ» должна существовать хотя бы одна дорожка.'
+    });
+    var bothSides = nearNormalized.filter(function (word) { return rareNormalized.indexOf(word) >= 0; });
+    if (bothSides.length) {
+      errors.push('Слово не может быть одновременно редким и «Почти ответом»: ' + bothSides.join(', ') + '.');
     }
     return {
       ok: !errors.length,

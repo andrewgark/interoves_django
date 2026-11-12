@@ -49,6 +49,7 @@ class WordSaladOffer(models.Model):
     grid_text = models.TextField(blank=True, default='')
     words_text = models.TextField(blank=True, default='')
     rare_words_text = models.TextField(blank=True, default='')
+    near_words_text = models.TextField(blank=True, default='')
     comment = models.TextField(
         blank=True,
         default='',

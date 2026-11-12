@@ -26,10 +26,10 @@ from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, re
 from games.puzzles.salad.rules import (
     load_state as load_salad_state,
     longest_dictionary_words,
-    parse_task_payload,
+    parse_task_puzzle,
 )
 
-CACHE_VERSION = 24
+CACHE_VERSION = 25
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -668,7 +668,8 @@ def _latest_states(task, game, actors, attempts):
 
 
 def _salad(task, game, actors):
-    grid, words, rare_words = parse_task_payload(task.checker_data, task.answer)
+    grid, words, rare_words, near_words = parse_task_puzzle(task.checker_data, task.answer)
+    near_set = {normalize_word(word) for word in near_words}
     attempts = _attempts_for(task, game, actors)
     states = _latest_states(task, game, actors, attempts)
     total = len(actors)
@@ -708,18 +709,18 @@ def _salad(task, game, actors):
     findings = {}
     for word, players in rare_counts.items():
         if word:
-            findings[word] = {'players': set(players), 'rare': True}
+            findings[word] = {'players': set(players), 'rare': True, 'near': word in near_set}
     for word, players in extra_counts.items():
         if word:
-            finding = findings.setdefault(word, {'players': set(), 'rare': False})
+            finding = findings.setdefault(word, {'players': set(), 'rare': False, 'near': False})
             finding['players'].update(players)
     popular_findings = [
-        {'word': word, 'players': len(item['players']), 'rare': item['rare']}
+        {'word': word, 'players': len(item['players']), 'rare': item['rare'], 'near': item['near']}
         for word, item in sorted(findings.items(), key=lambda entry: (-len(entry[1]['players']), entry[0]))
         if len(item['players']) >= POPULAR_MIN_ENTRIES
     ][:POPULAR_LIMIT]
     rare_rows = [
-        {'word': word, 'players': len(players), 'rare': True}
+        {'word': word, 'players': len(players), 'rare': True, 'near': word in near_set}
         for word, players in sorted(rare_counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
         if word
     ]
@@ -735,7 +736,7 @@ def _salad(task, game, actors):
             found_words[normalized] = {'word': word, 'kind': 'answer'}
     for word in rare_counts:
         if word and word not in found_words:
-            found_words[word] = {'word': word, 'kind': 'rare'}
+            found_words[word] = {'word': word, 'kind': 'near' if word in near_set else 'rare'}
     for word in extra_counts:
         if word and word not in found_words:
             found_words[word] = {'word': word, 'kind': 'extra'}
@@ -747,7 +748,7 @@ def _salad(task, game, actors):
     except (TypeError, ValueError):
         payload = {}
     saved_missing = payload.get('longest_missing_words') or longest_dictionary_words(
-        tuple(grid), tuple(normalize_word(word) for word in words + rare_words),
+        tuple(grid), tuple(normalize_word(word) for word in words + rare_words + near_words),
     )
     missing_found = set(found_words)
     long_missing = [

@@ -30,6 +30,8 @@ from games.ops.workers.jobs.recheck import recheck_word_salad_task
 from games.puzzles.core.check_runtime import CheckerFactory
 from games.puzzles.salad.rules import (
     EXTRA_FOUND_COMMENT,
+    NEAR_FOUND_COMMENT,
+    NEAR_FOUND_TOOLTIP,
     OVERFLOW_HINT_SQUARE,
     RARE_FOUND_COMMENT,
     RARE_FOUND_TOOLTIP,
@@ -299,6 +301,44 @@ class WordSaladTests(TestCase):
         with self.assertRaises(ValueError) as ctx:
             validate_puzzle(_puzzle()['grid'], _puzzle()['words'], _puzzle()['words'][0])
         self.assertIn('совпадать', str(ctx.exception))
+
+    def test_serialize_task_data_includes_near_words(self):
+        checker_data = serialize_task_data(_puzzle()['grid'], _puzzle()['words'], 'ABC', 'ABCD')
+        payload = json.loads(checker_data)
+        self.assertEqual(payload['rare_words'], ['ABC'])
+        self.assertEqual(payload['near_words'], ['ABCD'])
+        scanned = json.loads(add_longest_missing_words(checker_data))
+        self.assertNotIn('ABCD', scanned['longest_missing_words'])
+        self.assertNotIn('near_words', json.loads(
+            serialize_task_data(_puzzle()['grid'], _puzzle()['words']),
+        ))
+
+    def test_validate_rejects_near_word_overlaps(self):
+        from games.puzzles.salad.rules import validate_puzzle
+        grid, words = _puzzle()['grid'], _puzzle()['words']
+        with self.assertRaisesRegex(ValueError, 'обязательным ответом'):
+            validate_puzzle(grid, words, '', words[0])
+        with self.assertRaisesRegex(ValueError, 'одновременно'):
+            validate_puzzle(grid, words, 'ABCD', 'ABCD')
+        with self.assertRaisesRegex(ValueError, 'дорожка'):
+            validate_puzzle(grid, words, '', 'AP')
+        self.assertEqual(validate_puzzle(grid, words, 'ABC', 'ABCD'), (grid, words))
+
+    def test_admin_form_serializes_near_words(self):
+        form = WordSaladTaskForm(
+            data={
+                'number': '2',
+                'task_type': 'word_salad',
+                'word_salad_grid_text': 'A B C D\nH G F E\nI J K L\nP O N M',
+                'word_salad_words_text': 'ABCDEFGHIJKLMNOP',
+                'word_salad_near_words_text': 'ABCD',
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        obj = form.save(commit=False)
+        self.assertEqual(json.loads(obj.checker_data)['near_words'], ['ABCD'])
+        reopened = WordSaladTaskForm(instance=obj)
+        self.assertEqual(reopened['word_salad_near_words_text'].value(), 'ABCD')
 
     def test_admin_form_serializes_rare_words(self):
         form = WordSaladTaskForm(
@@ -900,6 +940,97 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(ui['rare_words'], [])
         self.assertEqual(ui['extra_words'], ['ABCD'])
+
+    def test_near_answer_is_persisted_without_points_in_its_own_band(self):
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABC',
+            'ABCD',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
+            response = self._post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-near-test',
+                    'action': 'solve',
+                    'path': json.dumps([0, 1, 2, 3]),
+                    'correct_only': '1',
+                },
+            )
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertFalse(payload.get('word_salad_correct'))
+        self.assertEqual(payload.get('word_salad_rare'), 'ABCD')
+        self.assertTrue(payload.get('word_salad_near'))
+        self.assertTrue(payload.get('word_salad_keep_selection'))
+        attempt = Attempt.manager.get(task=self.task, anon_key='word-salad-near-test')
+        self.assertEqual(attempt.status, 'Partial')
+        self.assertEqual(attempt.points, 0)
+        self.assertEqual(attempt.comment, NEAR_FOUND_COMMENT)
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task,
+            anon_key='word-salad-near-test',
+            game=self.game,
+            game_mode='general',
+        ).state)
+        # Side words share one index space: rares first, then near-answers.
+        self.assertEqual(state['found_rare'], [1])
+        self.assertEqual(state['found_rare_words'], ['ABCD'])
+        self.assertEqual(state['solved_indices'], [])
+        ui = build_ui_context(
+            _puzzle()['grid'], _puzzle()['words'], state,
+            rare_words=['ABC'], near_words=['ABCD'],
+        )
+        self.assertEqual(ui['rare_words'], [])
+        self.assertEqual([word['normalized'] for word in ui['near_words']], ['ABCD'])
+        self.assertEqual(ui['near_tooltip'], NEAR_FOUND_TOOLTIP)
+        self.assertEqual(ui['rare_normalized'], ['ABC', 'ABCD'])
+        self.assertEqual(ui['near_normalized'], ['ABCD'])
+
+        request = RequestFactory().get('/games/{}/1/'.format(self.game.pk))
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, self.task, None, 'general',
+            anon_key='word-salad-near-test', game=self.game,
+        )
+        self.assertIn('data-near-words="ABCD"', html)
+        self.assertIn('>Почти ответ</h3>', html)
+        self.assertIn('new-word-salad__rare is-near', html)
+
+    def test_found_word_follows_its_list_between_rare_and_near(self):
+        state = {'found_rare': [0], 'found_rare_words': ['ABCD']}
+        ui = build_ui_context(
+            _puzzle()['grid'], _puzzle()['words'], state,
+            rare_words=[], near_words=['ABCD'],
+        )
+        self.assertEqual(ui['rare_words'], [])
+        self.assertEqual([word['normalized'] for word in ui['near_words']], ['ABCD'])
+        self.assertEqual(ui['extra_words'], [])
+
+    def test_sync_finds_promotes_extra_word_to_near_answer(self):
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'], _puzzle()['words'], '', 'ABC',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            response = self._post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-sync-near',
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABC']),
+                },
+            )
+        payload = response.json()
+        self.assertEqual(payload['word_salad_rares'], ['ABC'])
+        self.assertEqual(payload['word_salad_extras'], [])
+        self.assertEqual(payload['word_salad_credited']['near'], ['ABC'])
+        attempt = Attempt.manager.get(task=self.task, anon_key='word-salad-sync-near')
+        self.assertEqual(attempt.comment, NEAR_FOUND_COMMENT)
 
     def test_clear_selection_when_answer_found_even_if_letters_stay(self):
         original = self.task.checker_data
