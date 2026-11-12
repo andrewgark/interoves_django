@@ -32,6 +32,8 @@ from games.daily.difficulty.core import (
     refresh_historical_norm,
     refresh_interval_for_age,
     retry_delay_for_fail_count,
+    star_cutoffs,
+    stars_for_rating,
 )
 from games.daily.difficulty.refresh import (
     ClaimedDifficultyRefresh,
@@ -219,6 +221,35 @@ def _actor_row(actor, **overrides):
     }
     row.update(overrides)
     return row
+
+
+class DifficultyStarQuantileTests(SimpleTestCase):
+    def test_short_history_keeps_rounded_absolute_stars(self):
+        self.assertIsNone(star_cutoffs([3.0] * 19))
+        self.assertEqual(stars_for_rating(4.38, None), 4)
+        self.assertEqual(stars_for_rating(4.5, None), 5)
+
+    def test_stars_split_history_ten_twenty_forty_twenty_ten(self):
+        ratings = [1.0 + index * 0.1 for index in range(31)]
+        cutoffs = star_cutoffs(ratings)
+        stars = [stars_for_rating(rating, cutoffs) for rating in ratings]
+        self.assertEqual([stars.count(level) for level in range(1, 6)], [3, 6, 12, 6, 4])
+
+    def test_compressed_game_still_reaches_five_stars(self):
+        # Censorly-like history: nothing ever rounds to five absolute stars.
+        ratings = [2.0 + index * 0.08 for index in range(30)]
+        cutoffs = star_cutoffs(ratings)
+        self.assertEqual(stars_for_rating(max(ratings), cutoffs), 5)
+        self.assertEqual(stars_for_rating(min(ratings), cutoffs), 1)
+
+    def test_rating_uses_cutoffs_from_norm(self):
+        metrics = _metrics(median_time=150)
+        absolute = rate_difficulty_metrics('ladder', metrics, _norm())
+        ranked = rate_difficulty_metrics(
+            'ladder', metrics, _norm(star_cutoffs=[1.0, 1.5, 2.0, 2.5]),
+        )
+        self.assertEqual(ranked['adjusted_rating'], absolute['adjusted_rating'])
+        self.assertEqual(ranked['stars'], 5)
 
 
 class DifficultyCensoringTests(SimpleTestCase):
@@ -804,6 +835,35 @@ class DifficultyHistoricalNormTests(TestCase):
             norm = historical_norm(current, _metrics(median_time=10))
         scan.assert_not_called()
         self.assertEqual(norm['median_time'], 42)
+
+
+    def test_norm_refresh_reranks_stored_stars(self):
+        ladder, _ = Game.objects.get_or_create(
+            id='ladder',
+            defaults={
+                'name': 'Ladder',
+                'author': 'test',
+                'project': Project.objects.get_or_create(id='sections')[0],
+            },
+        )
+        snapshots = []
+        for index in range(20):
+            rating = 2.0 + index * 0.1
+            snapshots.append(_write_snapshot(
+                self._placement(ladder, 9920 + index),
+                n=40,
+                stars=stars_for_rating(rating, None),
+                payload={'metrics': {'median_time': 60}, 'adjusted_rating': rating,
+                         'is_visible': True, 'stars': stars_for_rating(rating, None)},
+            ))
+        self.assertEqual(snapshots[-1].stars, 4)
+
+        norm = refresh_historical_norm('ladder')
+
+        self.assertEqual(len(norm.payload['star_cutoffs']), 4)
+        hardest, easiest = (DailyGameDifficulty.objects.get(pk=row.pk) for row in (snapshots[-1], snapshots[0]))
+        self.assertEqual((hardest.stars, hardest.payload['stars']), (5, 5))
+        self.assertEqual(easiest.stars, 1)
 
 
 def _rating_result(placement, **overrides):

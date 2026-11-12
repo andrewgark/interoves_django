@@ -118,6 +118,13 @@ REFRESH_RETRY_INTERVALS = (
 REFRESH_RETRY_INTERVAL_MAX = timedelta(hours=6)
 
 TIME_RATIO_BOUNDS = (0.55, 0.80, 1.25, 1.80)
+# Stars rank an edition among the mature editions of its own game: the bottom
+# 10% get one star, the next 20% two, the middle 40% three, then 20% and 10%.
+# Absolute ratio bounds fill the scale unevenly per game (Censorly never
+# reached five stars, Salad piled up at both ends). Until a game has enough
+# mature editions, stars fall back to the rounded absolute rating.
+STAR_QUANTILES = (0.10, 0.30, 0.70, 0.90)
+MIN_MATURE_GAMES_FOR_STAR_QUANTILES = 20
 EFFORT_RATIO_BOUNDS = (0.50, 0.80, 1.25, 2.00)
 
 # Within-player comparison: a player needs this many earlier editions of the
@@ -551,13 +558,15 @@ def _ratio(value, typical, *, additive=0.0):
 def _norm_values_from_snapshots(game_id):
     mature = {metric: [] for metric in NORM_METRICS}
     available = {metric: [] for metric in NORM_METRICS}
+    ratings = []
     rows = DailyGameDifficulty.objects.filter(
         placement__game_id=game_id,
         placement__task_group__random_alphabetty_game__isnull=True,
         placement__task_group__random_censorly_game__isnull=True,
     ).only('n', 'payload')
     for row in rows.iterator():
-        metrics = (row.payload or {}).get('metrics') or {}
+        payload = row.payload or {}
+        metrics = payload.get('metrics') or {}
         for metric in NORM_METRICS:
             value = metrics.get(metric)
             if value is None:
@@ -567,13 +576,65 @@ def _norm_values_from_snapshots(game_id):
                 available[metric].append(number)
             if row.n >= MATURE_GAME_N:
                 mature[metric].append(number)
-    return mature, available
+        rating = payload.get('adjusted_rating')
+        if row.n >= MATURE_GAME_N and payload.get('is_visible') and rating is not None:
+            ratings.append(float(rating))
+    return mature, available, ratings
+
+
+def star_cutoffs(ratings):
+    """Adjusted-rating thresholds for 2..5 stars, or None while history is short."""
+    if len(ratings) < MIN_MATURE_GAMES_FOR_STAR_QUANTILES:
+        return None
+    ordered = sorted(ratings)
+    last = len(ordered) - 1
+    cutoffs = []
+    for quantile in STAR_QUANTILES:
+        position = quantile * last
+        low = math.floor(position)
+        high = min(low + 1, last)
+        cutoffs.append(ordered[low] + (ordered[high] - ordered[low]) * (position - low))
+    return cutoffs
+
+
+def stars_for_rating(adjusted, cutoffs):
+    if not cutoffs:
+        return min(5, max(1, int(math.floor(adjusted + 0.5))))
+    return 1 + sum(adjusted >= cutoff for cutoff in cutoffs)
+
+
+def restar_game_snapshots(game_id, cutoffs):
+    """Re-rank stored ratings after the game's star cutoffs move.
+
+    Only the star mapping changes, so this rewrites ``stars`` from the stored
+    ``adjusted_rating`` without recalculating or dirtying the snapshot.
+    """
+    changed = 0
+    rows = DailyGameDifficulty.objects.filter(
+        placement__game_id=game_id, stars__isnull=False,
+    ).only('stars', 'payload')
+    for row in rows.iterator():
+        payload = row.payload or {}
+        adjusted = payload.get('adjusted_rating')
+        if adjusted is None:
+            continue
+        stars = stars_for_rating(float(adjusted), cutoffs)
+        if stars == row.stars and payload.get('stars') == stars:
+            continue
+        payload['stars'] = stars
+        DailyGameDifficulty.objects.filter(pk=row.pk).update(stars=stars, payload=payload)
+        changed += 1
+    return changed
 
 
 def refresh_historical_norm(game_id, *, now=None):
-    """Rebuild the cached same-type baseline. Does not dirty existing snapshots."""
+    """Rebuild the cached same-type baseline and re-rank stored stars.
+
+    Existing snapshots are not dirtied: their ratios stay against the norm they
+    were calculated with until new attempts arrive.
+    """
     now = now or timezone.now()
-    mature, available = _norm_values_from_snapshots(game_id)
+    mature, available, ratings = _norm_values_from_snapshots(game_id)
     typical = {}
     sources = {}
     for metric in NORM_METRICS:
@@ -585,7 +646,8 @@ def refresh_historical_norm(game_id, *, now=None):
             values, source = [], 'missing'
         typical[metric] = _median(values)
         sources[metric] = source
-    payload = {**typical, 'sources': sources}
+    cutoffs = star_cutoffs(ratings)
+    payload = {**typical, 'sources': sources, 'star_cutoffs': cutoffs}
     row, _created = GameDifficultyNorm.objects.get_or_create(game_id=game_id)
     row.typical_time = typical['median_time']
     row.typical_attempts = typical['median_attempts']
@@ -599,6 +661,7 @@ def refresh_historical_norm(game_id, *, now=None):
         'typical_time', 'typical_attempts', 'typical_errors', 'typical_help_rate',
         'typical_unfinished_rate', 'calculated_at', 'payload', 'version',
     ])
+    restar_game_snapshots(game_id, cutoffs)
     return row
 
 
@@ -615,7 +678,8 @@ def refresh_stale_historical_norms(*, now=None, game_ids=None):
 
 
 def _norm_dict_from_row(row):
-    sources = ((row.payload or {}).get('sources') or {}) if row else {}
+    payload = (row.payload or {}) if row else {}
+    sources = payload.get('sources') or {}
     return {
         'median_time': row.typical_time if row else None,
         'median_attempts': row.typical_attempts if row else None,
@@ -623,6 +687,7 @@ def _norm_dict_from_row(row):
         'help_rate': row.typical_help_rate if row else None,
         'unfinished_rate': row.typical_unfinished_rate if row else None,
         'sources': sources,
+        'star_cutoffs': payload.get('star_cutoffs'),
         'version': int(row.version or 0) if row else 0,
     }
 
@@ -811,7 +876,7 @@ def rate_difficulty_metrics(game_id, metrics, norm, *, ratios=None):
     confidence = n / (n + SHRINKAGE_PRIOR_N) if n else 0.0
     adjusted = confidence * raw_rating + (1.0 - confidence) * 3.0
     adjusted = min(5.0, max(1.0, adjusted))
-    stars = min(5, max(1, int(math.floor(adjusted + 0.5))))
+    stars = stars_for_rating(adjusted, norm.get('star_cutoffs'))
     # Help alone is not an outcome: right after release nobody has finished or
     # given up yet, and a rating built on hints only used to read as "easy".
     has_outcome = scores['time'] is not None or scores['unfinished'] is not None
@@ -1225,6 +1290,10 @@ def recalculate_all_daily_difficulties(*, game_ids=None, now=None, placement=Non
         )
         if result:
             results.append(result)
+    # Pass one cleared the stored ratings, so star cutoffs are rebuilt from the
+    # fresh ones and every snapshot is re-ranked against them.
+    for game_id in tuple(game_ids or SUPPORTED_GAME_IDS):
+        refresh_historical_norm(game_id, now=now)
     return results
 
 
