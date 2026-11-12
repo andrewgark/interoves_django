@@ -109,6 +109,33 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, WordSaladRecheckJob.STATUS_COMPLETED)
 
+    def test_parallel_find_syncs_create_one_state_row(self):
+        """Two first syncs of one fresh actor race to create its state row.
+        get_or_create's loser re-read a stale snapshot and raised DoesNotExist."""
+        from games.models import ChainTaskState
+        from games.ops.workers.jobs.recheck import sync_word_salad_finds
+
+        workers = 4
+        barrier = Barrier(workers)
+
+        def sync(_):
+            close_old_connections()
+            try:
+                barrier.wait(timeout=15)
+                return sync_word_salad_finds(
+                    self.task, ['ABCDEFGHIJKLMNOP'],
+                    anon_key='mysql-sync-race', game=self.game,
+                )
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(sync, range(workers)))
+        self.assertEqual(len(results), workers)
+        self.assertEqual(
+            ChainTaskState.objects.filter(task=self.task, anon_key='mysql-sync-race').count(), 1,
+        )
+
     def test_two_dispatchers_claim_one_outbox_row(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):

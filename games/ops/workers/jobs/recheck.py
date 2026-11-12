@@ -897,15 +897,18 @@ def sync_word_salad_finds(
             replay_slot=replay_slot,
         )
         mode = game.get_current_mode(probe)
-        ChainTaskState.objects.get_or_create(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=mode,
-            replay_slot=replay_slot,
+        # Not get_or_create: on MySQL the loser of a first-row race (a page
+        # load syncing finds while the first word goes in) re-reads its stale
+        # snapshot after the IntegrityError and fails with DoesNotExist.
+        lookup = {
+            'team': team, 'user': user, 'anon_key': anon_key,
+            'task': task, 'game': game, 'game_mode': mode, 'replay_slot': replay_slot,
+        }
+        row = lock_or_create_raddle_state(
+            queryset=ChainTaskState.objects.filter(**lookup),
+            task=task,
+            lookup=lookup,
             defaults={'state': None},
-        )
-        row = ChainTaskState.objects.select_for_update().get(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=mode, replay_slot=replay_slot,
         )
         grid, required, rares, nears = parse_task_puzzle(task.checker_data, task.answer or '')
         last_state = row.state
