@@ -123,6 +123,22 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertContains(resp, 'offer_draft_autosave.js')
         self.assertContains(resp, 'Редкие слова')
 
+    def test_save_without_near_answers_field_keeps_them(self):
+        # A page from before near-answers existed passes None: keep the list.
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        content = {
+            'theme': 'Тестовый салатик',
+            'grid_text': VALID_GRID,
+            'words_text': 'BCDE\nFGHI\nJKLM\nNOPQ',
+        }
+        update_offer_content(offer, near_words_text='BCD', **content)
+        update_offer_content(offer, near_words_text=None, **content)
+        offer.refresh_from_db()
+        self.assertEqual(offer.near_words_text, 'BCD')
+        update_offer_content(offer, near_words_text='', **content)
+        offer.refresh_from_db()
+        self.assertEqual(offer.near_words_text, '')
+
     def test_custom_salad_can_accept_a_word_path(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
         update_offer_content(

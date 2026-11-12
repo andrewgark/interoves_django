@@ -356,11 +356,12 @@ def update_offer_content(
     grid_text: str = '',
     words_text: str = '',
     rare_words_text: str = '',
-    near_words_text: str = '',
+    near_words_text: str | None = '',
     comment: str = '',
     author: str | None = None,
     allow_non_draft: bool = False,
 ) -> WordSaladOffer:
+    """``near_words_text=None`` keeps the offer's stored near-answers."""
     if not allow_non_draft and not offer.can_author_edit():
         raise WordSaladOfferError('После отправки редактировать нельзя')
     offer.theme = (theme or '').strip()
@@ -380,7 +381,8 @@ def update_offer_content(
     offer.grid_text = grid_text or ''
     offer.words_text = words_text or ''
     offer.rare_words_text = rare_words_text or ''
-    offer.near_words_text = near_words_text or ''
+    if near_words_text is not None:
+        offer.near_words_text = near_words_text
     task = _ensure_full_task(offer)
     _try_apply_draft_puzzle(
         task,

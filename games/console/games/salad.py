@@ -482,11 +482,12 @@ def update_word_salad(
     grid_text: str,
     words_text: str,
     rare_words_text: str = '',
-    near_words_text: str = '',
+    near_words_text: str | None = '',
     author: str | None = None,
     intro: str | None = None,
     intro_is_important: bool = False,
 ) -> dict[str, Any]:
+    """Save a salad. ``near_words_text=None`` keeps the stored near-answers."""
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
@@ -497,6 +498,11 @@ def update_word_salad(
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
+    if near_words_text is None:
+        try:
+            near_words_text = format_words_text(parse_task_puzzle(task.checker_data, '')[3])
+        except (TypeError, ValueError):
+            near_words_text = ''
     checker_data = _validated_checker_data(grid_text, words_text, rare_words_text, near_words_text)
     previous_signature = task_data_signature(task.checker_data, task.answer)
     task.theme = (theme or '').strip()[:500]

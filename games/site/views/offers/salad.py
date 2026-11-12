@@ -119,7 +119,10 @@ def offer_salad_detail(request, offer_id):
             grid_text=str(body.get('grid_text') or ''),
             words_text=str(body.get('words_text') or ''),
             rare_words_text=str(body.get('rare_words_text') or ''),
-            near_words_text=str(body.get('near_words_text') or ''),
+            # A page from before near-answers sends no such field: keep the list.
+            near_words_text=(
+                str(body.get('near_words_text') or '') if 'near_words_text' in body else None
+            ),
             comment=str(body.get('comment') or ''),
         )
     except WordSaladOfferError as exc:

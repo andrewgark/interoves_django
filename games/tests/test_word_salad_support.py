@@ -98,6 +98,34 @@ class WordSaladSupportTests(TestCase):
             self.assertEqual(cleared['intro'], '')
             self.assertFalse(cleared['intro_is_important'])
 
+    def test_save_from_a_page_without_near_answers_keeps_them(self):
+        # A support tab opened before near-answers existed sends no such
+        # field; its save must not wipe the list.
+        self.client.force_login(self.support_user)
+        body = {
+            'theme': 'реки',
+            'grid_text': 'A B C D\nH G F E\nI J K L\nP O N M',
+            'words_text': 'ABCDEFGHIJKLMNOP',
+            'rare_words_text': 'IJKL',
+        }
+        with patch('games.realtime.track_compat.track_task_change'):
+            detail = create_word_salad()
+            url = reverse('support:word_salad_save', kwargs={'link_id': detail['link_id']})
+            response = self.client.post(
+                url, data={**body, 'near_words_text': 'ABCD'}, content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 200)
+            response = self.client.post(
+                url, data={**body, 'rare_words_text': 'EFGH'}, content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 200)
+            saved = get_word_salad_detail(detail['link_id'])
+            self.assertEqual(saved['near_words_text'], 'ABCD')
+            self.assertEqual(saved['rare_words_text'], 'EFGH')
+            # An explicit empty field still clears the list.
+            self.client.post(url, data={**body, 'near_words_text': ''}, content_type='application/json')
+            self.assertEqual(get_word_salad_detail(detail['link_id'])['near_words_text'], '')
+
     def test_save_endpoint_rejects_non_boolean_important_flag(self):
         self.client.force_login(self.support_user)
         with patch('games.realtime.track_compat.track_task_change'):

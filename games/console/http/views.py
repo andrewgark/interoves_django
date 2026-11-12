@@ -472,7 +472,9 @@ def word_salad_save(request, link_id):
     grid_text = body.get('grid_text') or ''
     words_text = body.get('words_text') or ''
     rare_words_text = body.get('rare_words_text') or ''
-    near_words_text = body.get('near_words_text') or ''
+    # A support tab opened before near-answers existed sends no such field;
+    # its save must not wipe the list.
+    near_words_text = str(body.get('near_words_text') or '') if 'near_words_text' in body else None
     author = str(body.get('author') or '')
     try:
         intro_is_important = json_boolean_field(body, 'intro_is_important')
@@ -590,7 +592,10 @@ def word_salad_offer_save(request, offer_id):
             grid_text=str(body.get('grid_text') or ''),
             words_text=str(body.get('words_text') or ''),
             rare_words_text=str(body.get('rare_words_text') or ''),
-            near_words_text=str(body.get('near_words_text') or ''),
+            # A page from before near-answers sends no such field: keep the list.
+            near_words_text=(
+                str(body.get('near_words_text') or '') if 'near_words_text' in body else None
+            ),
             comment=str(body.get('comment') or ''),
             author=str(body.get('author') or ''),
             allow_non_draft=True,
