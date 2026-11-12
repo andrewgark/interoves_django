@@ -72,6 +72,7 @@ urlpatterns = [
     path('offer_alphabetty/<int:offer_id>/reopen/', RedirectView.as_view(pattern_name='new_create_alphabetty_reopen', permanent=False, query_string=True)),
     path('create_salad/', ui.offer_salad_page, name='new_create_salad'),
     path('create_salad/create/', ui.offer_salad_create, name='new_create_salad_create'),
+    path('create_salad/near-candidates/', ui.offer_salad_near_candidates, name='new_create_salad_near_candidates'),
     path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='new_create_salad_detail'),
     path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='new_create_salad_send'),
     path('create_salad/<int:offer_id>/convert/', ui.offer_salad_convert, name='new_create_salad_convert'),

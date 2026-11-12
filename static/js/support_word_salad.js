@@ -33,8 +33,30 @@
     offerAccept: config.dataset.offerAcceptUrl,
     offerRevision: config.dataset.offerRevisionUrl,
     offerReset: config.dataset.offerResetUrl,
-    linkRevision: config.dataset.linkRevisionUrl
+    linkRevision: config.dataset.linkRevisionUrl,
+    nearCandidates: config.dataset.nearCandidatesUrl
   };
+  // «Почти ответ» candidates under each editor, keyed by its validation status id.
+  var nearSuggest = {};
+  function mountNearSuggest(statusId, prefix, gridApi) {
+    var host = document.getElementById(prefix + '-near-suggest');
+    if (!Editor || !Editor.mountNearSuggestions || !host || !endpoints.nearCandidates) return;
+    nearSuggest[statusId] = Editor.mountNearSuggestions(host, {
+      nearField: document.getElementById(prefix + '-near-words'),
+      readPayload: function () {
+        var grid = gridApi();
+        return {
+          grid_text: grid ? grid.getGridText() : '',
+          words_text: document.getElementById(prefix + '-words').value,
+          rare_words_text: document.getElementById(prefix + '-rare-words').value,
+          near_words_text: document.getElementById(prefix + '-near-words').value
+        };
+      },
+      request: function (payload) { return support.postJson(endpoints.nearCandidates, payload); }
+    });
+  }
+  mountNearSuggest('word-salad-edit-validation', 'word-salad-edit', function () { return scheduleGrid; });
+  mountNearSuggest('word-salad-offer-validation', 'word-salad-offer', function () { return offerGrid; });
   var modalElement = document.getElementById('word-salad-edit-modal');
   var modal = support.mountModal(modalElement, {
     closeSelector: '[data-word-salad-close]',
@@ -167,6 +189,7 @@
   function updateValidation(statusId, gridApi, wordsId, rareId) {
     var status = document.getElementById(statusId);
     if (!Editor || !status) return;
+    if (nearSuggest[statusId]) nearSuggest[statusId].refresh();
     var rareField = rareId ? document.getElementById(rareId) : null;
     // Each rare-words field has a near-answers twin: …-rare-words → …-near-words.
     var nearField = rareId ? document.getElementById(rareId.replace('-rare-words', '-near-words')) : null;

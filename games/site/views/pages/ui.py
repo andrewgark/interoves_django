@@ -160,6 +160,7 @@ from games.site.views.offers.salad import (  # noqa: E402
     offer_salad_create,
     offer_salad_convert,
     offer_salad_detail,
+    offer_salad_near_candidates,
     offer_salad_page,
     offer_salad_reset,
     offer_salad_send,

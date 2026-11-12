@@ -400,8 +400,92 @@
     };
   }
 
+  // «Почти ответ» candidates: forms of the answers that the grid lets a player
+  // trace. The server lemmatizes; this shows them as buttons that append a
+  // form to the near-answers field and fire its input event, so validation and
+  // autosave run as after typing.
+  //   opts.nearField    the near-answers textarea
+  //   opts.readPayload  () -> {grid_text, words_text, rare_words_text, near_words_text}
+  //   opts.request      (payload) -> Promise of {ok, candidates: [{word, answer}]}
+  function mountNearSuggestions(host, opts) {
+    var timer = 0;
+    var sequence = 0;
+    var lastKey = '';
+
+    function render(candidates) {
+      host.textContent = '';
+      host.hidden = !candidates.length;
+      if (!candidates.length) return;
+      var label = document.createElement('span');
+      label.className = 'ws-near-suggest__label';
+      label.textContent = 'Другие формы ответов есть на сетке. Добавить в «Почти ответ»?';
+      host.appendChild(label);
+      candidates.forEach(function (candidate) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'new-btn new-btn--mini new-btn--ghost ws-near-suggest__word';
+        button.textContent = '+ ' + candidate.word;
+        var source = document.createElement('small');
+        source.textContent = ' ← ' + candidate.answer;
+        button.appendChild(source);
+        button.addEventListener('click', function () { add(candidate.word); });
+        host.appendChild(button);
+      });
+    }
+
+    function add(word) {
+      var field = opts.nearField;
+      if (!field || field.disabled) return;
+      var value = field.value.replace(/\s+$/, '');
+      field.value = value ? value + '\n' + word : word;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      refresh(true);
+    }
+
+    function load() {
+      if (opts.nearField && opts.nearField.disabled) {
+        // A sent offer is read-only: nothing to add to.
+        lastKey = '';
+        render([]);
+        return;
+      }
+      var payload = opts.readPayload();
+      var key = JSON.stringify(payload);
+      if (key === lastKey) return;
+      lastKey = key;
+      var current = ++sequence;
+      Promise.resolve(opts.request(payload)).then(function (data) {
+        if (current !== sequence) return;
+        render(data && data.ok && Array.isArray(data.candidates) ? data.candidates : []);
+      }).catch(function () {
+        if (current === sequence) render([]);
+      });
+    }
+
+    function refresh(now) {
+      window.clearTimeout(timer);
+      if (now) {
+        load();
+        return;
+      }
+      timer = window.setTimeout(load, 400);
+    }
+
+    host.hidden = true;
+    return {
+      refresh: refresh,
+      clear: function () {
+        window.clearTimeout(timer);
+        sequence += 1;
+        lastKey = '';
+        render([]);
+      }
+    };
+  }
+
   global.WordSaladGridEditor = {
     mount: mount,
+    mountNearSuggestions: mountNearSuggestions,
     validateLive: validateLive,
     parseGrid: parseGrid,
     parseWords: parseWords,

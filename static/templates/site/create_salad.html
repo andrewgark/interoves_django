@@ -89,6 +89,7 @@
         <span>Почти ответ — по одному на строку, необязательно. Другие формы загаданных слов: например, КРАСКА, если в ответах КРАСКИ</span>
         <textarea id="offer-edit-near-words" rows="3" spellcheck="false"></textarea>
       </label>
+      <div class="ws-near-suggest" id="offer-edit-near-suggest" aria-live="polite" hidden></div>
       <p class="ws-grid-editor__status" id="offer-edit-validation" hidden></p>
     </div>
     <label class="support-ladders-field">
@@ -130,7 +131,8 @@
     create: "{% url 'new_create_salad_create' %}",
     detailTpl: "{% url 'new_create_salad_detail' 0 %}".replace('/0/', '/{id}/'),
     sendTpl: "{% url 'new_create_salad_send' 0 %}".replace('/0/', '/{id}/'),
-    convertTpl: "{% url 'new_create_salad_convert' 0 %}".replace('/0/', '/{id}/')
+    convertTpl: "{% url 'new_create_salad_convert' 0 %}".replace('/0/', '/{id}/'),
+    nearCandidates: "{% url 'new_create_salad_near_candidates' %}"
   };
 
   function csrf() {
@@ -233,9 +235,29 @@
     if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
   });
 
+  // «Почти ответ» candidates: forms of the answers that the grid lets a player trace.
+  var nearSuggest = Editor && Editor.mountNearSuggestions
+    ? Editor.mountNearSuggestions(document.getElementById('offer-edit-near-suggest'), {
+      nearField: document.getElementById('offer-edit-near-words'),
+      readPayload: function () {
+        return {
+          grid_text: gridApi ? gridApi.getGridText() : '',
+          words_text: document.getElementById('offer-edit-words').value,
+          rare_words_text: document.getElementById('offer-edit-rare-words').value,
+          near_words_text: document.getElementById('offer-edit-near-words').value
+        };
+      },
+      request: function (payload) { return postJson(endpoints.nearCandidates, payload); }
+    })
+    : null;
+
   function updateValidation() {
     var status = document.getElementById('offer-edit-validation');
-    if (!Editor || !status || editKind !== 'full') return;
+    if (!Editor || !status || editKind !== 'full') {
+      if (nearSuggest) nearSuggest.clear();
+      return;
+    }
+    if (nearSuggest) nearSuggest.refresh();
     var result = Editor.validateLive(
       gridApi ? gridApi.getGrid() : [],
       document.getElementById('offer-edit-words').value,

@@ -15,6 +15,7 @@ urlpatterns = [
     path('sections/', views.sections_dashboard, name='sections'),
     path('salad/', views.word_salad_dashboard, name='word_salad'),
     path('salad/create/', views.word_salad_create, name='word_salad_create'),
+    path('salad/near-candidates/', views.word_salad_near_candidates, name='word_salad_near_candidates'),
     path('salad/reorder/', views.word_salad_reorder, name='word_salad_reorder'),
     path('salad/publish-start/', views.word_salad_set_publish_start, name='word_salad_publish_start'),
     path('salad/<int:link_id>/', views.word_salad_detail_json, name='word_salad_detail'),

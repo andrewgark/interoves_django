@@ -73,6 +73,7 @@
       <span>Почти ответ — по одному на строку, необязательно. Другие формы загаданных слов (КРАСКА при ответе КРАСКИ). Очков не дают.</span>
       <textarea id="word-salad-edit-near-words" rows="3" spellcheck="false"></textarea>
     </label>
+    <div class="ws-near-suggest" id="word-salad-edit-near-suggest" aria-live="polite" hidden></div>
     <p class="ws-grid-editor__status" id="word-salad-edit-validation" hidden></p>
     <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" role="alert" hidden></p>
     <p class="support-hint" id="word-salad-recheck-status" hidden aria-live="polite"></p>
@@ -129,6 +130,7 @@
         <span>Почти ответ — по одному на строку, необязательно</span>
         <textarea id="word-salad-offer-near-words" rows="3" spellcheck="false"></textarea>
       </label>
+      <div class="ws-near-suggest" id="word-salad-offer-near-suggest" aria-live="polite" hidden></div>
       <p class="ws-grid-editor__status" id="word-salad-offer-validation" hidden></p>
     </div>
     <label class="support-ladders-field">
@@ -157,6 +159,7 @@
   id="word-salad-config"
   hidden
   data-create-url="{% url 'support:word_salad_create' %}"
+  data-near-candidates-url="{% url 'support:word_salad_near_candidates' %}"
   data-reorder-url="{% url 'support:word_salad_reorder' %}"
   data-publish-start-url="{% url 'support:word_salad_publish_start' %}"
   data-detail-url="{% url 'support:word_salad_detail' 0 %}"

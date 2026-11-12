@@ -156,6 +156,23 @@ def offer_salad_convert(request, offer_id):
     return JsonResponse({'ok': True, 'offer': serialize_offer(draft).to_dict()})
 
 
+@login_required
+@require_POST
+def offer_salad_near_candidates(request):
+    """Forms of the answers that the grid lets a player trace: «Почти ответ» candidates."""
+    from games.puzzles.salad.near import suggest_near_answers
+
+    body = parse_json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    return JsonResponse({'ok': True, 'candidates': suggest_near_answers(
+        str(body.get('grid_text') or ''),
+        str(body.get('words_text') or ''),
+        str(body.get('rare_words_text') or ''),
+        str(body.get('near_words_text') or ''),
+    )})
+
+
 @require_POST
 def offer_salad_reset(request, offer_id):
     offer = (

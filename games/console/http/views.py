@@ -396,6 +396,23 @@ def _word_salad_body(request):
 
 @support_console_required
 @require_POST
+def word_salad_near_candidates(request):
+    """Forms of the answers that the grid lets a player trace: «Почти ответ» candidates."""
+    from games.puzzles.salad.near import suggest_near_answers
+
+    body = _word_salad_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    return JsonResponse({'ok': True, 'candidates': suggest_near_answers(
+        str(body.get('grid_text') or ''),
+        str(body.get('words_text') or ''),
+        str(body.get('rare_words_text') or ''),
+        str(body.get('near_words_text') or ''),
+    )})
+
+
+@support_console_required
+@require_POST
 def word_salad_create(request):
     body = _word_salad_body(request)
     if body is None:

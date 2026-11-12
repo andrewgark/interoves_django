@@ -13019,6 +13019,29 @@ button.new-word-salad__hint-btn:disabled {
   display: none !important;
 }
 
+.ws-near-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+}
+
+.ws-near-suggest[hidden] {
+  display: none !important;
+}
+
+.ws-near-suggest__label {
+  flex: 1 0 100%;
+  color: var(--muted);
+}
+
+.ws-near-suggest__word small {
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
 .new-pay-checkout--subscription {
   max-width: 60rem;
 }
