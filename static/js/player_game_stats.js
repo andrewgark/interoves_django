@@ -309,8 +309,8 @@
       return node;
     }
     if (kpi.places) {
-      tile('#' + kpi.places.place, 'место из ' + kpi.places.total, 'Место в таблице месяца по баллам');
-      tile('#' + kpi.places.place_tie, kpi.places.tie_label, 'Место в таблице месяца при равных баллах — ' + kpi.places.tie_label);
+      tile('#' + kpi.places.place, 'место из ' + kpi.places.total, 'Место в таблице месяца по среднему баллу за выпуск');
+      tile('#' + kpi.places.place_tie, kpi.places.tie_label, 'Место в таблице месяца, если при равном среднем балле учитывать ' + (kpi.places.tie_label === 'с учётом попыток' ? 'попытки' : 'время'));
     }
     if (kpi.score_pct !== null) {
       tile(kpi.score_pct + '%', 'баллов', 'Набранные баллы от максимума по всем выпускам месяца, кроме авторских');

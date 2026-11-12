@@ -485,7 +485,11 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                    MAX(CASE
                        WHEN dt.id IS NULL AND p.fallback_duration_seconds > 0 THEN 1
                        ELSE 0
-                   END) AS used_fallback_time
+                   END) AS used_fallback_time,
+                   SUM(CASE
+                       WHEN dt.id IS NOT NULL OR p.fallback_duration_seconds > 0 THEN 1
+                       ELSE 0
+                   END) AS timed_count
               FROM {projection} p
               LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
                 AND dt.task_group_id = p.task_group_id
@@ -506,7 +510,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
         timing_params = [game.pk, *group_ids, False, 'user', 'team']
         actor_totals_sql = f'''SELECT s.actor_type, s.actor_key, s.team_id, s.user_id, s.anon_key,
                        s.score AS window_score, s.attempts_count, s.played_count,
-                       et.total_time_ms, et.used_fallback_time
+                       et.total_time_ms, et.used_fallback_time, COALESCE(et.timed_count, 0) AS timed_count
                 FROM {monthly_projection} s LEFT JOIN eligible_timing et
                   ON s.actor_type = et.actor_type AND s.actor_key = et.actor_key
                WHERE s.game_id = %s AND s.month = %s
@@ -525,6 +529,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
         actor_total_branches = []
         fallback_sql = ('MAX(CASE WHEN dt.id IS NULL AND p.fallback_duration_seconds > 0 THEN 1 ELSE 0 END)'
                         if snapshot_build else '0')
+        timed_sql = ('SUM(CASE WHEN dt.id IS NOT NULL OR p.fallback_duration_seconds > 0 THEN 1 ELSE 0 END)'
+                     if snapshot_build else 'COUNT(dt.id)')
         time_sql = ('''NULLIF(SUM(CASE WHEN dt.id IS NOT NULL
                           THEN COALESCE(dt.frozen_ms, dt.accumulated_ms)
                           ELSE p.fallback_duration_seconds * 1000 END), 0)'''
@@ -536,7 +542,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                            SUM(p.score) AS window_score, SUM(p.attempts_count) AS attempts_count,
                            COUNT(p.id) AS played_count,
                            {fallback_sql} AS used_fallback_time,
-                           {time_sql} AS total_time_ms
+                           {time_sql} AS total_time_ms,
+                           {timed_sql} AS timed_count
                     FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
                       AND dt.task_group_id = p.task_group_id
                       AND {timing_identity}
@@ -565,11 +572,13 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
                            window_score, attempts_count, played_count, total_time_ms, used_fallback_time,
+                           timed_count,
                            RANK() OVER (ORDER BY window_score DESC) AS place
                     FROM actor_totals
                 ), numbered AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                           window_score, attempts_count, played_count, total_time_ms, used_fallback_time, place,
+                           window_score, attempts_count, played_count, total_time_ms, used_fallback_time,
+                           timed_count, place,
                            COUNT(*) OVER () AS total_count,
                            ROW_NUMBER() OVER (
                                ORDER BY {page_order}
@@ -577,8 +586,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                     FROM ranked
                     WHERE {scope_sql}
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                         window_score, attempts_count, played_count, total_time_ms, used_fallback_time, place,
-                         total_count, page_row
+                         window_score, attempts_count, played_count, total_time_ms, used_fallback_time,
+                         timed_count, place, total_count, page_row
                   FROM numbered
                  WHERE page_row > ((CASE WHEN %s < ((total_count + %s - 1) / %s)
                                          THEN %s ELSE ((total_count + %s - 1) / %s) END - 1) * %s)
@@ -1054,18 +1063,22 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
                 actor._display_name_override = '{} {}'.format(
                     profile.first_name or '', profile.last_name or '',
                 ).strip()
-        elapsed = (
-            float(result['total_time_ms']) / 1000
-            if result.get('total_time_ms') is not None else None
-        )
+        # Saved monthly rows carry averages (see aggregate_snapshot_read).
+        time_ms = result.get('avg_time', result.get('total_time_ms'))
+        elapsed = float(time_ms) / 1000 if time_ms is not None else None
+        attempts = result.get('avg_attempts', result['attempts_count'])
+        score = result['window_score']
+        if 'avg_time' in result:
+            score = round(float(score), 2)
+            attempts = round(float(attempts), 1) if attempts is not None else None
         rows.append({
             'actor': actor, 'actor_label': _actor_presentation(actor)[0],
             'actor_kind': _actor_presentation(actor)[1], 'place': result['place'],
-            'score': result['window_score'], 'max_score': window_max,
+            'score': score, 'max_score': window_max,
             'played': result['played_count'], 'time_seconds': elapsed,
             'time_display': _format_aggregate_time(elapsed),
             'time_fallback': bool(result.get('used_fallback_time')),
-            'attempts': result['attempts_count'],
+            'attempts': attempts,
             'cells': {
                 link.pk: cells[identity][link.task_group_id]
                 for link in release_links if link.task_group_id in cells[identity]
@@ -1099,6 +1112,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
         'aggregate_show_attempts': daily_game_counts_attempts(game.id),
+        'aggregate_averages': bool(saved_monthly),
     }
     if month_context is not None:
         _, selected_month, previous_month, next_month, _ = month_context

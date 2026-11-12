@@ -17,11 +17,9 @@ from django.utils import timezone
 from games.daily.page.section import DAILY_TIMING_GAME_IDS, MOSCOW
 from games.models import (
     DailyAggregateSnapshot,
-    DailyAggregateSnapshotRow,
     DailyResultProjection,
     DailySolveTiming,
     Game,
-    HiddenAnonKey,
     PlayerCompletedGame,
 )
 
@@ -165,38 +163,26 @@ def _median_times(actor, game_ids):
     return {game_id: statistics.median(values) for game_id, values in by_game.items()}
 
 
-def _visible_rows(version):
-    return DailyAggregateSnapshotRow.objects.filter(version=version).filter(
-        Q(team__isnull=True) | Q(team__is_hidden=False),
-    ).filter(
-        Q(user__isnull=True) | Q(user__profile__is_hidden=False),
-    ).filter(
-        Q(anon_key__isnull=True) | ~Q(anon_key__in=HiddenAnonKey.objects.values('anon_key')),
-    )
-
-
 def _month_places(actor, game_ids, *, today):
     """Place in the current month's published table that includes the actor.
 
-    Ranking matches the table (RANK over score), so equal scores share a
-    place. Only the current month is considered: last month's place is stale
-    on a profile.
+    Same order as the table (average score), so equal averages share a
+    place. Only the current month is considered: last month's place is
+    stale on a profile.
     """
+    from games.results.snapshots.aggregate_snapshot_read import snapshot_actor_place
+
     month = date(today.year, today.month, 1)
     snapshots = DailyAggregateSnapshot.objects.filter(
         game_id__in=game_ids, month=month, published_version__isnull=False,
     ).values_list('game_id', 'published_version_id')
     out = {}
     for game_id, version_id in snapshots:
-        mine = DailyAggregateSnapshotRow.objects.filter(
-            version_id=version_id, **actor.snapshot_row,
-        ).values_list('score', flat=True).first()
-        if mine is None:
+        place = snapshot_actor_place(version_id, actor.kind, actor.obj.pk, 'time')
+        if place is None:
             continue
-        rows = _visible_rows(version_id)
         out[str(game_id)] = (
-            rows.filter(score__gt=mine).count() + 1,
-            rows.count(),
+            place['place'], place['total'],
             'в {}'.format(MONTH_NAMES_PREPOSITIONAL[month.month]),
         )
     return out

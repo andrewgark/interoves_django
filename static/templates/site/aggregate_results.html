@@ -87,9 +87,15 @@
       <thead><tr>
         <th scope="col" class="is-sticky-left is-sticky-top aggregate-place" data-tooltip="Место" aria-label="Место">#</th>
         <th scope="col" class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
+        {% if aggregate_averages %}
+        <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Средний балл за выпуск: по всем выпускам месяца, кроме своих; пропущенный выпуск — 0" aria-label="Средний балл"><span class="aggregate-avg-mark" aria-hidden="true">ср.</span></th>
+        <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" data-tooltip="Среднее время решения по сыгранным выпускам" aria-label="Среднее время"><i class="ph ph-clock" aria-hidden="true"></i></th>
+        {% if aggregate_show_attempts %}<th scope="col" class="is-sticky-top aggregate-attempts results-attempts" data-tooltip="Среднее число попыток по сыгранным выпускам" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
+        {% else %}
         <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
         <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" data-tooltip="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
         {% if aggregate_show_attempts %}<th scope="col" class="is-sticky-top aggregate-attempts results-attempts" data-tooltip="Суммарное количество попыток" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
+        {% endif %}
         {% for column in aggregate_columns %}<th class="aggregate-release{% if aggregate_column_labels|get_item:column.link.pk %} aggregate-word-answer{% endif %}"><a href="{{ column.url }}" data-tooltip="Выпуск {{ column.label }} · {{ column.published_at|date:'d.m.Y' }}{% if column.pending %} · Результаты готовятся{% endif %}">{% if aggregate_column_labels|get_item:column.link.pk %}{{ aggregate_column_labels|get_item:column.link.pk }}{% else %}{{ column.label }}{% endif %}{% if column.pending %} ·{% endif %}</a></th>{% endfor %}
       </tr></thead>
       <tbody>

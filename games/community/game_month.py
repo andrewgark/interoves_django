@@ -343,42 +343,23 @@ class Duel:
 # --- places -----------------------------------------------------------------
 
 def _month_places(game, month, actor):
-    """``(place by score, place with tiebreak, total)`` in the monthly table."""
-    from games.community.stats import _visible_rows
+    """Places in the published monthly table, ordered exactly like the table."""
     from games.daily.registry import daily_leaderboard_sort
-    from games.models import DailyAggregateSnapshotRow
+    from games.results.snapshots.aggregate_snapshot_read import snapshot_actor_place
 
     version_id = DailyAggregateSnapshot.objects.filter(
         game=game, month=month, published_version__isnull=False,
     ).values_list('published_version_id', flat=True).first()
     if version_id is None:
         return None
-    mine = DailyAggregateSnapshotRow.objects.filter(
-        version_id=version_id, actor_type=actor.kind, actor_key=str(actor.obj.pk),
-    ).values('id', 'score', 'attempts_count', 'total_time_ms').first()
-    if mine is None:
-        return None
-    rows = _visible_rows(version_id)
-    above = rows.filter(score__gt=mine['score']).count()
     by_attempts = daily_leaderboard_sort(game.pk, None) == 'attempts'
-
-    def tie_key(attempts, time_ms):
-        timeless = time_ms is None
-        time_value = float(time_ms or 0)
-        return (attempts, timeless, time_value) if by_attempts else (timeless, time_value, attempts)
-
-    my_key = tie_key(mine['attempts_count'], mine['total_time_ms'])
-    better = sum(
-        1 for attempts, time_ms in rows.filter(score=mine['score']).exclude(id=mine['id'])
-        .values_list('attempts_count', 'total_time_ms')
-        if tie_key(attempts, time_ms) < my_key
+    place = snapshot_actor_place(
+        version_id, actor.kind, actor.obj.pk, 'attempts' if by_attempts else 'time',
     )
-    return {
-        'place': above + 1,
-        'place_tie': above + better + 1,
-        'total': rows.count(),
-        'tie_label': 'с учётом попыток' if by_attempts else 'с учётом времени',
-    }
+    if place is None:
+        return None
+    place['tie_label'] = 'с учётом попыток' if by_attempts else 'с учётом времени'
+    return place
 
 
 # --- month view -------------------------------------------------------------

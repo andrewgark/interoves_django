@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import uuid
+from collections import defaultdict
 from dataclasses import replace
 from datetime import timedelta
 from types import SimpleNamespace
@@ -90,6 +91,11 @@ def _signature(columns, states):
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
+# Bumped when the stored row shape changes, so every month republishes once.
+# 2: rows carry eligible_count / timed_count for average-based ranking.
+ROW_FORMAT = 2
+
+
 def _policy_signature(group_ids):
     """Authorship affects eligibility even without new attempt publications."""
     authors = list(TaskGroup.authors.through.objects.filter(
@@ -100,7 +106,46 @@ def _policy_signature(group_ids):
         'profile_id', 'team_id',
     ).values_list('profile_id', 'team_id'))
     primary = list(Profile.objects.filter(pk__in=ids).order_by('pk').values_list('pk', 'team_on_id'))
-    return hashlib.sha256(json.dumps([authors, memberships, primary]).encode()).hexdigest()
+    return hashlib.sha256(json.dumps([ROW_FORMAT, authors, memberships, primary]).encode()).hexdigest()
+
+
+def _authored_groups(group_ids):
+    """``(by user id, by team id)`` -> releases among ``group_ids`` they wrote.
+
+    Mirrors the table's eligibility: a team wrote a release when an author
+    is its member or has it as the primary team.
+    """
+    by_user, by_team = defaultdict(set), defaultdict(set)
+    pairs = list(TaskGroup.authors.through.objects.filter(
+        taskgroup_id__in=group_ids,
+    ).values_list('taskgroup_id', 'profile_id'))
+    for group_id, profile_id in pairs:
+        by_user[profile_id].add(group_id)
+    if by_user:
+        teams = defaultdict(set)
+        for profile_id, team_id in ProfileTeamMembership.objects.filter(
+            profile_id__in=list(by_user),
+        ).values_list('profile_id', 'team_id'):
+            teams[profile_id].add(team_id)
+        for profile_id, team_id in Profile.objects.filter(
+            pk__in=list(by_user), team_on__isnull=False,
+        ).values_list('pk', 'team_on_id'):
+            teams[profile_id].add(team_id)
+        for profile_id, groups in by_user.items():
+            for team_id in teams[profile_id]:
+                by_team[team_id] |= groups
+    return by_user, by_team
+
+
+def _eligible_count(row, release_count, authored):
+    by_user, by_team = authored
+    if row['actor_type'] == 'user':
+        written = by_user.get(row['user_id'], ())
+    elif row['actor_type'] == 'team':
+        written = by_team.get(row['team_id'], ())
+    else:
+        written = ()
+    return max(0, release_count - len(written))
 
 
 def _incomplete_attempt_groups(game, group_ids):
@@ -334,6 +379,7 @@ def _publish(snapshot):
         snapshot=snapshot, columns=serialized_columns, dependency_signature=policy_signature,
         source_versions=sources, missing_releases=missing,
     )
+    authored = _authored_groups(usable)
     try:
         page = 1
         while True:
@@ -355,6 +401,8 @@ def _publish(snapshot):
                     score=row['window_score'], attempts_count=row['attempts_count'],
                     played_count=row['played_count'], total_time_ms=row['total_time_ms'],
                     used_fallback_time=bool(row.get('used_fallback_time')),
+                    eligible_count=_eligible_count(row, len(usable), authored),
+                    timed_count=int(row.get('timed_count') or 0),
                     cells={str(key): float(value) for key, value in cells[(row['actor_type'], row['actor_key'])].items()},
                 ) for row in values
             ], batch_size=50)
