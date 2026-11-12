@@ -1010,6 +1010,37 @@ class WordSaladTests(TestCase):
         self.assertEqual([word['normalized'] for word in ui['near_words']], ['ABCD'])
         self.assertEqual(ui['extra_words'], [])
 
+    def test_side_finds_go_by_name_when_an_edit_shifts_the_lists(self):
+        # ABCD was found as a near-answer while the side list was [ABC, ABCD],
+        # so it sits at index 1. A new rare word DEF now takes index 1.
+        state = {'found_rare': [1], 'found_rare_words': ['ABCD']}
+        ui = build_ui_context(
+            _puzzle()['grid'], _puzzle()['words'], state,
+            rare_words=['ABC', 'DEF'], near_words=['ABCD'],
+        )
+        self.assertEqual(ui['rare_words'], [])
+        self.assertEqual([word['normalized'] for word in ui['near_words']], ['ABCD'])
+
+        checker_data = serialize_task_data(_puzzle()['grid'], _puzzle()['words'], 'ABC\nDEF', 'ABCD')
+        found = WordSaladChecker(checker_data, json.dumps(state)).check(
+            json.dumps({'action': 'solve', 'path': [3, 7, 6]}), None,
+        )
+        self.assertEqual(found.status, 'Partial')
+        self.assertEqual(found.comment, RARE_FOUND_COMMENT)
+        self.assertEqual(load_state(found.state)['found_rare'], [1, 2])
+        self.assertEqual(load_state(found.state)['found_rare_words'], ['ABCD', 'DEF'])
+        again = WordSaladChecker(checker_data, json.dumps(state)).check(
+            json.dumps({'action': 'solve', 'path': [0, 1, 2, 3]}), None,
+        )
+        self.assertEqual(again.comment, 'Слово уже открыто')
+
+    def test_legacy_side_finds_without_names_still_read_their_indices(self):
+        ui = build_ui_context(
+            _puzzle()['grid'], _puzzle()['words'], {'found_rare': [0]},
+            rare_words=['ABCD'],
+        )
+        self.assertEqual([word['normalized'] for word in ui['rare_words']], ['ABCD'])
+
     def test_sync_finds_promotes_extra_word_to_near_answer(self):
         self.task.checker_data = serialize_task_data(
             _puzzle()['grid'], _puzzle()['words'], '', 'ABC',

@@ -310,6 +310,7 @@ def merge_state(task, source_json, target_json):
         return None
     from games.puzzles.salad.rules import (
         dump_state,
+        found_side_names,
         load_state,
         normalize_word,
         parse_task_puzzle,
@@ -341,19 +342,9 @@ def merge_state(task, source_json, target_json):
             word = normalize_word(word)
             if word and word not in found_extra:
                 found_extra.append(word)
-        for word in state.get('found_rare_words') or []:
-            word = normalize_word(word)
-            if word and word not in found_rare_words:
+        for word in found_side_names(state, rare_words):
+            if word not in found_rare_words:
                 found_rare_words.append(word)
-        for index in state.get('found_rare') or []:
-            try:
-                index = int(index)
-            except (TypeError, ValueError):
-                continue
-            if 0 <= index < len(rare_words):
-                word = normalize_word(rare_words[index])
-                if word and word not in found_rare_words:
-                    found_rare_words.append(word)
     rare_index = {normalize_word(word): index for index, word in enumerate(rare_words)}
     found_rare = sorted({
         rare_index[word] for word in found_rare_words if word in rare_index

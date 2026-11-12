@@ -17,6 +17,7 @@ from games.puzzles.salad.rules import (
     dump_state,
     extra_found_word,
     extra_found_word_from_attempt,
+    found_side_names,
     load_state,
     neighbours,
     normalize_word,
@@ -169,8 +170,12 @@ class WordSaladChecker(BaseChecker):
         solved = set(state.get('solved_indices') or [])
         hint_counts = dict(state.get('hint_counts') or {})
         active = set(state.get('active', []))
-        found_rare = set(state.get('found_rare') or [])
-        found_rare_words = list(state.get('found_rare_words') or [])
+        # Side finds go by name: stored indices drift when an author edits the lists.
+        found_rare_words = found_side_names(state, self.rare_words)
+        found_rare = {
+            i for i, word in enumerate(self.rare_words)
+            if normalize_word(word) in found_rare_words
+        }
         found_extra = list(state.get('found_extra') or [])
 
         def play_state():
@@ -234,11 +239,7 @@ class WordSaladChecker(BaseChecker):
             next_state = play_state()
             status = 'Ok' if len(solved) == len(self.words) else 'Partial'
             return CheckResult(status, status, score_for_state(next_state), dump_state(next_state))
-        already_rare = next(
-            (i for i, word in enumerate(self.rare_words) if normalize_word(word) == written),
-            None,
-        )
-        if already_rare is not None and already_rare in found_rare:
+        if written in found_rare_words and any(normalize_word(word) == written for word in self.rare_words):
             return CheckResult(
                 'Wrong',
                 'Pending',

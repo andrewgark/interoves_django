@@ -349,14 +349,16 @@ function clearKeyEvent(overrides) {
     message: 'Редкая находка!',
     icon: 'ph-sparkle',
     duplicate: false,
-    rare: true
+    rare: true,
+    near: false
   });
   assert.deepStrictEqual(Path.feedbackForResult('near', 'краска'), {
     word: 'КРАСКА',
     message: 'Почти ответ!',
     icon: 'ph-target',
     duplicate: false,
-    rare: true
+    rare: true,
+    near: true
   });
 })();
 

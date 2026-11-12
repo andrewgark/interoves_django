@@ -91,7 +91,8 @@
     return (items || []).map(function (x) {
       var rareLabel = x.near ? 'Почти ответ' : 'Редкая находка';
       var tooltip = x.rare ? ' data-tooltip="' + rareLabel + '" aria-label="' + rareLabel + '" tabindex="0"' : '';
-      return '<li class="new-daily-statistics__guess' + (x.rare ? ' is-rare' : '') + '"><span class="new-daily-statistics__finding-pill' + (x.rare ? ' is-rare' : '') + '"' + tooltip + '><span>' + esc(x.word) + '</span><small>(' + esc(x.players) + ')</small></span></li>';
+      var cls = x.rare ? ' is-rare' + (x.near ? ' is-near' : '') : '';
+      return '<li class="new-daily-statistics__guess' + cls + '"><span class="new-daily-statistics__finding-pill' + cls + '"' + tooltip + '><span>' + esc(x.word) + '</span><small>(' + esc(x.players) + ')</small></span></li>';
     }).join('');
   }
   function saladWords(items) {
@@ -117,7 +118,7 @@
     return (items || []).map(function (item) {
       var kind = item.kind || 'missing';
       var label = kind === 'rare' ? 'Редкая находка' : kind === 'near' ? 'Почти ответ' : kind === 'extra' ? 'Находка не по теме' : kind === 'answer' ? 'Ответ' : 'Не найдено';
-      var cls = kind === 'rare' || kind === 'near' ? ' is-rare' : kind === 'answer' ? ' is-answer' : kind === 'missing' ? ' is-missing' : '';
+      var cls = kind === 'rare' ? ' is-rare' : kind === 'near' ? ' is-rare is-near' : kind === 'answer' ? ' is-answer' : kind === 'missing' ? ' is-missing' : '';
       return '<li class="new-daily-statistics__guess"><span class="new-daily-statistics__finding-pill' + cls + '" data-tooltip="' + esc(label) + '">' + esc(item.word) + '</span></li>';
     }).join('');
   }

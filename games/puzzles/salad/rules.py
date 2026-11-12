@@ -691,22 +691,33 @@ def add_longest_missing_words(checker_data):
     return json.dumps(data, ensure_ascii=False)
 
 
+def found_side_names(state, side_words=None):
+    """Side words a player found, by name.
+
+    ``found_rare_words`` is the record. ``found_rare`` indexes the side list
+    (rares, then near-answers) as it was at the find, so any edit of either
+    list shifts it onto other words; it is read only for a state from before
+    names were kept.
+    """
+    state = load_state(state)
+    names = list(state.get('found_rare_words') or [])
+    if names:
+        return names
+    found_rare = set(state.get('found_rare') or [])
+    for index, word in enumerate(side_words or []):
+        name = normalize_word(word)
+        if index in found_rare and name and name not in names:
+            names.append(name)
+    return names
+
+
 def side_finds_from_state(state, rare_words=None):
     """Return (extra_words, side_words_found) from chain state.
 
-    ``rare_words`` is the stored-index side list: rares, then near-answers.
+    ``rare_words`` is the side list: rares, then near-answers.
     """
     state = load_state(state)
-    extra = list(state.get('found_extra') or [])
-    rare_names = list(state.get('found_rare_words') or [])
-    found_rare = set(state.get('found_rare') or [])
-    for index, word in enumerate(rare_words or []):
-        if index not in found_rare:
-            continue
-        name = normalize_word(word)
-        if name and name not in rare_names:
-            rare_names.append(name)
-    return extra, rare_names
+    return list(state.get('found_extra') or []), found_side_names(state, rare_words)
 
 
 def classify_side_finds(state, words, rare_words=None, near_words=None):

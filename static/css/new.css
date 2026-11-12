@@ -9311,6 +9311,7 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__word-pill.is-solved { border-color: var(--success-soft-border); background: var(--success-soft-bg); color: var(--success); }
 .new-daily-statistics__finding-pill { border-color: color-mix(in srgb, var(--muted) 28%, var(--border)); background: color-mix(in srgb, var(--muted) 12%, var(--surface)); color: var(--muted); }
 .new-daily-statistics__finding-pill.is-rare { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning-hover); }
+.new-daily-statistics__finding-pill.is-near { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent-hover); }
 .new-daily-statistics__finding-pill small { font: inherit; font-size: .78em; letter-spacing: 0; }
 .new-daily-statistics__finding-pill.is-rare { cursor: help; outline: none; }
 .new-daily-statistics__finding-pill.is-rare::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 15rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-family: inherit; font-size: .72rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
@@ -12462,6 +12463,16 @@ button.new-word-salad__hint-btn:disabled {
 
 .new-word-salad__toast.is-rare .new-word-salad__toast-ok {
   color: var(--warning-hover);
+}
+
+.new-word-salad__toast.is-near {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) 86%, var(--accent));
+  color: var(--accent-hover);
+}
+
+.new-word-salad__toast.is-near .new-word-salad__toast-ok {
+  color: var(--accent-hover);
 }
 
 @media (pointer: coarse) {

@@ -486,7 +486,8 @@
         message: result === 'near' ? 'Почти ответ!' : 'Редкая находка!',
         icon: result === 'near' ? 'ph-target' : 'ph-sparkle',
         duplicate: false,
-        rare: true
+        rare: true,
+        near: result === 'near'
       };
     }
     return {
@@ -510,9 +511,10 @@
       document.body.appendChild(toast);
     }
     clearToastTimers(toast);
-    toast.classList.remove('is-in', 'is-out', 'is-duplicate', 'is-rare');
+    toast.classList.remove('is-in', 'is-out', 'is-duplicate', 'is-rare', 'is-near');
     toast.classList.toggle('is-duplicate', feedback.duplicate);
     toast.classList.toggle('is-rare', !!feedback.rare);
+    toast.classList.toggle('is-near', !!feedback.near);
     toast.textContent = '';
 
     var mark = document.createElement('span');
