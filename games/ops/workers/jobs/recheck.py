@@ -731,6 +731,7 @@ def recheck_word_salad_actor(
                 task=task, game=game, replay_slot_id=replay_slot,
             )
         }
+        states_before = {mode: row.state for mode, row in locked_rows.items()}
         attempts = _word_salad_attempts(
             task,
             team=team, user=user, anon_key=anon_key, game=game,
@@ -777,6 +778,13 @@ def recheck_word_salad_actor(
         )
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+        # An edit of the side lists alone (rare words, say) mostly leaves the
+        # board as it was; then the player's open card is still right and a
+        # pushed copy would only cut off the word being traced.
+        changed = bool(credited) or any(
+            _word_salad_state_differs(states_before.get(mode), row.state)
+            for mode, row in locked_rows.items()
+        )
         # Rechecks can change the authoritative completion state in either
         # direction.  Keep the canonical PCG in the same transaction and use
         # the repair path so historical corrections never emit goals.
@@ -796,7 +804,7 @@ def recheck_word_salad_actor(
                     mark_projection_dirty(game, task_group, full=True),
                 )
 
-    if notify:
+    if notify and changed:
         track_actor_task_change(
             task,
             team=team,
@@ -805,7 +813,12 @@ def recheck_word_salad_actor(
             game=game,
             reason='task.word_salad_rechecked',
         )
-    return {'credited': credited, 'attempts': len(attempts)}
+    return {'credited': credited, 'attempts': len(attempts), 'changed': changed}
+
+
+def _word_salad_state_differs(before, after):
+    from games.puzzles.salad.rules import load_state
+    return load_state(before) != load_state(after)
 
 
 def recheck_word_salad_task(task, *, game=None, notify=True):

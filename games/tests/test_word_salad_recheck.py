@@ -294,6 +294,49 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(after_first['chain'], after['chain'])
         self.assertEqual(after_first['completed'], after['completed'])
 
+    def _solve_whole_board(self, anon_key):
+        path = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12]
+        Attempt.manager.create(
+            anon_key=anon_key,
+            task=self.task,
+            game=self.game,
+            text=json.dumps({'action': 'solve', 'path': path}),
+            status='Ok',
+            points=0,
+        )
+        from games.ops.workers.jobs.recheck import recheck_word_salad_actor
+        recheck_word_salad_actor(self.task, anon_key=anon_key, game=self.game, notify=False)
+
+    def _recheck_after_edit(self, edit):
+        payload = json.loads(self.task.checker_data)
+        edit(payload)
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.ops.workers.jobs.salad._schedule_actor_notification') as notify:
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            item = WordSaladRecheckItem.objects.get(job=job)
+            self.assertEqual(process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'completed')
+        return notify
+
+    def test_rare_only_edit_leaves_an_unchanged_board_alone(self):
+        # A new rare word the player never traced changes nothing on their
+        # board, so the recheck must not push a card that would cut off the
+        # word being traced.
+        anon_key = 'rare-only-edit'
+        self._solve_whole_board(anon_key)
+        before = ChainTaskState.objects.get(task=self.task, anon_key=anon_key).state
+        notify = self._recheck_after_edit(lambda payload: payload.update(rare_words=['ABCD']))
+        notify.assert_not_called()
+        self.assertEqual(ChainTaskState.objects.get(task=self.task, anon_key=anon_key).state, before)
+
+    def test_edit_that_changes_the_board_still_pushes_the_card(self):
+        anon_key = 'answer-edit'
+        self._solve_whole_board(anon_key)
+        notify = self._recheck_after_edit(
+            lambda payload: payload.update(words=list(payload.get('words') or []) + ['ABCD']),
+        )
+        notify.assert_called_once()
+
     def test_recheck_replay_skips_per_attempt_projection_wakeups(self):
         from games.models import DailyResultProjectionRefreshOutbox
 

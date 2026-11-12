@@ -555,10 +555,17 @@
     }).join('');
   }
 
+  // The page's own finds and the board's rotation belong to the letters on
+  // the board, not to the task revision: every save of the salad (a new rare
+  // word, say) rotates the revision and used to drop them for every player.
+  function boardStorageRevision(root) {
+    return root.getAttribute('data-board-key') || root.getAttribute('data-task-revision') || '';
+  }
+
   function extrasStorageKey(root) {
     try {
       var taskId = root.getAttribute('data-task-id') || '';
-      var taskRevision = root.getAttribute('data-task-revision') || '';
+      var taskRevision = boardStorageRevision(root);
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
       // v4 drops the pre-replay-namespace cache, which could contain replay
       // finds under the official key after a dynamic card refresh.
@@ -571,7 +578,7 @@
   function latestStorageKey(root) {
     try {
       var taskId = root.getAttribute('data-task-id') || '';
-      var taskRevision = root.getAttribute('data-task-revision') || '';
+      var taskRevision = boardStorageRevision(root);
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
       return 'interoves_word_salad_latest_v4:' + taskId + ':' + taskRevision + ':' + replayRunId;
     } catch (error) {
@@ -583,7 +590,7 @@
     try {
       return 'interoves_word_salad_orientation_v1:' +
         (root.getAttribute('data-task-id') || '') + ':' +
-        (root.getAttribute('data-task-revision') || '') + ':' +
+        boardStorageRevision(root) + ':' +
         (root.getAttribute('data-replay-run-id') || 'official');
     } catch (error) {
       return '';

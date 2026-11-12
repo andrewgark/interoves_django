@@ -643,6 +643,7 @@ def _process_claimed_item(job, item, item_token):
                 return 'superseded'
             reason = 'task.word_salad_rechecked'
             skipped_complete = False
+            actor_changed = True
             if is_dictionary_scan:
                 from games.daily.timing.statistics import invalidate_daily_statistics
                 from games.puzzles.salad.rules import add_longest_missing_words
@@ -663,6 +664,8 @@ def _process_claimed_item(job, item, item_token):
                     **actor,
                 )
                 credited = int(result.get('credited') or 0)
+                # Nothing visible changed for this player: leave their card be.
+                actor_changed = bool(result.get('changed', True))
             elif actor is not None:
                 from games.ops.workers.jobs.recheck import _checker_extension_actor_is_complete, recheck_chain_task
                 skipped_complete = _checker_extension_actor_is_complete(
@@ -722,7 +725,7 @@ def _process_claimed_item(job, item, item_token):
                     status=WordSaladRecheckJob.STATUS_COMPLETED, completed_at=now,
                     claim_token=None, claimed_until=None, updated_at=now,
                 )
-            if actor is not None and not skipped_complete:
+            if actor is not None and not skipped_complete and actor_changed:
                 _schedule_actor_notification(task, actor, job.game, reason=reason)
         logger.info(
             'word_salad_task_completed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f credited=%s',

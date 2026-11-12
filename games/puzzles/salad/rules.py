@@ -1,6 +1,7 @@
 """Rules, validation, and shared state helpers for Word Salad."""
 
 import gzip
+import hashlib
 import json
 import re
 from decimal import Decimal
@@ -682,6 +683,16 @@ def classify_side_finds(state, words, rare_words=None):
     return rare_ui, extra_ui
 
 
+def board_key(grid):
+    """A short key that changes only with the letters on the board.
+
+    The page keeps its own finds and the board's rotation under this key. A
+    Task save rotates attempt_revision even when only the rare words change,
+    and keying on that dropped the player's board state on every edit.
+    """
+    return hashlib.sha1(''.join(grid or ()).encode('utf-8')).hexdigest()[:12]
+
+
 def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
@@ -724,6 +735,7 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
 
     return {
         'grid_rows': grid_rows,
+        'board_key': board_key(grid),
         'words': words_ui,
         'rare_words': rare_ui,
         'extra_words': extra_ui,
