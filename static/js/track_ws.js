@@ -72,7 +72,7 @@
 
   function applyTaskUpdates(msg) {
     if (msg.update_task_html_new && typeof global.applyNewUiTaskHtml === 'function') {
-      global.applyNewUiTaskHtml(msg.update_task_html_new);
+      global.applyNewUiTaskHtml(msg.update_task_html_new, {remote: true});
     }
     if (msg.raddle_ui && typeof global.applyRaddleUiState === 'function') {
       global.applyRaddleUiState(msg.raddle_ui, {fromRemote: true});
@@ -255,7 +255,7 @@
       if (typeof global.applyNewUiTaskHtml !== 'function') {
         throw new Error('task projection unavailable');
       }
-      global.applyNewUiTaskHtml(data.update_task_html_new || {});
+      global.applyNewUiTaskHtml(data.update_task_html_new || {}, {remote: true});
       if (data.raddle_ui && typeof global.applyRaddleUiState === 'function') {
         global.applyRaddleUiState(data.raddle_ui, {fromRemote: true});
       }

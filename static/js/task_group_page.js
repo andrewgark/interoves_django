@@ -4971,8 +4971,27 @@
     }
   }
 
-  function applyNewUiTaskHtml(map) {
+  // Word Salad cards that arrived while the player was tracing a word: only
+  // the newest per task is kept, and it goes in once the finger is lifted.
+  var deferredSaladCards = {};
+  var deferredSaladTimer = 0;
+  function deferSaladCard(tid, html) {
+    deferredSaladCards[tid] = html;
+    if (deferredSaladTimer) return;
+    deferredSaladTimer = window.setTimeout(function () {
+      deferredSaladTimer = 0;
+      var cards = deferredSaladCards;
+      deferredSaladCards = {};
+      applyNewUiTaskHtml(cards, { remote: true });
+    }, 300);
+  }
+
+  // opts.remote: a card pushed by the server (a teammate's find, a recheck),
+  // not the answer to this page's own request. The player's half-built word
+  // then carries over to the new board.
+  function applyNewUiTaskHtml(map, opts) {
     if (!map) return 0;
+    var remote = !!(opts && opts.remote);
     var handledCount = 0;
     // Replacing a task card removes an open popover from the top layer. Remember
     // it so a near-simultaneous WebSocket refresh does not hide user feedback.
@@ -5013,6 +5032,15 @@
         if (!el || !html) return;
         handledCount += 1;
         if (incomingRaddleIsOlder(el, html) || incomingSaladDropsSolved(el, html)) return;
+        var saladRoot = el.querySelector('[data-word-salad-root]');
+        if (saladRoot && typeof saladRoot.__isTracingWordSalad === 'function' && saladRoot.__isTracingWordSalad()) {
+          deferSaladCard(tid, html);
+          return;
+        }
+        delete deferredSaladCards[tid];
+        if (remote && saladRoot && typeof saladRoot.__keepWordSaladSelection === 'function') {
+          saladRoot.__keepWordSaladSelection();
+        }
         html = staggerNewlySolvedRaddleRows(el, html);
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);

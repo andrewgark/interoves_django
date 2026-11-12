@@ -611,6 +611,85 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             second_document_id,
         )
 
+    def _salad_task(self):
+        """Add a salad as group 4, from a sync DB thread while Playwright is active."""
+        from games.puzzles.salad.rules import serialize_task_data
+
+        errors = []
+
+        def create():
+            close_old_connections()
+            try:
+                checker, _ = CheckerType.objects.get_or_create(pk='word_salad')
+                group = TaskGroup.objects.create(label='Browser salad')
+                GameTaskGroup.objects.create(game=self.game, task_group=group, number=4)
+                with patch('games.realtime.track_compat.track_task_change'):
+                    Task.objects.create(
+                        task_group=group,
+                        number='1',
+                        task_type='word_salad',
+                        checker=checker,
+                        checker_data=serialize_task_data(
+                            'A B C D\nH G F E\nI J K L\nP O N M', ['ABCD', 'IJKL'],
+                        ),
+                        points=1,
+                    )
+            except Exception as exc:  # pragma: no cover - surfaced in the test thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=create)
+        thread.start()
+        thread.join()
+        if errors:
+            raise errors[0]
+
+    @staticmethod
+    def _salad_cell_center(page, index):
+        box = page.locator(f'[data-word-salad-root] [data-index="{index}"]').bounding_box()
+        return box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+
+    def test_word_salad_trace_survives_a_teammates_find(self):
+        """A teammate's find pushes a fresh card. It must wait until the
+        finger is lifted: swapped in mid-trace, it detached the board under
+        the finger and the half-traced word vanished."""
+        from playwright.sync_api import expect
+
+        self._salad_task()
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/4/'
+        first.goto(url)
+        second.goto(url)
+
+        # The second player starts tracing A-B and keeps the button down.
+        second.mouse.move(*self._salad_cell_center(second, 0))
+        second.mouse.down()
+        second.mouse.move(*self._salad_cell_center(second, 1), steps=5)
+        selected = second.locator('[data-word-salad-root] .new-word-salad__cell.is-selected')
+        expect(selected).to_have_count(2)
+
+        # The first player traces I-J-K-L, which the server credits.
+        first.mouse.move(*self._salad_cell_center(first, 8))
+        first.mouse.down()
+        for index in (9, 10, 11):
+            first.mouse.move(*self._salad_cell_center(first, index), steps=5)
+        first.mouse.up()
+        solved = '[data-word-salad-root] .new-word-salad__word.is-solved[data-word-normalized="{}"]'
+        expect(first.locator(solved.format('IJKL'))).to_have_count(1, timeout=10_000)
+
+        # The push reached the second page; its board is still the one being traced.
+        second.wait_for_timeout(1500)
+        expect(selected).to_have_count(2)
+        expect(second.locator(solved.format('IJKL'))).to_have_count(0)
+
+        second.mouse.move(*self._salad_cell_center(second, 2), steps=5)
+        second.mouse.move(*self._salad_cell_center(second, 3), steps=5)
+        second.mouse.up()
+        expect(second.locator(solved.format('ABCD'))).to_have_count(1, timeout=10_000)
+        expect(second.locator(solved.format('IJKL'))).to_have_count(1, timeout=10_000)
+
     def test_raddle_remote_advance_preserves_active_draft_and_focus(self):
         from playwright.sync_api import expect
 

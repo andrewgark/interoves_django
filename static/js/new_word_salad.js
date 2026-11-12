@@ -1983,6 +1983,11 @@
           word: selectedWord()
         };
       };
+      // A finger is on this board: a card swapped in now would detach it
+      // mid-trace and the word would never be checked.
+      root.__isTracingWordSalad = function () {
+        return activeDragRoot === root;
+      };
       root.__cancelWordSaladPress = function () {
         stopDrag();
         clearSingleOnRelease = false;
