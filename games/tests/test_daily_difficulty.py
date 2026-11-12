@@ -31,6 +31,7 @@ from games.daily.difficulty.core import (
     refresh_due_daily_difficulties,
     refresh_historical_norm,
     refresh_interval_for_age,
+    restar_game_snapshots,
     retry_delay_for_fail_count,
     star_cutoffs,
     stars_for_rating,
@@ -864,6 +865,37 @@ class DifficultyHistoricalNormTests(TestCase):
         hardest, easiest = (DailyGameDifficulty.objects.get(pk=row.pk) for row in (snapshots[-1], snapshots[0]))
         self.assertEqual((hardest.stars, hardest.payload['stars']), (5, 5))
         self.assertEqual(easiest.stars, 1)
+
+    def test_rerank_skips_snapshot_rewritten_after_read(self):
+        ladder, _ = Game.objects.get_or_create(
+            id='ladder',
+            defaults={
+                'name': 'Ladder',
+                'author': 'test',
+                'project': Project.objects.get_or_create(id='sections')[0],
+            },
+        )
+        stale_time = timezone.now() - timedelta(minutes=5)
+        snapshot = _write_snapshot(
+            self._placement(ladder, 9950), n=40, stars=3, calculated_at=stale_time,
+            payload={'adjusted_rating': 4.9, 'is_visible': True, 'stars': 3},
+        )
+        rows = DailyGameDifficulty.objects.filter(pk=snapshot.pk).only('stars', 'payload', 'calculated_at')
+        fresh = {'adjusted_rating': 1.1, 'is_visible': True, 'stars': 1, 'fresh': True}
+
+        def worker_writes_meanwhile():
+            stale = list(rows)
+            DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(
+                stars=1, payload=fresh, calculated_at=timezone.now(),
+            )
+            return iter(stale)
+
+        with patch.object(type(rows), 'iterator', lambda _self: worker_writes_meanwhile()):
+            changed = restar_game_snapshots('ladder', [1.0, 2.0, 3.0, 4.0])
+
+        snapshot.refresh_from_db()
+        self.assertEqual(changed, 0)
+        self.assertEqual((snapshot.stars, snapshot.payload), (1, fresh))
 
 
 def _rating_result(placement, **overrides):

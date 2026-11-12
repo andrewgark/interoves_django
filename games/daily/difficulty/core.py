@@ -612,7 +612,7 @@ def restar_game_snapshots(game_id, cutoffs):
     changed = 0
     rows = DailyGameDifficulty.objects.filter(
         placement__game_id=game_id, stars__isnull=False,
-    ).only('stars', 'payload')
+    ).only('stars', 'payload', 'calculated_at')
     for row in rows.iterator():
         payload = row.payload or {}
         adjusted = payload.get('adjusted_rating')
@@ -622,8 +622,11 @@ def restar_game_snapshots(game_id, cutoffs):
         if stars == row.stars and payload.get('stars') == stars:
             continue
         payload['stars'] = stars
-        DailyGameDifficulty.objects.filter(pk=row.pk).update(stars=stars, payload=payload)
-        changed += 1
+        # A refresh worker may have written a newer snapshot since the read;
+        # it already used these cutoffs, so its payload must not be replaced.
+        changed += DailyGameDifficulty.objects.filter(
+            pk=row.pk, calculated_at=row.calculated_at,
+        ).update(stars=stars, payload=payload)
     return changed
 
 
