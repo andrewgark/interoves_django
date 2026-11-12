@@ -1,6 +1,9 @@
 {% comment %}Daily-game stats block shared by player and team pages.
-Context: stats (games.community.stats.PlayerStats), stats_empty_text.{% endcomment %}
-{% load filters %}
+Context: stats (games.community.stats.PlayerStats), stats_empty_text,
+stats_month_url (month JSON with GAME / MONTH placeholders), stats_owner_name.{% endcomment %}
+{% load filters static %}
+<link rel="stylesheet" href="{% static "css/player_game_stats.css" %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+<script src="{% static "js/player_game_stats.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <section aria-labelledby="daily-stats-title">
   <h2 id="daily-stats-title" class="new-heading">Ежедневные игры</h2>
   {% if stats.has_any %}
@@ -34,22 +37,65 @@ Context: stats (games.community.stats.PlayerStats), stats_empty_text.{% endcomme
       </div>
     </div>
 
-    <ul class="new-card player-games">
+    <div class="pgs" data-pgs>
+      {% if stats.games|length > 1 %}
+        <div class="pgs-tabs" role="tablist" aria-label="Игры">
+          {% for game in stats.games %}
+            <button type="button" class="pgs-tab{% if forloop.first %} is-active{% endif %}" role="tab" id="pgs-tab-{{ game.game_id }}" aria-controls="pgs-panel-{{ game.game_id }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}" data-pgs-tab="{{ game.game_id }}">{{ game.name }}<small>{{ game.played }}</small></button>
+          {% endfor %}
+        </div>
+      {% endif %}
       {% for game in stats.games %}
-        <li class="player-game">
-          <div class="player-game__head">
-            <strong class="player-game__name">{{ game.name }}</strong>
-            {% if game.month_place %}<span class="player-game__place" data-tooltip="Место в общей таблице {{ game.month_label }}">#{{ game.month_place }}<small> из {{ game.month_total }} {{ game.month_label }}</small></span>{% endif %}
+        <div class="pgs-panel" id="pgs-panel-{{ game.game_id }}" {% if stats.games|length > 1 %}role="tabpanel" aria-labelledby="pgs-tab-{{ game.game_id }}"{% endif %} data-pgs-panel="{{ game.game_id }}"{% if not forloop.first %} hidden{% endif %}>
+          <div class="pgs-grid{% if not game.has_month_view or not stats_month_url %} pgs-grid--single{% endif %}">
+            <section class="new-card pgs-overall" aria-label="{{ game.name }}: за всё время">
+              <h3 class="pgs-card-title">{% if stats.games|length == 1 %}{{ game.name }} · {% endif %}За всё время</h3>
+              <dl class="pgs-facts">
+                <div><dt>сыграно</dt><dd>{{ game.played }}</dd></div>
+                <div><dt>решено</dt><dd>{{ game.solved }}</dd></div>
+                {% if game.median_display %}<div><dt>обычно</dt><dd>{{ game.median_display }}</dd></div>{% endif %}
+                {% if game.streak %}<div><dt>серия</dt><dd><i class="ph ph-fire" aria-hidden="true"></i> {{ game.streak }}</dd></div>{% endif %}
+                {% if game.authored %}<div><dt>как автор</dt><dd>{{ game.authored }} {{ game.authored|ru_plural:"выпуск,выпуска,выпусков" }}</dd></div>{% endif %}
+                {% if game.month_place %}<div data-tooltip="Место в общей таблице {{ game.month_label }}"><dt>место {{ game.month_label }}</dt><dd>#{{ game.month_place }} <small>из {{ game.month_total }}</small></dd></div>{% endif %}
+              </dl>
+              {% if game.duel %}
+                <div class="pgs-overall__duel">
+                  <p class="pgs-overall__duel-title">Вы и {{ stats_owner_name }} · {{ game.duel.common }} {{ game.duel.common|ru_plural:"общий выпуск,общих выпуска,общих выпусков" }}</p>
+                  <div class="pgs-duel pgs-duel--rows">
+                    <span class="pgs-duel__item pgs-duel__item--win"><b>{{ game.duel.wins_pct }}%</b><small>вы впереди</small></span>
+                    <span class="pgs-duel__item pgs-duel__item--tie"><b>{{ game.duel.ties_pct }}%</b><small>поровну</small></span>
+                    <span class="pgs-duel__item pgs-duel__item--loss"><b>{{ game.duel.losses_pct }}%</b><small>впереди {{ stats_owner_name }}</small></span>
+                  </div>
+                </div>
+              {% endif %}
+            </section>
+            {% if game.has_month_view and stats_month_url %}
+              <section class="new-card pgs-month" aria-label="{{ game.name }}: по месяцам" data-pgs-card data-game="{{ game.game_id }}" data-url="{{ stats_month_url }}" data-owner="{{ stats_owner_name }}" data-owner-short="{{ stats_owner_short|default:stats_owner_name }}">
+                <div class="pgs-month__nav">
+                  <button type="button" class="pgs-nav-btn" data-pgs-prev aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+                  <select class="pgs-month__select" data-pgs-month aria-label="Месяц"></select>
+                  <button type="button" class="pgs-nav-btn" data-pgs-next aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+                </div>
+                <div class="pgs-month__skeleton" data-pgs-skeleton aria-hidden="true"></div>
+                <p class="pgs-month__error" data-pgs-error hidden>Не удалось загрузить месяц. <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-pgs-retry>Ещё раз</button></p>
+                <div class="pgs-month__body" data-pgs-body hidden>
+                  <div class="pgs-kpis" data-pgs-kpis></div>
+                  <div class="pgs-controls">
+                    <div class="new-segmented pgs-metrics" data-pgs-metrics role="group" aria-label="Что показать"></div>
+                    <div class="pgs-legend" data-pgs-legend role="group" aria-label="Серии"></div>
+                  </div>
+                  <div class="pgs-chart">
+                    <div class="pgs-chart__host" data-pgs-chart></div>
+                    <div class="pgs-tip" data-pgs-tip hidden></div>
+                  </div>
+                  <p class="pgs-note" data-pgs-note hidden></p>
+                </div>
+              </section>
+            {% endif %}
           </div>
-          <dl class="player-game__facts">
-            <div><dt>сыграно</dt><dd>{{ game.played }}</dd></div>
-            <div><dt>решено</dt><dd>{{ game.solved }}</dd></div>
-            {% if game.median_display %}<div><dt>обычно</dt><dd>{{ game.median_display }}</dd></div>{% endif %}
-            {% if game.streak %}<div><dt>серия</dt><dd><i class="ph ph-fire" aria-hidden="true"></i> {{ game.streak }}</dd></div>{% endif %}
-          </dl>
-        </li>
+        </div>
       {% endfor %}
-    </ul>
+    </div>
   {% else %}
     <div class="new-card player-empty">
       <i class="ph ph-puzzle-piece" aria-hidden="true"></i>

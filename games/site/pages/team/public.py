@@ -1,10 +1,11 @@
 """Public team page (``/t/<public_id>/``): roster, daily stats, actions."""
 
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from games.community import preview, visibility
+from games.community import game_month, preview, visibility
 from games.community.stats import team_stats
 from games.identity import has_profile
 from games.models import Profile, ProfileTeamMembership, Team, TeamInvite
@@ -34,8 +35,8 @@ def _roster(team, viewer):
     return members
 
 
-@require_http_methods(['GET'])
-def team_public_page(request, public_id):
+def _visible_team(request, public_id):
+    """``(team, viewer profile, is_member)``; 404 for hidden teams of strangers."""
     team = Team.objects.filter(public_id=public_id).first()
     if team is None:
         raise Http404()
@@ -44,12 +45,30 @@ def team_public_page(request, public_id):
     is_member = bool(profile and ProfileTeamMembership.objects.filter(profile=profile, team=team).exists())
     if team.is_hidden and not is_member:
         raise Http404()
+    return team, profile, is_member
+
+
+@require_http_methods(['GET'])
+def team_game_month(request, public_id, game_id, month):
+    """One game's month for the per-game chart on the team page."""
+    team, _profile, _is_member = _visible_team(request, public_id)
+    data = game_month.month_view(game_month.team_actor(team), game_id, month)
+    if data is None:
+        raise Http404()
+    return JsonResponse(data)
+
+
+@require_http_methods(['GET'])
+def team_public_page(request, public_id):
+    team, profile, is_member = _visible_team(request, public_id)
+    viewer = request.user
 
     ctx = {
         'team': team,
         'team_url': request.path,
         'team_members': _roster(team, viewer),
         'team_stats': team_stats(team),
+        'stats_month_url': reverse('new_team_game_month', kwargs={'public_id': team.public_id, 'game_id': 'GAME', 'month': 'MONTH'}),
         'team_is_member': is_member,
         'team_is_active': bool(is_member and profile.team_on_id == team.pk),
         'page_title': team.visible_name or team.name,

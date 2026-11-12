@@ -59,27 +59,10 @@
   </div>
 {% else %}
   {% with stats=player_stats %}
-  {% if player_head_to_head and player_head_to_head.common %}
-    <section class="new-card player-h2h" aria-labelledby="player-h2h-title">
-      <h2 id="player-h2h-title" class="player-section-title">Вы и {{ player.name }}</h2>
-      <p class="player-h2h__lead">{{ player_head_to_head.common }} {{ player_head_to_head.common|ru_plural:"общий выпуск,общих выпуска,общих выпусков" }} в ежедневных играх</p>
-      <div class="player-h2h__bar" role="img" aria-label="Вы впереди в {{ player_head_to_head.wins }}, ничья в {{ player_head_to_head.ties }}, соперник впереди в {{ player_head_to_head.losses }}">
-        {% if player_head_to_head.wins %}<span class="player-h2h__seg player-h2h__seg--win" style="flex-grow: {{ player_head_to_head.wins }}">{{ player_head_to_head.wins }}</span>{% endif %}
-        {% if player_head_to_head.ties %}<span class="player-h2h__seg player-h2h__seg--tie" style="flex-grow: {{ player_head_to_head.ties }}">{{ player_head_to_head.ties }}</span>{% endif %}
-        {% if player_head_to_head.losses %}<span class="player-h2h__seg player-h2h__seg--loss" style="flex-grow: {{ player_head_to_head.losses }}">{{ player_head_to_head.losses }}</span>{% endif %}
-      </div>
-      <div class="player-h2h__legend">
-        <span><i class="player-h2h__dot player-h2h__dot--win"></i>вы впереди</span>
-        <span><i class="player-h2h__dot player-h2h__dot--tie"></i>поровну</span>
-        <span><i class="player-h2h__dot player-h2h__dot--loss"></i>впереди {{ player.name }}</span>
-      </div>
-    </section>
-  {% endif %}
-
   {% if player_is_owner %}
-    {% include "site/partials/daily_stats.html" with stats_empty_text="Вы ещё не играли в ежедневные игры лично." %}
+    {% include "site/partials/daily_stats.html" with stats_empty_text="Вы ещё не играли в ежедневные игры лично." stats_owner_name=player.name %}
   {% else %}
-    {% include "site/partials/daily_stats.html" with stats_empty_text="Игрок ещё не играл в ежедневные игры лично." %}
+    {% include "site/partials/daily_stats.html" with stats_empty_text="Игрок ещё не играл в ежедневные игры лично." stats_owner_name=player.name %}
   {% endif %}
   {% endwith %}
 

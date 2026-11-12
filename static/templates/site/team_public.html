@@ -117,7 +117,7 @@
   {% endif %}
 </section>
 
-{% include "site/partials/daily_stats.html" with stats=team_stats stats_empty_text="Команда ещё не играла в ежедневные игры командой." %}
+{% include "site/partials/daily_stats.html" with stats=team_stats stats_empty_text="Команда ещё не играла в ежедневные игры командой." stats_owner_name=team.visible_name|default:team.name %}
 
 {% if team_invite_url %}
 <script>

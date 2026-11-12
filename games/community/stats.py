@@ -43,6 +43,9 @@ class GameStats:
     month_place: int | None = None
     month_total: int | None = None
     month_label: str = ''
+    authored: int = 0
+    has_month_view: bool = False
+    duel: dict | None = None
 
     @property
     def median_display(self):
@@ -70,6 +73,8 @@ class HeadToHead:
     wins: int = 0
     losses: int = 0
     ties: int = 0
+    # game_id -> games.community.game_month.Duel, from the viewer's side.
+    by_game: dict = field(default_factory=dict)
 
 
 def format_duration(seconds):
@@ -207,6 +212,7 @@ def team_stats(team, *, now=None):
 
 
 def _actor_stats(actor, *, now=None):
+    from games.community import game_month
     from games.daily.activity import active_days
     from games.daily.timing.streak import daily_streaks_for_actor
 
@@ -234,6 +240,8 @@ def _actor_stats(actor, *, now=None):
         games=list(games.values()), user=actor.obj, now=now,
     ) if is_user else {}
     places = _month_places(actor, list(counts), today=today)
+    month_actor = game_month.Actor(actor.kind, actor.obj)
+    month_game_ids = set(game_month.month_games())
     for game_id, row in counts.items():
         game = games.get(game_id)
         if game is None:
@@ -249,6 +257,8 @@ def _actor_stats(actor, *, now=None):
             month_place=place[0] if place else None,
             month_total=place[1] if place else None,
             month_label=place[2] if place else '',
+            authored=game_month.authored_release_count(month_actor, game),
+            has_month_view=game_id in month_game_ids,
         ))
     stats.games.sort(key=lambda item: (-item.played, item.name))
     stats.total_played = sum(item.played for item in stats.games)
@@ -290,6 +300,8 @@ def head_to_head(viewer, other):
             ).values_list('game_id', 'task_group_id', 'score')
         }
 
+    from games.community.game_month import Duel
+
     mine, theirs = scores(viewer), scores(other)
     common = mine.keys() & theirs.keys()
     result = HeadToHead(common=len(common))
@@ -297,16 +309,10 @@ def head_to_head(viewer, other):
         return result
     my_time, their_time = _timing_ms(viewer), _timing_ms(other)
     for key in common:
-        if mine[key] != theirs[key]:
-            won = mine[key] > theirs[key]
-        else:
-            a, b = my_time.get(key), their_time.get(key)
-            if not a or not b or a == b:
-                result.ties += 1
-                continue
-            won = a < b
-        if won:
-            result.wins += 1
-        else:
-            result.losses += 1
+        duel = result.by_game.setdefault(key[0], Duel())
+        duel.add((mine[key], my_time.get(key)), (theirs[key], their_time.get(key)))
+    for duel in result.by_game.values():
+        result.wins += duel.wins
+        result.losses += duel.losses
+        result.ties += duel.ties
     return result

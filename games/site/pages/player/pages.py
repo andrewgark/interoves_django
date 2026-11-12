@@ -2,11 +2,12 @@
 
 from dataclasses import replace
 
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from games.community import friends, preview, visibility
+from games.community import friends, game_month, preview, visibility
 from games.community.stats import head_to_head, player_stats
 from games.identity import has_profile
 from games.models import Profile, Team
@@ -65,8 +66,12 @@ def player_profile(request, public_id):
         ctx['player_friends_count'] = len(their_friends)
         if getattr(viewer, 'is_authenticated', False) and not is_owner:
             ctx['player_mutual_friends_count'] = len(their_friends & friends.friend_user_ids(viewer.pk))
-        if getattr(viewer, 'is_authenticated', False) and not is_owner:
-            ctx['player_head_to_head'] = head_to_head(viewer, profile.user)
+        if _compares_with_viewer(viewer, is_owner):
+            duels = head_to_head(viewer, profile.user).by_game
+            for game in ctx['player_stats'].games:
+                duel = duels.get(game.game_id)
+                game.duel = duel.as_dict() if duel and duel.common else None
+        ctx['stats_month_url'] = reverse('new_player_game_month', kwargs={'public_id': profile.public_id, 'game_id': 'GAME', 'month': 'MONTH'})
     ctx['og'] = preview.og(
         request, title=identity.name,
         description=preview.player_description(ctx.get('player_stats')),
@@ -74,3 +79,26 @@ def player_profile(request, public_id):
     )
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
     return render(request, 'site/player_profile.html', ctx)
+
+
+def _compares_with_viewer(viewer, is_owner):
+    return getattr(viewer, 'is_authenticated', False) and not is_owner and has_profile(viewer)
+
+
+@require_http_methods(['GET'])
+def player_game_month(request, public_id, game_id, month):
+    """One game's month for the per-game chart on the player page."""
+    profile = Profile.objects.select_related('user').filter(public_id=public_id).first()
+    if visibility.page_state(request.user, profile) != visibility.PAGE_FULL:
+        raise Http404()
+    viewer = request.user
+    other = (
+        game_month.user_actor(viewer)
+        if _compares_with_viewer(viewer, visibility.is_owner(viewer, profile)) else None
+    )
+    data = game_month.month_view(
+        game_month.user_actor(profile.user), game_id, month, viewer=other,
+    )
+    if data is None:
+        raise Http404()
+    return JsonResponse(data)

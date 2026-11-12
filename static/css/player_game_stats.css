@@ -1,0 +1,241 @@
+/* Per-game tabs and month chart on player / team pages (player_game_stats.js).
+   Kept out of new.css: the component is self-contained. */
+
+.pgs {
+  --pgs-better: #3b6ea5;
+  --pgs-worse: #c4661f;
+  margin-top: 0.75rem;
+}
+html.new-ui-dark .pgs {
+  --pgs-better: #5a93d6;
+  --pgs-worse: #d27a2c;
+}
+
+/* Tabs: one per game, scroll sideways on narrow screens. */
+.pgs-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pgs-tabs::-webkit-scrollbar { display: none; }
+.pgs-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pgs-tab small { font-size: 0.75rem; font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.8; }
+.pgs-tab:hover { color: var(--text); }
+.pgs-tab.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--text);
+}
+.pgs-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pgs-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.pgs-grid > .new-card { min-width: 0; margin: 0; }
+/* must match --new-break-wide */
+@media (min-width: 920px) {
+  .pgs-grid:not(.pgs-grid--single) { grid-template-columns: minmax(13rem, 0.38fr) minmax(0, 1fr); align-items: start; }
+}
+
+.pgs-card-title {
+  margin: 0 0 0.7rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* All-time facts: label left, value right. */
+.pgs-facts { display: grid; gap: 0.45rem; margin: 0; }
+.pgs-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.pgs-facts dt { color: var(--muted); font-size: 0.85rem; }
+.pgs-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.pgs-facts dd small { color: var(--muted); font-weight: 500; }
+.pgs-facts .ph-fire { color: var(--warning); }
+
+.pgs-overall__duel { margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+.pgs-overall__duel-title { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+
+.pgs-duel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+.pgs-duel__item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--tile);
+}
+.pgs-duel__item b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.pgs-duel__item small { color: var(--muted); font-size: 0.72rem; line-height: 1.2; overflow-wrap: anywhere; }
+.pgs-duel__item--win { border-left-color: var(--accent); }
+/* The all-time card is narrow on desktop: one row per outcome. */
+.pgs-duel--rows { grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+.pgs-duel--rows .pgs-duel__item { flex-direction: row; align-items: baseline; gap: 0.5rem; }
+.pgs-duel--rows .pgs-duel__item b { min-width: 2.6rem; font-size: 0.95rem; }
+.pgs-duel--rows .pgs-duel__item small { font-size: 0.8rem; }
+.pgs-duel__item--loss { border-left-color: var(--raddle-after); }
+
+/* Month card */
+.pgs-month { position: relative; }
+.pgs-month__nav { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.8rem; }
+.pgs-nav-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.pgs-nav-btn:disabled { opacity: 0.35; cursor: default; }
+.pgs-nav-btn:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.pgs-month__select {
+  min-width: 0;
+  max-width: 100%;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+}
+.pgs-month__skeleton {
+  height: 18rem;
+  border-radius: var(--card-radius);
+  background: linear-gradient(90deg, var(--tile) 0%, color-mix(in srgb, var(--tile) 50%, var(--surface)) 50%, var(--tile) 100%);
+  background-size: 200% 100%;
+  animation: pgs-shimmer 1.4s ease-in-out infinite;
+}
+.pgs-month__skeleton[hidden] { display: none; }
+.pgs-month.is-loading .pgs-month__body { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
+@keyframes pgs-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .pgs-month__skeleton { animation: none; } }
+.pgs-month__error { color: var(--muted); font-size: 0.9rem; }
+
+.pgs-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.pgs-kpi {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--tile) 60%, var(--surface));
+}
+.pgs-kpi strong { font-size: 1.25rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.pgs-kpi > span { margin-top: 0.15rem; color: var(--muted); font-size: 0.75rem; line-height: 1.25; }
+.pgs-kpi--duel { grid-column: 1 / -1; }
+
+.pgs-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.4rem;
+}
+.pgs-metrics { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
+.pgs-metrics .new-segmented__btn { padding: 0.35rem 0.65rem; font-size: 0.82rem; white-space: nowrap; }
+.pgs-legend { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.pgs-legend__btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 14rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pgs-legend__btn:hover { border-color: var(--border); }
+.pgs-legend__btn[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+.pgs-legend__btn[aria-pressed="false"] .pgs-swatch { opacity: 0.3; }
+
+/* Swatches double as legend keys in the tooltip. */
+.pgs-swatch { display: inline-block; flex: 0 0 auto; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--muted); }
+.pgs-swatch--better { background: var(--pgs-better); }
+.pgs-swatch--worse { background: var(--pgs-worse); }
+.pgs-swatch--even { background: var(--text); }
+.pgs-swatch--m { width: 0.8rem; height: 0; border-radius: 0; border-top: 2px dashed var(--muted); background: none; }
+.pgs-swatch--v { width: 0.65rem; height: 0.65rem; border: 2px solid var(--text); background: none; }
+
+.pgs-chart { position: relative; }
+.pgs-chart__host { width: 100%; min-height: 230px; }
+.pgs-chart__svg { display: block; overflow: visible; }
+.pgs-chart__grid { stroke: var(--border); stroke-width: 1; opacity: 0.6; }
+.pgs-chart__tick { fill: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.pgs-chart__hover { fill: color-mix(in srgb, var(--accent) 9%, transparent); }
+.pgs-chart__median { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.pgs-chart__median-dot { fill: var(--muted); }
+.pgs-chart__stem { stroke-width: 2; stroke-linecap: round; opacity: 0.55; }
+.pgs-chart__stem--better { stroke: var(--pgs-better); }
+.pgs-chart__stem--worse { stroke: var(--pgs-worse); }
+.pgs-chart__stem--even { stroke: var(--text); }
+.pgs-chart__dot { stroke: var(--surface); stroke-width: 2; }
+.pgs-chart__dot--better { fill: var(--pgs-better); }
+.pgs-chart__dot--worse { fill: var(--pgs-worse); }
+.pgs-chart__dot--even { fill: var(--text); }
+.pgs-chart__clip { stroke: none; }
+.pgs-chart__viewer { fill: none; stroke: var(--text); stroke-width: 1.75; }
+.pgs-chart__miss { fill: var(--muted); font-size: 14px; font-weight: 700; }
+.pgs-chart__mark { fill: var(--muted); font-size: 11px; }
+.pgs-chart__hit { fill: transparent; cursor: pointer; }
+
+.pgs-tip {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  min-width: 11rem;
+  max-width: 18rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 0.8rem;
+}
+.pgs-tip__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.3rem; }
+.pgs-tip__title { color: var(--text); font-weight: 700; }
+.pgs-tip__date { color: var(--muted); }
+.pgs-tip__row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.pgs-tip__key { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pgs-tip__row strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.pgs-note { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.75rem; }
