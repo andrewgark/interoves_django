@@ -9,6 +9,8 @@ from django.urls import reverse
 from games.community import game_month
 from games.community.stats import head_to_head
 from games.models import (
+    ChainTaskState,
+    CheckerType,
     DailyAggregateSnapshot,
     DailyAggregateSnapshotRow,
     DailyAggregateSnapshotVersion,
@@ -16,6 +18,7 @@ from games.models import (
     DailySolveTiming,
     Game,
     GameTaskGroup,
+    HTMLPage,
     PlayerCompletedGame,
     Profile,
     Project,
@@ -32,6 +35,10 @@ class GameMonthTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         Project.objects.get_or_create(pk='main', defaults={})
+        # A flushed --keepdb database loses migration data: make it explicit.
+        for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):
+            HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         cls.game, _ = Game.objects.get_or_create(
             id=GAME_ID, defaults={'name': 'Лесенка', 'author': 'test', 'author_extra': '', 'project_id': 'main'},
         )
@@ -194,3 +201,24 @@ class GameMonthTests(TestCase):
             actor_key=str(self.owner.pk), user=self.owner, hint_numbers=[1, 2],
         )
         self.assertEqual(self.month()['releases'][0]['p']['hints'], 2)
+
+
+class CensorlyHintTests(TestCase):
+    def test_hints_come_from_chain_state_key(self):
+        from games.community.game_month import _hint_counts
+        from games.models import Task
+
+        Project.objects.get_or_create(pk='main', defaults={})
+        for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):
+            HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
+        game = Game.objects.create(id='gm_censorly', name='Ц', author='t', author_extra='', project_id='main')
+        user = User.objects.create_user('gm_hinter')
+        with patch('games.realtime.track_compat.track_task_change'):
+            group = TaskGroup.objects.create(label='gm-c')
+            task = Task.objects.create(task_group=group, number='1', task_type='censorly', checker_data='{}', text='')
+        ChainTaskState.objects.create(
+            task=task, game=game, user=user, game_mode='general', state='{"hints_taken": 3, "guesses": []}',
+        )
+        counts = _hint_counts(game, 'censorly', [group.pk])
+        self.assertEqual(counts[(group.pk, ('user', str(user.pk)))], 3)

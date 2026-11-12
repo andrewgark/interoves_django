@@ -6,19 +6,22 @@ page, the viewer's own result. Medians use the same cohort as the release
 statistics page (public solvers, timer seconds), so the numbers agree.
 """
 
+import json
+import logging
 import statistics as stats_lib
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 
 from django.core.cache import caches
-from django.db.models import Count, Q
+from django.db import DatabaseError
+from django.db.models import Q
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
 from games.daily.page.section import MOSCOW
 from games.daily.registry import daily_game_counts_attempts, get_daily_game
 from games.models import (
-    Attempt,
     ChainTaskState,
     DailyAggregateSnapshot,
     DailyResultProjection,
@@ -31,11 +34,13 @@ from games.models import (
     TaskGroup,
 )
 
+logger = logging.getLogger(__name__)
+
 MONTH_NAMES = (
     '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 )
-BASELINE_CACHE_VERSION = 1
+BASELINE_CACHE_VERSION = 2
 # A release keeps collecting players for a few days; after that its median
 # barely moves, so it is cached for long in the shared statistics cache
 # (the default cache is per-process LocMem in production).
@@ -117,12 +122,34 @@ def _median(values):
 
 # --- hints -----------------------------------------------------------------
 
+def _censorly_hint_counts(game, group_ids, actor, out):
+    """``hints_taken`` read by the database.
+
+    Цензурка states carry the whole guess history: loading them, or scanning
+    ``#hint:`` attempts, took ~20 s for a month.
+    """
+    qs = ChainTaskState.objects.filter(
+        game=game, task__task_group_id__in=group_ids,
+        game_mode='general', replay_slot__isnull=True,
+    ).annotate(hints=KeyTextTransform('hints_taken', 'state')).filter(hints__isnull=False)
+    if actor is not None:
+        qs = qs.filter(_actor_row_q(actor))
+    for row in qs.values('task__task_group_id', 'team_id', 'user_id', 'anon_key', 'hints'):
+        key = _row_key(row)
+        try:
+            count = max(0, int(row['hints']))
+        except (TypeError, ValueError):
+            continue
+        if key:
+            out[(row['task__task_group_id'], key)] += count
+    return out
+
+
 def _hint_counts(game, task_type, group_ids, actor=None):
     """``{(group_id, actor_key): hints}``; only actors with a stored trace.
 
     Every game keeps its hints differently: Лесенка in the result
-    projection, Алфавитка and Салатик in the chain state, Цензурка as
-    ``#hint:`` attempts (its chain states are too heavy to load in bulk).
+    projection, the others in the chain state (Цензурка's is read by key).
     """
     out = defaultdict(int)
     if not group_ids:
@@ -135,20 +162,20 @@ def _hint_counts(game, task_type, group_ids, actor=None):
             out[(row['task_group_id'], (row['actor_type'], row['actor_key']))] += len(row['hint_numbers'] or [])
         return out
     if task_type == 'censorly':
-        qs = Attempt.manager.filter(
-            game=game, task__task_group_id__in=group_ids, skip=False,
-            replay_slot__isnull=True, text__startswith='#hint:',
-        )
-        if actor is not None:
-            qs = qs.filter(_actor_row_q(actor))
-        rows = qs.values('task__task_group_id', 'team_id', 'user_id', 'anon_key').annotate(n=Count('id'))
-        for row in rows:
-            key = _row_key(row)
-            if key:
-                out[(row['task__task_group_id'], key)] += row['n']
-        return out
-    if task_type in ('alphabetty', 'word_salad'):
-        if task_type == 'alphabetty':
+        try:
+            return _censorly_hint_counts(game, group_ids, actor, out)
+        except DatabaseError:
+            # A state that is not valid JSON makes the database refuse the
+            # key lookup for the whole query; parse in Python instead.
+            logger.warning('profile_censorly_hint_json_failed game=%s', game.pk, exc_info=True)
+            out.clear()
+    if task_type in ('alphabetty', 'word_salad', 'censorly'):
+        if task_type == 'censorly':
+            from games.puzzles.censorly.play import hint_count
+
+            def counter(state):
+                return hint_count(json.loads(state) if state else {})
+        elif task_type == 'alphabetty':
             from games.puzzles.alphabetty.play import hint_count, load_state
 
             def counter(state):
@@ -175,64 +202,118 @@ def _hint_counts(game, task_type, group_ids, actor=None):
     return out
 
 
-# --- per-release baseline (cached) ----------------------------------------
+# --- per-release baselines (cached) ---------------------------------------
 
-def _eligible_projection_rows(game, task_group):
-    """Public table rows of one release: the score cohort."""
-    authors = task_group.authors.values_list('user_id', flat=True)
-    return DailyResultProjection.objects.filter(
-        game=game, task_group=task_group, is_prepublication=False,
+def _compute_baselines(game, task_type, columns):
+    """Medians for every release in ``columns`` with a few bulk queries.
+
+    The cohort is the release statistics' one: public solvers (no authors,
+    no pre-publication players, no hidden actors), timed by the solve
+    timer. Running the statistics helpers per release cost ~7 queries a
+    release, which made the first view of a month take tens of seconds.
+    """
+    from games.daily.timing import canonical_elapsed_seconds, timing_row_preference
+    from games.results.snapshots.aggregate_snapshots import _authored_groups
+
+    group_ids = [col.link.task_group_id for col in columns]
+    by_user, by_team = _authored_groups(group_ids)
+
+    def written(group_id, key):
+        kind, value = key
+        if kind == 'user':
+            return group_id in by_user.get(int(value), ())
+        if kind == 'team':
+            return group_id in by_team.get(value, ())
+        return False
+
+    # Public table rows: the score cohort, and the pool solvers come from.
+    eligible = defaultdict(dict)
+    for group_id, kind, key, score, attempts in DailyResultProjection.objects.filter(
+        game=game, task_group_id__in=group_ids, is_prepublication=False,
     ).exclude(user__profile__is_hidden=True).exclude(team__is_hidden=True).exclude(
         anon_key__in=HiddenAnonKey.objects.values('anon_key'),
-    ).exclude(actor_type=DailyResultProjection.ACTOR_USER, user_id__in=authors)
+    ).values_list('task_group_id', 'actor_type', 'actor_key', 'score', 'attempts_count'):
+        if not written(group_id, (kind, key)):
+            eligible[group_id][(kind, key)] = (float(score), attempts)
+
+    solved = defaultdict(set)
+    for row in PlayerCompletedGame.objects.filter(
+        game=game, task_group_id__in=group_ids, result=PlayerCompletedGame.RESULT_SOLVED,
+    ).values('task_group_id', 'team_id', 'user_id', 'anon_key'):
+        key = _row_key(row)
+        if key and key in eligible[row['task_group_id']]:
+            solved[row['task_group_id']].add(key)
+
+    best = {}
+    for row in DailySolveTiming.objects.filter(
+        game=game, task_group_id__in=group_ids, replay_slot__isnull=True,
+        status=DailySolveTiming.STATUS_COMPLETED, timing_version__gte=1,
+    ).only(
+        'task_group_id', 'team_id', 'user_id', 'anon_key', 'status', 'frozen_ms',
+        'accumulated_ms', 'timing_version', 'completed_at', 'updated_at', 'pk',
+    ):
+        key = _row_key(row)
+        if not key or key not in solved[row.task_group_id]:
+            continue
+        slot = (row.task_group_id, key)
+        if slot not in best or timing_row_preference(row) > timing_row_preference(best[slot]):
+            best[slot] = row
+    times = defaultdict(list)
+    for (group_id, _key), row in best.items():
+        seconds = canonical_elapsed_seconds(game=game, timing_row=row)
+        if seconds is not None:
+            times[group_id].append(seconds)
+
+    hint_map = _hint_counts(game, task_type, group_ids)
+    counts_attempts = daily_game_counts_attempts(game.pk)
+    out = {}
+    for col in columns:
+        group_id = col.link.task_group_id
+        max_score = float(col.max_score) if col.max_score else None
+        rows = eligible[group_id]
+        solvers = solved[group_id]
+        out[group_id] = {
+            'time': _median(times[group_id]),
+            'att': _median([rows[key][1] for key in solvers]) if counts_attempts else None,
+            'hints': _median([hint_map.get((group_id, key), 0) for key in solvers]),
+            'score': _round(_median([score * 100 / max_score for score, _a in rows.values()])) if max_score else None,
+            'n': len(solvers),
+        }
+    return out
 
 
-def _compute_baseline(game, task_type, link, max_score, published_at):
-    from games.daily.timing.statistics import _completed_actors, _completed_time_map
-
-    task_group = link.task_group
-    solvers = _completed_actors(game, task_group, published_at=published_at)
-    solver_keys = list(solvers)
-    times = _completed_time_map(game, task_group, solver_keys) if solver_keys else {}
-    solver_set = {_norm_key(kind, value) for kind, value in solver_keys}
-
-    rows = list(_eligible_projection_rows(game, task_group).values_list(
-        'actor_type', 'actor_key', 'score', 'attempts_count',
-    ))
-    score_pcts = [
-        float(score) * 100 / max_score for _t, _k, score, _a in rows
-    ] if max_score else []
-    attempts = [
-        attempts for kind, key, _s, attempts in rows if (kind, key) in solver_set
-    ] if daily_game_counts_attempts(game.pk) else []
-    hint_map = _hint_counts(game, task_type, [task_group.pk])
-    hints = [hint_map.get((task_group.pk, key), 0) for key in solver_set]
-    return {
-        'time': _median(list(times.values())),
-        'att': _median(attempts),
-        'hints': _median(hints),
-        'score': _round(_median(score_pcts)),
-        'n': len(solver_set),
-    }
+def _baseline_key(game, group_id):
+    return 'profile-release-baseline:v{}:{}:{}'.format(BASELINE_CACHE_VERSION, game.pk, group_id)
 
 
-def release_baseline(game, task_type, link, max_score, published_at, *, now=None):
+def release_baselines(game, task_type, columns, *, now=None):
+    """``{group_id: baseline}``; cached per release, missing ones in bulk."""
     now = now or timezone.now()
-    key = 'profile-release-baseline:v{}:{}:{}'.format(BASELINE_CACHE_VERSION, game.pk, link.task_group_id)
     cache = caches['daily_statistics']
+    keys = {col.link.task_group_id: _baseline_key(game, col.link.task_group_id) for col in columns}
     try:
-        cached = cache.get(key)
+        cached = cache.get_many(list(keys.values()))
     except Exception:
-        cached = None
-    if cached is not None:
-        return cached
-    value = _compute_baseline(game, task_type, link, max_score, published_at)
-    settled = published_at is not None and now - published_at > BASELINE_FRESH_FOR
+        cached = {}
+    out = {group_id: cached[key] for group_id, key in keys.items() if key in cached}
+    missing = [col for col in columns if col.link.task_group_id not in out]
+    if not missing:
+        return out
+    fresh = _compute_baselines(game, task_type, missing)
+    settled, recent = {}, {}
+    for col in missing:
+        group_id = col.link.task_group_id
+        out[group_id] = fresh[group_id]
+        old = col.published_at is not None and now - col.published_at > BASELINE_FRESH_FOR
+        (settled if old else recent)[keys[group_id]] = fresh[group_id]
     try:
-        cache.set(key, value, BASELINE_TTL_SETTLED if settled else BASELINE_TTL_FRESH)
+        if settled:
+            cache.set_many(settled, BASELINE_TTL_SETTLED)
+        if recent:
+            cache.set_many(recent, BASELINE_TTL_FRESH)
     except Exception:
         pass
-    return value
+    return out
 
 
 # --- one actor's releases ---------------------------------------------------
@@ -406,6 +487,7 @@ def month_view(actor, game_id, month=None, *, viewer=None, now=None):
     mine = actor_releases(game, task_type, actor, group_ids)
     theirs = actor_releases(game, task_type, viewer, group_ids) if viewer is not None else None
     authored = authored_group_ids(actor, group_ids)
+    baselines = release_baselines(game, task_type, columns, now=now)
 
     duel = Duel() if theirs is not None else None
     releases = []
@@ -425,7 +507,7 @@ def month_view(actor, game_id, month=None, *, viewer=None, now=None):
                     gained += own['score']
             if own:
                 played += 1
-        base = release_baseline(game, task_type, col.link, max_score, col.published_at, now=now)
+        base = baselines[group_id]
         other = theirs.get(group_id) if theirs is not None else None
         if (duel is not None and own and other and own['score'] is not None and other['score'] is not None
                 and not own['pre'] and not other['pre']):
