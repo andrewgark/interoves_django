@@ -19,6 +19,7 @@ from django.utils import timezone
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.censorly.article.redact import (
     build_public_view,
+    lead_bracket_token_ids,
     newly_revealed_ids,
     title_opening_lemmas,
     token_by_id,
@@ -43,6 +44,7 @@ from games.site.http.middleware.request_timing import timing_phase
 
 CENSORLY_BASE_POINTS = 20
 CENSORLY_HINT_PENALTY = 1
+LEAD_BRACKET_HINT_ERROR = 'Нельзя открывать слова в скобках первого предложения'
 _WIKI_FETCHED_TZ = ZoneInfo('Europe/Moscow')
 # Phone keyboards autocorrect a word into «кот.» or wrap it in quotes.
 _GUESS_EDGE_PUNCTUATION = ' \t.,!?;:…"\'«»„“”()[]'
@@ -1098,6 +1100,8 @@ def apply_hint(
             'status': 'error',
             'error': 'Нельзя открывать слова, связанные со словами из названия',
         }
+    if int(tok['id']) in lead_bracket_token_ids(payload):
+        return {'status': 'error', 'error': LEAD_BRACKET_HINT_ERROR}
 
     unchanged = _unchanged_hint(move, move.read_state(), tok, lemma)
     if unchanged is not None:

@@ -24,6 +24,7 @@ def _token_public(
     title_lemmas: set[str],
     title_related_lemmas: set[str],
     show_endings: bool,
+    no_hint_ids: frozenset[int] | set[int] = frozenset(),
 ) -> dict[str, Any]:
     # Flags are sent only when true: a 7k-token article otherwise spends a
     # third of its JSON on "in_title":false, "guessed":false, "hinted":false.
@@ -83,6 +84,8 @@ def _token_public(
     player_opened = bool(lemma and lemma in revealed_lemmas)
     is_open = won or player_opened
     out['revealed'] = bool(is_open)
+    if not is_open and tok['id'] in no_hint_ids:
+        out['no_hint'] = True
     if player_opened:
         out['guessed'] = True
     if lemma and lemma in hinted_lemmas:
@@ -127,6 +130,7 @@ def build_public_view(
     title_lemmas = title_content_lemmas(payload) | title_lexeme_lemmas(payload)
     title_related_lemmas = title_opening_lemmas(payload) - title_lemmas
     endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
+    no_hint_ids = set() if won else lead_bracket_token_ids(payload)
     title = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
@@ -139,7 +143,7 @@ def build_public_view(
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
             title_lemmas=title_lemmas, title_related_lemmas=title_related_lemmas,
-            show_endings=endings_on,
+            show_endings=endings_on, no_hint_ids=no_hint_ids,
         )
         for t in (payload.get('body_tokens') or [])
     ]
@@ -163,6 +167,49 @@ def lemmas_matching_guess(
 
     tokens = all_tokens(payload) if tokens is None else tokens
     return matching_lemmas(tokens, guess_norm or guess_lemma, cache_key=cache_key)
+
+
+_OPEN_BRACKETS = '(['
+_CLOSE_BRACKETS = ')]'
+_SENTENCE_ENDS = '.!?…'
+
+
+def lead_bracket_token_ids(payload: dict[str, Any]) -> set[int]:
+    """Ids of the words inside brackets in the article's first sentence.
+
+    The lead's brackets hold the original-language name, the transcription
+    or the life dates of the subject, so a hint there gives the title away.
+    A full stop inside brackets («лат.», «англ.») does not end the sentence;
+    a line break always does.
+    """
+    out: set[int] = set()
+    depth = 0
+    for tok in payload.get('body_tokens') or ():
+        kind = tok.get('kind') or 'content'
+        surface = str(tok.get('surface') or '')
+        if kind in ('block', 'heading', 'heading_break') or tok.get('in_heading'):
+            if out or depth:
+                break
+            continue
+        if kind == 'space':
+            if '\n' in surface:
+                break
+            continue
+        if kind == 'punct':
+            ended = False
+            for char in surface:
+                if char in _OPEN_BRACKETS:
+                    depth += 1
+                elif char in _CLOSE_BRACKETS:
+                    depth = max(0, depth - 1)
+                elif char in _SENTENCE_ENDS and depth == 0:
+                    ended = True
+            if ended:
+                break
+            continue
+        if depth and kind == 'content':
+            out.add(int(tok['id']))
+    return out
 
 
 def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:

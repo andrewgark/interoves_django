@@ -3918,6 +3918,48 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(ok['hints_taken'], 1)
         self.assertEqual(ok['points'], 19)
 
+    def test_lead_bracket_token_ids(self):
+        from games.puzzles.censorly.article.redact import lead_bracket_token_ids
+        payload = build_puzzle_payload(
+            wiki_title='Пчела',
+            body_text=(
+                'Медоносная пчела (лат. Apis mellifera [пчела]) — вид пчёл (насекомых).\n'
+                'Пчёлы (рабочие) собирают мёд.'
+            ),
+        )
+        ids = lead_bracket_token_ids(payload)
+        words = [t['surface'] for t in payload['body_tokens'] if t['id'] in ids]
+        self.assertEqual(words, ['лат', 'Apis', 'mellifera', 'пчела', 'насекомых'])
+
+    def test_hint_forbidden_in_lead_brackets(self):
+        from games.puzzles.censorly.article.redact import build_public_view
+        from games.puzzles.censorly.play import apply_hint
+        puzzle = build_puzzle_payload(
+            wiki_title='Альфа',
+            body_text='Альфа (греческая буква) — первая буква. Бета (кошка) рядом.',
+        )
+        self.task.tags = {CENSORLY_TAGS_KEY: puzzle}
+        self.task.answer = 'Альфа'
+        self.task.save(update_fields=['tags', 'answer'])
+        by_surface = {
+            t['surface']: t for t in puzzle['body_tokens'] if t.get('kind') == 'content'
+        }
+        view = build_public_view(puzzle)
+        public = {t['id']: t for t in view['body_tokens']}
+        self.assertTrue(public[by_surface['греческая']['id']].get('no_hint'))
+        self.assertNotIn('no_hint', public[by_surface['кошка']['id']])
+
+        refused = apply_hint(
+            game=self.game, task=self.task, token_id=by_surface['греческая']['id'],
+            user=self.staff,
+        )
+        self.assertEqual(refused['status'], 'error')
+        ok = apply_hint(
+            game=self.game, task=self.task, token_id=by_surface['кошка']['id'],
+            user=self.staff,
+        )
+        self.assertEqual(ok['status'], 'hint')
+
     def test_hint_forbidden_on_any_title_lemma_in_body(self):
         """Title words repeated in the body stay unhintable."""
         from games.puzzles.censorly.play import apply_hint, puzzle_from_task

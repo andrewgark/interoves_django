@@ -178,6 +178,7 @@
     } else {
       mask.setAttribute('aria-label', 'скрытое слово, ' + lengthLabel);
     }
+    if (tok.no_hint) mask.dataset.noHint = '1';
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
     }
@@ -1740,6 +1741,10 @@
         if (root.classList.contains('censorly--hint-pick')) {
           if (mask.dataset.titleLemma === '1') {
             setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error', true);
+            return;
+          }
+          if (mask.dataset.noHint === '1') {
+            setFeedback(root, 'Нельзя открывать слова в скобках первого предложения', 'error', true);
             return;
           }
           runMove(hintUrl, { token_id: Number(mask.dataset.id) }, showHintResult);
