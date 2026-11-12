@@ -70,13 +70,20 @@ stats_month_url (month JSON with GAME / MONTH placeholders), stats_owner_name.{%
               {% endif %}
             </section>
             {% if game.has_month_view and stats_month_url %}
-              <section class="new-card pgs-month" aria-label="{{ game.name }}: по месяцам" data-pgs-card data-game="{{ game.game_id }}" data-url="{{ stats_month_url }}" data-owner="{{ stats_owner_name }}" data-owner-short="{{ stats_owner_short|default:stats_owner_name }}">
+              <section class="new-card pgs-month is-loading" aria-label="{{ game.name }}: по месяцам" data-pgs-card data-game="{{ game.game_id }}" data-url="{{ stats_month_url }}" data-owner="{{ stats_owner_name }}" data-owner-short="{{ stats_owner_short|default:stats_owner_name }}">
                 <div class="pgs-month__nav">
                   <button type="button" class="pgs-nav-btn" data-pgs-prev aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
                   <select class="pgs-month__select" data-pgs-month aria-label="Месяц"></select>
                   <button type="button" class="pgs-nav-btn" data-pgs-next aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
                 </div>
                 <div class="pgs-month__skeleton" data-pgs-skeleton aria-hidden="true"></div>
+                <div class="pgs-loader" role="status" aria-live="polite">
+                  <div class="pgs-loader__box">
+                    <span class="pgs-loader__spinner" aria-hidden="true"></span>
+                    <span class="pgs-loader__text">Загружаем…</span>
+                    <span class="pgs-loader__slow">Первый раз месяц считается дольше</span>
+                  </div>
+                </div>
                 <p class="pgs-month__error" data-pgs-error hidden>Не удалось загрузить месяц. <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-pgs-retry>Ещё раз</button></p>
                 <div class="pgs-month__body" data-pgs-body hidden>
                   <div class="pgs-kpis" data-pgs-kpis></div>

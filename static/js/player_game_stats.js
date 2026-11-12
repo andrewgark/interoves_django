@@ -17,6 +17,9 @@
   var TIME_CAP_MIN = 10 * 60;
   var TIME_CAP_MAX = 2 * 60 * 60;
   var CAP_MEDIAN_FACTOR = 3;
+  // After this long a loading month explains why: medians of a month nobody
+  // opened yet are computed on the first request.
+  var SLOW_HINT_MS = 1800;
 
   var METRICS = {
     time: { label: 'Время', lowerIsBetter: true },
@@ -391,7 +394,8 @@
   }
 
   function render(card, state) {
-    card.classList.remove('is-loading');
+    clearTimeout(state.slowTimer);
+    card.classList.remove('is-loading', 'is-slow');
     card.querySelector('[data-pgs-skeleton]').hidden = true;
     card.querySelector('[data-pgs-body]').hidden = false;
     card.querySelector('[data-pgs-error]').hidden = true;
@@ -409,8 +413,13 @@
       return;
     }
     card.classList.add('is-loading');
+    card.classList.remove('is-slow');
     var token = {};
     state.request = token;
+    clearTimeout(state.slowTimer);
+    state.slowTimer = setTimeout(function () {
+      if (state.request === token) card.classList.add('is-slow');
+    }, SLOW_HINT_MS);
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (response) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -426,7 +435,8 @@
       })
       .catch(function () {
         if (state.request !== token) return;
-        card.classList.remove('is-loading');
+        clearTimeout(state.slowTimer);
+        card.classList.remove('is-loading', 'is-slow');
         card.querySelector('[data-pgs-skeleton]').hidden = true;
         card.querySelector('[data-pgs-error]').hidden = false;
       });

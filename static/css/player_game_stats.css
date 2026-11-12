@@ -135,6 +135,43 @@ html.new-ui-dark .pgs {
 .pgs-month.is-loading .pgs-month__body { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
 @keyframes pgs-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .pgs-month__skeleton { animation: none; } }
+/* Spinner over the skeleton (first load) or the dimmed month (switching). */
+.pgs-loader {
+  position: absolute;
+  inset: 3.5rem 0 0;
+  z-index: 4;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+.pgs-month.is-loading .pgs-loader { display: flex; }
+.pgs-loader__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+.pgs-loader__spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: pgs-spin 0.8s linear infinite;
+}
+.pgs-loader__text { font-weight: 600; color: var(--text); }
+.pgs-loader__slow { display: none; max-width: 16rem; }
+.pgs-month.is-slow .pgs-loader__slow { display: block; }
+@keyframes pgs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pgs-loader__spinner { animation-duration: 2.4s; } }
 .pgs-month__error { color: var(--muted); font-size: 0.9rem; }
 
 .pgs-kpis {
