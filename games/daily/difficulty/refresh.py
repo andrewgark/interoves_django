@@ -76,6 +76,7 @@ def due_daily_difficulty_queryset(*, now=None, game_ids=None):
     queryset = DailyGameDifficulty.objects.filter(
         dirty=True,
         refresh_not_before__lte=now,
+        placement__is_deferred=False,
     ).filter(
         Q(refresh_claimed_until__isnull=True) | Q(refresh_claimed_until__lte=now),
     )

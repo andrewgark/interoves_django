@@ -13,6 +13,7 @@ from django.utils import timezone
 from games.daily.difficulty.core import (
     _censored_median,
     _public_context,
+    aggregate_actor_results,
     blend_difficulty_ratios,
     calculate_game_difficulty,
     calculate_observed_metrics,
@@ -28,6 +29,7 @@ from games.daily.difficulty.core import (
     paired_difficulty_ratios,
     persist_difficulty_snapshot,
     rate_difficulty_metrics,
+    ratio_score,
     refresh_due_daily_difficulties,
     refresh_historical_norm,
     refresh_interval_for_age,
@@ -251,6 +253,66 @@ class DifficultyStarQuantileTests(SimpleTestCase):
         )
         self.assertEqual(ranked['adjusted_rating'], absolute['adjusted_rating'])
         self.assertEqual(ranked['stars'], 5)
+
+
+class ContinuousRatioScoreTests(SimpleTestCase):
+    def test_rounding_reproduces_former_buckets(self):
+        bounds = (0.50, 0.80, 1.25, 2.00)
+        for ratio, bucket in ((0.3, 1), (0.6, 2), (1.0, 3), (1.5, 4), (3.0, 5)):
+            self.assertEqual(round(ratio_score(ratio, bounds)), bucket, ratio)
+
+    def test_score_is_monotonic_and_clamped(self):
+        bounds = (0.50, 0.80, 1.25, 2.00)
+        ratios = [0.05, 0.4, 0.5, 0.7, 1.0, 1.1, 1.6, 2.0, 2.5, 50]
+        scores = [ratio_score(ratio, bounds) for ratio in ratios]
+        self.assertEqual(scores, sorted(scores))
+        self.assertEqual((scores[0], scores[-1]), (1.0, 5.0))
+        self.assertAlmostEqual(ratio_score(1.0, bounds), 3.0)
+        self.assertLess(ratio_score(1.6, bounds), ratio_score(1.9, bounds))
+
+
+class CensoredAttemptsTests(SimpleTestCase):
+    def _row(self, attempts, *, completed=True, abandoned=False):
+        return {
+            'actor': 'a', 'completed': completed, 'abandoned': abandoned,
+            'time_seconds': 60.0, 'attempts': attempts, 'errors': 0,
+            'used_help': False, 'unfinished': not completed,
+        }
+
+    def test_quitters_do_not_pull_attempts_down(self):
+        rows = [self._row(30), self._row(40)] + [
+            self._row(3, completed=False, abandoned=True) for _ in range(3)
+        ]
+        metrics = aggregate_actor_results('censorly', rows)
+        self.assertTrue(metrics['median_attempts_censored'])
+        self.assertEqual(metrics['median_attempts'], 40)
+
+    def test_solved_edition_keeps_plain_median(self):
+        metrics = aggregate_actor_results('censorly', [self._row(10), self._row(20), self._row(30)])
+        self.assertFalse(metrics['median_attempts_censored'])
+        self.assertEqual(metrics['median_attempts'], 20)
+
+    def test_censored_attempts_below_norm_say_nothing(self):
+        rating = rate_difficulty_metrics(
+            'censorly',
+            _metrics(median_attempts=3, median_attempts_censored=True),
+            _norm(median_attempts=10),
+        )
+        self.assertIsNone(rating['ratios']['attempts'])
+        self.assertNotIn('attempts', rating['weights'])
+
+    def test_paired_attempts_count_quitters_as_harder(self):
+        history = [
+            {'completed': True, 'abandoned': False, 'time_seconds': 60, 'attempts': 10,
+             'errors': 0, 'used_help': False, 'unfinished': False}
+            for _ in range(3)
+        ]
+        rows = [dict(self._row(4, completed=False, abandoned=True), actor=str(index)) for index in range(3)]
+        rows.append(dict(self._row(10), actor='3'))
+        paired = paired_difficulty_ratios(rows, {str(index): history for index in range(4)})
+        self.assertIsNotNone(paired['ratios']['attempts'])
+        self.assertGreaterEqual(paired['ratios']['attempts'], 1.0)
+        self.assertEqual(paired['n']['attempts'], 4)
 
 
 class DifficultyCensoringTests(SimpleTestCase):
@@ -767,6 +829,35 @@ class CensorlyDifficultyObservationTests(TestCase):
         )
         self.assertEqual(get_cached_game_difficulties([self.random_placement]), {})
 
+    def test_deferred_editions_get_no_difficulty_row(self):
+        from games.daily.difficulty.core import _supported_placements, prune_deferred_difficulty_rows
+
+        parked = GameTaskGroup.objects.create(
+            game=self.random_placement.game,
+            task_group=TaskGroup.objects.create(label='censorly-parked'),
+            number='890031', name='parked', is_deferred=True,
+        )
+        self.assertIsNone(ensure_daily_difficulty_row(parked))
+        self.assertNotIn(parked.pk, {row.pk for row in _supported_placements(game_ids=('censorly',))})
+        DailyGameDifficulty.objects.create(placement=parked, n=0)
+        self.assertEqual(prune_deferred_difficulty_rows('censorly'), 1)
+        self.assertFalse(DailyGameDifficulty.objects.filter(placement=parked).exists())
+
+    def test_only_the_first_scheduled_edition_is_a_debut(self):
+        from games.daily.difficulty.core import is_debut_edition
+
+        game = self.random_placement.game
+        first = GameTaskGroup.objects.create(
+            game=game, task_group=TaskGroup.objects.create(label='censorly-first'),
+            number='1', name='1',
+        )
+        second = GameTaskGroup.objects.create(
+            game=game, task_group=TaskGroup.objects.create(label='censorly-second'),
+            number='2', name='2',
+        )
+        self.assertTrue(is_debut_edition(first))
+        self.assertFalse(is_debut_edition(second))
+
     def test_censorly_rating_uses_word_attempts_as_a_component(self):
         metrics = _metrics(median_attempts=10, median_errors=4)
         norm = _norm(median_attempts=5, median_errors=2)
@@ -774,7 +865,8 @@ class CensorlyDifficultyObservationTests(TestCase):
         rating = rate_difficulty_metrics('censorly', metrics, norm)
 
         self.assertEqual(rating['ratios']['attempts'], 2)
-        self.assertEqual(rating['scores']['attempts'], 5)
+        # Twice the usual attempts sits on the upper bound, between 4 and 5.
+        self.assertEqual(rating['scores']['attempts'], 4.5)
         self.assertEqual(rating['weights']['attempts'], 0.30)
 
 

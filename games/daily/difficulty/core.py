@@ -220,6 +220,15 @@ def _observation(game_id):
     return _DIFFICULTY_OBSERVATIONS.get(definition.difficulty_adapter_key)
 
 
+def _is_unrated_placement(placement) -> bool:
+    """Random games are permanent, and deferred editions are off the schedule.
+
+    A deferred edition keeps a parking number, from which the schedule derives
+    a meaningless publication date, so it gets no difficulty row.
+    """
+    return bool(getattr(placement, 'is_deferred', False)) or _is_random_daily_placement(placement)
+
+
 def _is_random_daily_placement(placement) -> bool:
     """Random Alphabetty and Censorly games are permanent, not daily editions."""
     if placement is None:
@@ -502,6 +511,18 @@ def aggregate_actor_results(game_id, rows):
         if row['abandoned'] or row['time_seconds'] is not None
     ]
     median_time, reached = _censored_median(time_observations)
+    # Attempts are censored like time: a player still guessing needs at least
+    # as many as so far, and one who gave up never gets there. A plain median
+    # let early quitters pull a hard edition's attempts down.
+    median_attempts, attempts_censored = None, False
+    if profile is not None and profile.median_attempts:
+        attempt_observations = [
+            (math.inf if row['abandoned'] else float(row['attempts']), row['completed'])
+            for row in rows
+            if row['abandoned'] or row['attempts'] is not None
+        ]
+        median_attempts, attempts_reached = _censored_median(attempt_observations)
+        attempts_censored = bool(attempt_observations) and not attempts_reached
     # Help and unfinished use the same cohort: players who started at least
     # UNFINISHED_WINDOW ago. Players still early in a game have not reached
     # for hints yet, so counting them would make a fresh edition look easy.
@@ -510,10 +531,8 @@ def aggregate_actor_results(game_id, rows):
         'n': n,
         'median_time': median_time,
         'median_time_censored': bool(time_observations) and not reached,
-        'median_attempts': (
-            _median([row['attempts'] for row in rows if row['attempts'] is not None])
-            if profile is not None and profile.median_attempts else None
-        ),
+        'median_attempts': median_attempts,
+        'median_attempts_censored': attempts_censored,
         'median_errors': (
             _median([row['errors'] for row in rows if row['errors'] is not None])
             if error_available else None
@@ -536,13 +555,27 @@ def calculate_observed_metrics(placement, *, now=None):
 
 
 def ratio_score(ratio, bounds):
+    """Continuous 1..5 component score, linear in the log of the ratio.
+
+    Each bound sits halfway between two whole scores (1.5, 2.5, 3.5, 4.5), so
+    rounding reproduces the former bucket. Past the outer bounds the nearest
+    slope continues until the score clamps at 1 or 5. Whole-number buckets made
+    many editions tie, and the per-game star ranking then sorted the ties by
+    player count through the shrinkage.
+    """
     if ratio is None or not math.isfinite(float(ratio)):
         return None
     ratio = float(ratio)
-    for score, upper in enumerate(bounds, start=1):
-        if ratio < upper:
-            return score
-    return 5
+    if ratio <= 0:
+        return 1.0
+    position = math.log(ratio)
+    logs = [math.log(bound) for bound in bounds]
+    segment = 0
+    while segment < len(logs) - 2 and position >= logs[segment + 1]:
+        segment += 1
+    low, high = logs[segment], logs[segment + 1]
+    score = 1.5 + segment + (position - low) / (high - low)
+    return min(5.0, max(1.0, score))
 
 
 def _ratio(value, typical, *, additive=0.0):
@@ -563,6 +596,7 @@ def _norm_values_from_snapshots(game_id):
         placement__game_id=game_id,
         placement__task_group__random_alphabetty_game__isnull=True,
         placement__task_group__random_censorly_game__isnull=True,
+        placement__is_deferred=False,
     ).only('n', 'payload')
     for row in rows.iterator():
         payload = row.payload or {}
@@ -611,7 +645,7 @@ def restar_game_snapshots(game_id, cutoffs):
     """
     changed = 0
     rows = DailyGameDifficulty.objects.filter(
-        placement__game_id=game_id, stars__isnull=False,
+        placement__game_id=game_id, placement__is_deferred=False, stars__isnull=False,
     ).only('stars', 'payload', 'calculated_at')
     for row in rows.iterator():
         payload = row.payload or {}
@@ -630,6 +664,18 @@ def restar_game_snapshots(game_id, cutoffs):
     return changed
 
 
+def prune_deferred_difficulty_rows(game_id):
+    """Drop never-played rows of deferred editions.
+
+    A row that has players keeps them: its per-player results still feed the
+    within-player comparison, and the edition may come back to the schedule.
+    """
+    stale = DailyGameDifficulty.objects.filter(
+        placement__game_id=game_id, placement__is_deferred=True, n=0,
+    ).exclude(placement__difficulty_actor_results__isnull=False)
+    return stale.delete()[0]
+
+
 def refresh_historical_norm(game_id, *, now=None):
     """Rebuild the cached same-type baseline and re-rank stored stars.
 
@@ -637,6 +683,7 @@ def refresh_historical_norm(game_id, *, now=None):
     were calculated with until new attempts arrive.
     """
     now = now or timezone.now()
+    prune_deferred_difficulty_rows(game_id)
     mature, available, ratings = _norm_values_from_snapshots(game_id)
     typical = {}
     sources = {}
@@ -713,9 +760,10 @@ def classic_difficulty_ratios(metrics, norm):
     time_ratio = _ratio(metrics.get('median_time'), norm.get('median_time'))
     if metrics.get('median_time_censored'):
         time_ratio = _censored_ratio(time_ratio)
+    attempts_ratio = _ratio(metrics.get('median_attempts'), norm.get('median_attempts'))
     return {
         'time': time_ratio,
-        'attempts': _ratio(metrics.get('median_attempts'), norm.get('median_attempts')),
+        'attempts': _censored_ratio(attempts_ratio) if metrics.get('median_attempts_censored') else attempts_ratio,
         'errors': _ratio(
             metrics.get('median_errors'),
             norm.get('median_errors'),
@@ -779,7 +827,8 @@ def paired_difficulty_ratios(actor_rows, histories):
     log ratios to the player's own median solve time.
     """
     time_observations = []
-    effort = {'attempts': [], 'errors': []}
+    attempt_observations = []
+    errors = []
     help_observed, help_expected = [], []
     unfinished_observed, unfinished_expected = [], []
     for row in actor_rows or ():
@@ -793,10 +842,18 @@ def paired_difficulty_ratios(actor_rows, histories):
                 time_observations.append((math.inf, False))
             elif row['time_seconds']:
                 time_observations.append((math.log(row['time_seconds']) - baseline, row['completed']))
-        for component in effort:
-            past_values = [item[component] for item in past if item[component] is not None]
-            if row[component] is not None and len(past_values) >= PAIRED_MIN_HISTORY:
-                effort[component].append((row[component] + 1.0) / (statistics.median(past_values) + 1.0))
+        # A player's own attempts baseline counts only editions they solved;
+        # this edition's count is censored the same way as in the aggregate.
+        solved_attempts = [item['attempts'] for item in past if item['completed'] and item['attempts'] is not None]
+        if len(solved_attempts) >= PAIRED_MIN_HISTORY:
+            baseline = math.log(statistics.median(solved_attempts) + 1.0)
+            if row['abandoned']:
+                attempt_observations.append((math.inf, False))
+            elif row['attempts'] is not None:
+                attempt_observations.append((math.log(row['attempts'] + 1.0) - baseline, row['completed']))
+        past_errors = [item['errors'] for item in past if item['errors'] is not None]
+        if row['errors'] is not None and len(past_errors) >= PAIRED_MIN_HISTORY:
+            errors.append((row['errors'] + 1.0) / (statistics.median(past_errors) + 1.0))
         settled_past = [item for item in past if item['unfinished'] is not None]
         if row['unfinished'] is None or len(settled_past) < PAIRED_MIN_HISTORY:
             continue
@@ -809,18 +866,22 @@ def paired_difficulty_ratios(actor_rows, histories):
     time_ratio = None if log_median is None else math.exp(log_median)
     if time_observations and not reached:
         time_ratio = _censored_ratio(time_ratio)
+    log_attempts, attempts_reached = _censored_median(attempt_observations)
+    attempts_ratio = None if log_attempts is None else math.exp(log_attempts)
+    if attempt_observations and not attempts_reached:
+        attempts_ratio = _censored_ratio(attempts_ratio)
     return {
         'ratios': {
             'time': time_ratio,
-            'attempts': _median(effort['attempts']),
-            'errors': _median(effort['errors']),
+            'attempts': attempts_ratio,
+            'errors': _median(errors),
             'help': _rate_ratio(help_observed, help_expected),
             'unfinished': _rate_ratio(unfinished_observed, unfinished_expected),
         },
         'n': {
             'time': len(time_observations),
-            'attempts': len(effort['attempts']),
-            'errors': len(effort['errors']),
+            'attempts': len(attempt_observations),
+            'errors': len(errors),
             'help': len(help_observed),
             'unfinished': len(unfinished_observed),
         },
@@ -897,6 +958,29 @@ def rate_difficulty_metrics(game_id, metrics, norm, *, ratios=None):
     }
 
 
+def is_debut_edition(placement):
+    """The first scheduled edition of a game measures learning the format.
+
+    Nobody has earlier editions there, so the within-player comparison cannot
+    correct for it, and players new to the rules quit far more often: every
+    game's debut used to rank among its hardest. It shows no stars and stays
+    out of the star cutoffs (both follow ``is_visible``).
+    """
+    first = GameTaskGroup.try_number_key(placement.number)
+    if first is None:
+        return False
+    numbers = GameTaskGroup.objects.filter(
+        game_id=placement.game_id,
+        is_deferred=False,
+        task_group__random_alphabetty_game__isnull=True,
+        task_group__random_censorly_game__isnull=True,
+    ).exclude(pk=placement.pk).values_list('number', flat=True)
+    return not any(
+        key is not None and key < first
+        for key in map(GameTaskGroup.try_number_key, numbers)
+    )
+
+
 def calculate_game_difficulty(placement, *, now=None, metrics=None, actor_rows=None, save=False):
     """Calculate a structured rating for one ``GameTaskGroup`` placement.
 
@@ -906,7 +990,7 @@ def calculate_game_difficulty(placement, *, now=None, metrics=None, actor_rows=N
     The result carries ``actor_rows`` for ``persist_difficulty_snapshot``,
     which stores them and removes the key before writing the payload.
     """
-    if placement.game_id not in SUPPORTED_GAME_IDS or _is_random_daily_placement(placement):
+    if placement.game_id not in SUPPORTED_GAME_IDS or _is_unrated_placement(placement):
         return None
     now = now or timezone.now()
     if metrics is None:
@@ -922,7 +1006,11 @@ def calculate_game_difficulty(placement, *, now=None, metrics=None, actor_rows=N
     paired = paired_difficulty_ratios(actor_rows, histories)
     ratios, blend_weights = blend_difficulty_ratios(classic, paired)
     rating = rate_difficulty_metrics(placement.game_id, metrics, norm, ratios=ratios)
+    debut = is_debut_edition(placement)
+    if debut:
+        rating.update(is_visible=False, is_preliminary=False)
     result = {
+        'is_debut': debut,
         'game_id': placement.game_id,
         'placement_id': placement.pk,
         'number': placement.number,
@@ -1065,6 +1153,7 @@ def _supported_placements(*, game_ids=None):
             task_group__tasks__task_type__in=[TASK_TYPE_BY_GAME_ID[g] for g in game_ids],
             task_group__random_alphabetty_game__isnull=True,
             task_group__random_censorly_game__isnull=True,
+            is_deferred=False,
         )
         .select_related('game', 'task_group')
         .distinct()
@@ -1120,7 +1209,7 @@ def ensure_daily_difficulty_row(placement, *, now=None):
     if (
         placement is None
         or placement.game_id not in SUPPORTED_GAME_IDS
-        or _is_random_daily_placement(placement)
+        or _is_unrated_placement(placement)
     ):
         return None
     now = now or timezone.now()
@@ -1166,6 +1255,7 @@ def sync_daily_difficulty_schedule(game, *, now=None):
         game.task_group_links.select_related('game', 'task_group').filter(
             task_group__random_alphabetty_game__isnull=True,
             task_group__random_censorly_game__isnull=True,
+            is_deferred=False,
         )
     )
     snapshots = {
@@ -1212,7 +1302,7 @@ def ensure_recent_difficulty_rows(*, now=None, game_ids=None):
         hi = int(current) + RECENT_ENSURE_AHEAD_NUMBERS
         numbers = [str(number) for number in range(lo, hi + 1)]
         placements = (
-            GameTaskGroup.objects.filter(game_id=game_id, number__in=numbers)
+            GameTaskGroup.objects.filter(game_id=game_id, number__in=numbers, is_deferred=False)
             .select_related('game')
         )
         existing = set(
@@ -1415,7 +1505,7 @@ def get_cached_game_difficulties(placements):
         placement
         for placement in placements
         if placement.game_id in SUPPORTED_GAME_IDS
-        and not _is_random_daily_placement(placement)
+        and not _is_unrated_placement(placement)
     ]
     if not eligible:
         return {}
@@ -1435,7 +1525,7 @@ def get_game_difficulty(placement, *, force=False, now=None):
     if (
         placement is None
         or placement.game_id not in SUPPORTED_GAME_IDS
-        or _is_random_daily_placement(placement)
+        or _is_unrated_placement(placement)
     ):
         return None
     if force:
