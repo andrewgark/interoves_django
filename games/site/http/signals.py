@@ -230,6 +230,10 @@ def create_profile(sender, **kw):
     # fields, timezone, Telegram, or team selection. OAuth data only fills
     # values that are still empty.
     updates = []
+    if profile.avatar_source == 'removed':
+        # The player removed their photo; a newly linked account must not
+        # bring one back.
+        avatar_url = ''
     for field, value in (
         ('first_name', first_name),
         ('last_name', last_name),

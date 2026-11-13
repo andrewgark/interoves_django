@@ -303,9 +303,15 @@ def _merge_profiles(target_user, source_user, summary):
     updates = []
     for field in ('first_name', 'last_name', 'avatar_url', 'vk_url', 'email', 'telegram_handle'):
         source_value = getattr(source, field)
+        if field == 'avatar_url' and target.avatar_source == 'removed':
+            continue
         if source_value and not getattr(target, field):
             setattr(target, field, source_value)
             updates.append(field)
+            if field == 'avatar_url':
+                target.avatar_source = source.avatar_source
+                target.avatar_origin = source.avatar_origin
+                updates += ['avatar_source', 'avatar_origin']
 
     source_has_verified_telegram = bool(
         getattr(source, 'telegram_verified', False)

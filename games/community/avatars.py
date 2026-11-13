@@ -123,13 +123,53 @@ def _hosted_by(provider, url):
     return any(host == suffix or host.endswith('.' + suffix) for suffix in _PROVIDER_HOSTS.get(provider, ()))
 
 
+def download_provider_photo(provider, url):
+    """Bytes of a provider-hosted photo, or ``None``.
+
+    Only the provider's own HTTPS hosts are fetched and redirects are not
+    followed, so the server cannot be pointed at anything else.
+    """
+    if not str(url).startswith('https://') or not _hosted_by(provider, url):
+        return None
+    try:
+        response = requests.get(
+            url, timeout=(3, 8), stream=True, allow_redirects=False,
+            headers={'User-Agent': 'Mozilla/5.0 (compatible; InteroveBot/1.0)'},
+        )
+        with response:
+            if response.status_code != 200:
+                return None
+            chunks, size = [], 0
+            for chunk in response.iter_content(64 * 1024):
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    return None
+                chunks.append(chunk)
+            return b''.join(chunks)
+    except requests.RequestException:
+        logger.info('Provider avatar download failed for %s', provider)
+        return None
+
+
+def _copy_or_link(profile, provider, url):
+    """Keep our own copy of a provider photo; link it if the copy fails."""
+    data = download_provider_photo(provider, url)
+    if data:
+        try:
+            _apply(profile, store_image(data), provider, url)
+            return
+        except ValidationError:
+            pass
+    _apply(profile, url, provider, url)
+
+
 def refresh_from_login(account):
     """Follow the provider's current photo when the player uses it.
 
     Provider photo links go stale (Telegram and VK change them when the photo
     changes, Google retires old ones), while allauth refreshes ``extra_data``
-    on every login. Only a photo already coming from this provider is
-    replaced: uploads and another provider's photo stay as chosen.
+    on every login. Only a photo already coming from this provider changes:
+    uploads, a removed photo and another provider's photo stay as chosen.
     """
     from games.models import Profile
 
@@ -139,11 +179,31 @@ def refresh_from_login(account):
     fresh = (pick(account.extra_data or {}) or '').strip()
     if not fresh.startswith('https://'):
         return
-    profile = Profile.objects.filter(user_id=account.user_id).only('user_id', 'avatar_url').first()
-    if profile is None or not profile.avatar_url or profile.avatar_url == fresh:
+    profile = Profile.objects.filter(user_id=account.user_id).first()
+    if profile is None or not profile.avatar_url:
         return
-    if _hosted_by(account.provider, profile.avatar_url):
-        Profile.objects.filter(pk=profile.pk, avatar_url=profile.avatar_url).update(avatar_url=fresh)
+    if profile.avatar_source == account.provider:
+        if profile.avatar_origin != fresh:
+            _copy_or_link(profile, account.provider, fresh)
+    elif not profile.avatar_source and _hosted_by(account.provider, profile.avatar_url):
+        # Set before the picker existed: keep it a cheap link swap, no download
+        # inside the login request.
+        if profile.avatar_url != fresh:
+            Profile.objects.filter(pk=profile.pk, avatar_url=profile.avatar_url).update(avatar_url=fresh)
+
+
+def stale_legacy_links(profile, accounts):
+    """Fresh provider URL for a pre-picker photo whose link went stale, or ''."""
+    if profile.avatar_source or not profile.avatar_url:
+        return ''
+    for account in accounts:
+        pick = _PROVIDER_URL.get(account.provider)
+        if pick is None or not _hosted_by(account.provider, profile.avatar_url):
+            continue
+        fresh = (pick(account.extra_data or {}) or '').strip()
+        if fresh.startswith('https://') and fresh != profile.avatar_url:
+            return fresh
+    return ''
 
 
 # --- Uploaded files --------------------------------------------------------
@@ -222,8 +282,8 @@ def delete_uploaded(url):
 def fetch_telegram_photo(telegram_user_id):
     """Download the player's current Telegram photo through the Bot API.
 
-    Returns raw bytes or ``None`` (no photo, hidden by privacy settings, or
-    Telegram unavailable). The file URL contains the bot token, so it is
+    Returns ``(bytes, file_unique_id)`` or ``None`` (no photo, hidden by
+    privacy settings, or Telegram unavailable). The file URL contains the bot token, so it is
     never stored or shown.
     """
     from games.ops.telegram.transport.api import _api_url, _safe_error_text
@@ -240,8 +300,8 @@ def fetch_telegram_photo(telegram_user_id):
             return None
         # Sizes are ascending; take the largest that is still avatar-sized.
         fitting = [size for size in sizes if max(size.get('width', 0), size.get('height', 0)) <= 800]
-        file_id = (fitting or sizes)[-1]['file_id']
-        info = requests.get(_api_url('getFile'), params={'file_id': file_id}, timeout=10).json()
+        chosen = (fitting or sizes)[-1]
+        info = requests.get(_api_url('getFile'), params={'file_id': chosen['file_id']}, timeout=10).json()
         file_path = (info.get('result') or {}).get('file_path')
         if not info.get('ok') or not file_path:
             return None
@@ -250,7 +310,7 @@ def fetch_telegram_photo(telegram_user_id):
             timeout=15,
         )
         response.raise_for_status()
-        return response.content
+        return response.content, chosen.get('file_unique_id') or ''
     except Exception as error:
         logger.warning('Telegram avatar fetch failed: %s', _safe_error_text(error))
         return None
@@ -262,12 +322,25 @@ class AvatarError(Exception):
     pass
 
 
-def _set_avatar_url(profile, url):
+def _apply(profile, url, source, origin=''):
     previous = profile.avatar_url
     profile.avatar_url = url
-    profile.save(update_fields=['avatar_url'])
+    profile.avatar_source = source
+    profile.avatar_origin = origin
+    profile.save(update_fields=['avatar_url', 'avatar_source', 'avatar_origin'])
     if previous != url:
         delete_uploaded(previous)
+
+
+def current_source(profile, sources):
+    """Key of the picker button that matches the current photo, or ''."""
+    if not profile.avatar_url:
+        return ''
+    if profile.avatar_source:
+        return profile.avatar_source
+    if is_uploaded_avatar_url(profile.avatar_url):
+        return 'upload'
+    return next((source.key for source in sources if source.matches(profile.avatar_url)), '')
 
 
 def use_source(profile, key):
@@ -275,16 +348,17 @@ def use_source(profile, key):
     if source is None:
         raise AvatarError('Этот аккаунт не подключён или в нём нет фото.')
     if source.url:
-        _set_avatar_url(profile, source.url)
+        _copy_or_link(profile, key, source.url)
         return
-    data = fetch_telegram_photo(profile.telegram_user_id)
-    if not data:
+    fetched = fetch_telegram_photo(profile.telegram_user_id)
+    if not fetched:
         raise AvatarError(
             'Telegram не отдал фото. Проверьте, что оно есть и видно всем '
             '(Настройки → Конфиденциальность → Фотография профиля).'
         )
+    data, unique_id = fetched
     try:
-        _set_avatar_url(profile, store_image(data))
+        _apply(profile, store_image(data), key, 'tg:' + unique_id if unique_id else '')
     except ValidationError as exc:
         raise AvatarError(exc.messages[0]) from exc
 
@@ -293,10 +367,10 @@ def use_upload(profile, uploaded_file):
     if uploaded_file.size > MAX_UPLOAD_BYTES:
         raise AvatarError('Файл больше 8 МБ.')
     try:
-        _set_avatar_url(profile, store_image(uploaded_file.read()))
+        _apply(profile, store_image(uploaded_file.read()), 'upload')
     except ValidationError as exc:
         raise AvatarError(exc.messages[0]) from exc
 
 
 def remove(profile):
-    _set_avatar_url(profile, '')
+    _apply(profile, '', 'removed')

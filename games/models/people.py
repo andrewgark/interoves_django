@@ -340,6 +340,13 @@ class Profile(models.Model):
     avatar_hidden = models.BooleanField(
         default=False, verbose_name='Не показывать фото другим',
     )
+    # Where avatar_url came from: '' (set before the picker existed), 'upload',
+    # a provider key ('vk', 'google', 'yandex', 'telegram'), or 'removed' —
+    # the player removed the photo, so logins must not bring one back.
+    avatar_source = models.CharField(max_length=16, blank=True, default='')
+    # Provider URL (or 'tg:<file_unique_id>') the stored copy was made from;
+    # a login re-copies the photo only when this changes.
+    avatar_origin = models.TextField(blank=True, default='')
 
     def __str__(self):
         return self.first_name + ' ' + self.last_name

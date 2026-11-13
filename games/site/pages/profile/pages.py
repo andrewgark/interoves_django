@@ -274,10 +274,7 @@ def profile(request, project_id=None):
         'profile_avatar_url': profile_avatar_url,
         'profile_avatar_hidden': profile_avatar_hidden,
         'profile_avatar_sources': avatar_sources,
-        'profile_avatar_current_source': next(
-            (source.key for source in avatar_sources if source.matches(profile_avatar_url)),
-            'upload' if avatars.is_uploaded_avatar_url(profile_avatar_url) else '',
-        ),
+        'profile_avatar_current_source': avatars.current_source(profile, avatar_sources),
         'profile_avatar_untrusted': bool(profile_avatar_url) and not is_trusted_avatar_url(profile_avatar_url),
         'profile_avatar_max_mb': avatars.MAX_UPLOAD_BYTES // (1024 * 1024),
         'profile_timezone_label': _utc_offset_label(profile_timezone),

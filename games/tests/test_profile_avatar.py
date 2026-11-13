@@ -60,6 +60,10 @@ class AvatarTestBase(TestCase):
         })
         self.client = Client()
         self.client.login(username='av_owner', password='secret')
+        # No network in tests: provider downloads fail unless a test says so.
+        download = patch.object(avatars, 'download_provider_photo', return_value=None)
+        self.download = download.start()
+        self.addCleanup(download.stop)
 
     def post(self, **data):
         return self.client.post(reverse('ui_profile_avatar'), data)
@@ -90,10 +94,20 @@ class ProviderSourceTests(AvatarTestBase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.avatar_url, 'https://t.me/i/userpic/320/x.jpg')
 
-    def test_pick_vk(self):
+    def test_pick_vk_keeps_our_own_copy(self):
+        self.download.return_value = _png()
+        self.post(action='source:vk')
+        self.download.assert_called_once_with('vk', VK_PHOTO)
+        self.profile.refresh_from_db()
+        self.assertTrue(avatars.is_uploaded_avatar_url(self.profile.avatar_url))
+        self.assertEqual((self.profile.avatar_source, self.profile.avatar_origin), ('vk', VK_PHOTO))
+        body = self.client.get(reverse('new_profile') + '?edit=1').content.decode()
+        self.assertIn('new-profile-avatar__source--vk is-current', body)
+
+    def test_pick_vk_links_when_download_fails(self):
         self.post(action='source:vk')
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.avatar_url, VK_PHOTO)
+        self.assertEqual((self.profile.avatar_url, self.profile.avatar_source), (VK_PHOTO, 'vk'))
 
     def test_unconnected_source_is_refused(self):
         self.post(action='source:yandex')
@@ -103,11 +117,12 @@ class ProviderSourceTests(AvatarTestBase):
     @override_settings(TELEGRAM_BOT_TOKEN='token')
     def test_bot_telegram_photo_is_downloaded_and_stored(self):
         Profile.objects.filter(pk=self.profile.pk).update(telegram_user_id=777)
-        with patch.object(avatars, 'fetch_telegram_photo', return_value=_png()) as fetch:
+        with patch.object(avatars, 'fetch_telegram_photo', return_value=(_png(), 'AQADuid')) as fetch:
             self.post(action='source:telegram')
         fetch.assert_called_once_with(777)
         self.profile.refresh_from_db()
         self.assertTrue(avatars.is_uploaded_avatar_url(self.profile.avatar_url), self.profile.avatar_url)
+        self.assertEqual((self.profile.avatar_source, self.profile.avatar_origin), ('telegram', 'tg:AQADuid'))
 
     @override_settings(TELEGRAM_BOT_TOKEN='token')
     def test_bot_telegram_without_photo_keeps_current(self):
@@ -150,8 +165,13 @@ class UploadTests(AvatarTestBase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/a=s96-c')
 
-    def test_remove(self):
+    def test_remove_survives_linking_another_account(self):
         self.post(action='remove')
+        self.profile.refresh_from_db()
+        self.assertEqual((self.profile.avatar_url, self.profile.avatar_source), ('', 'removed'))
+        SocialAccount.objects.create(user=self.user, provider='yandex', uid='3', extra_data={
+            'default_avatar_id': '123/abc',
+        })
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.avatar_url, '')
 
@@ -197,7 +217,22 @@ class RefreshOnLoginTests(AvatarTestBase):
         social_account_updated.send(sender=SocialLogin, request=None, sociallogin=SocialLogin(account=account))
         self.profile.refresh_from_db()
 
-    def test_photo_from_this_provider_follows_the_new_link(self):
+    def test_copied_photo_is_recopied_only_when_the_provider_photo_changes(self):
+        self.download.return_value = _png()
+        self.post(action='source:google')
+        self.profile.refresh_from_db()
+        first = self.profile.avatar_url
+        self.download.reset_mock()
+        self.login_refresh('google', picture='https://lh3.googleusercontent.com/a=s96-c')
+        self.download.assert_not_called()
+        self.assertEqual(self.profile.avatar_url, first)
+        self.login_refresh('google', picture='https://lh3.googleusercontent.com/new=s96-c')
+        self.download.assert_called_once_with('google', 'https://lh3.googleusercontent.com/new=s400-c')
+        self.assertNotEqual(self.profile.avatar_url, first)
+        self.assertTrue(avatars.is_uploaded_avatar_url(self.profile.avatar_url))
+        self.assertFalse(default_storage.exists(avatars.uploaded_name(first)))
+
+    def test_legacy_photo_from_this_provider_follows_the_new_link(self):
         self.login_refresh('google', picture='https://lh3.googleusercontent.com/new=s96-c')
         self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/new=s400-c')
 
@@ -206,7 +241,40 @@ class RefreshOnLoginTests(AvatarTestBase):
         self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/a=s96-c')
 
     def test_upload_and_removed_photo_are_kept(self):
-        for kept in ('/media/avatars/' + 'a' * 32 + '.jpg', ''):
-            Profile.objects.filter(pk=self.profile.pk).update(avatar_url=kept)
+        for kept, source in (('/media/avatars/' + 'a' * 32 + '.jpg', 'upload'), ('', 'removed')):
+            Profile.objects.filter(pk=self.profile.pk).update(avatar_url=kept, avatar_source=source)
             self.login_refresh('google', picture='https://lh3.googleusercontent.com/new=s96-c')
             self.assertEqual(self.profile.avatar_url, kept)
+
+
+class DownloadGuardTests(TestCase):
+    def test_only_provider_hosts_are_fetched(self):
+        with patch.object(avatars.requests, 'get') as get:
+            for provider, url in (
+                ('vk', 'https://evil.example/a.jpg'), ('vk', 'http://sun6-21.userapi.com/a.jpg'),
+                ('google', 'https://sun6-21.userapi.com/a.jpg'), ('vk', 'https://169.254.169.254/latest'),
+            ):
+                self.assertIsNone(avatars.download_provider_photo(provider, url))
+            get.assert_not_called()
+
+
+class MergeAvatarTests(TestCase):
+    def test_merge_carries_source_and_respects_removal(self):
+        from games.identity.merge import account as merge
+
+        Project.objects.get_or_create(pk='main', defaults={})
+        target = Profile.objects.create(user=User.objects.create_user('mg_t'), first_name='A', last_name='B')
+        source = Profile.objects.create(
+            user=User.objects.create_user('mg_s'), first_name='A', last_name='B',
+            avatar_url=VK_PHOTO, avatar_source='vk', avatar_origin=VK_PHOTO,
+        )
+        merge._merge_profiles(target.user, source.user, {})
+        target.refresh_from_db()
+        self.assertEqual((target.avatar_url, target.avatar_source), (VK_PHOTO, 'vk'))
+
+        removed = Profile.objects.create(
+            user=User.objects.create_user('mg_r'), first_name='A', last_name='B', avatar_source='removed',
+        )
+        merge._merge_profiles(removed.user, source.user, {})
+        removed.refresh_from_db()
+        self.assertFalse(removed.avatar_url)
