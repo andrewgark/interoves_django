@@ -86,6 +86,14 @@ def invalidate_monthly_release_index(game_id):
     transaction.on_commit(advance_generation, robust=True)
 
 
+def _average_display(value):
+    """Averages of whole counts read as ``19`` or ``19.3``, never ``19.0``."""
+    if value is None:
+        return None
+    value = round(float(value), 1)
+    return int(value) if value.is_integer() else value
+
+
 def _format_aggregate_time(seconds):
     if seconds is None:
         return ''
@@ -1070,7 +1078,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         score = result['window_score']
         if 'avg_time' in result:
             score = round(float(score), 2)
-            attempts = round(float(attempts), 1) if attempts is not None else None
+            attempts = _average_display(attempts)
         rows.append({
             'actor': actor, 'actor_label': _actor_presentation(actor)[0],
             'actor_kind': _actor_presentation(actor)[1], 'place': result['place'],

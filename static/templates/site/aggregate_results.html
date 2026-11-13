@@ -88,7 +88,7 @@
         <th scope="col" class="is-sticky-left is-sticky-top aggregate-place" data-tooltip="Место" aria-label="Место">#</th>
         <th scope="col" class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
         {% if aggregate_averages %}
-        <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Средний балл за выпуск: по всем выпускам месяца, кроме своих; пропущенный выпуск — 0" aria-label="Средний балл"><span class="aggregate-avg-mark" aria-hidden="true">ср.</span></th>
+        <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Средний балл за выпуск: по всем выпускам месяца, кроме своих и сыгранных до публикации; пропущенный выпуск — 0" aria-label="Средний балл"><span class="aggregate-avg-mark" aria-hidden="true">ср.</span></th>
         <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" data-tooltip="Среднее время решения по сыгранным выпускам" aria-label="Среднее время"><i class="ph ph-clock" aria-hidden="true"></i></th>
         {% if aggregate_show_attempts %}<th scope="col" class="is-sticky-top aggregate-attempts results-attempts" data-tooltip="Среднее число попыток по сыгранным выпускам" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
         {% else %}

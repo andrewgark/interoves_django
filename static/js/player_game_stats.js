@@ -86,11 +86,13 @@
       });
     });
     var maxMedian = medians.length ? Math.max.apply(null, medians) : 0;
-    var cap = null;
+    // Hints are a handful at most: never clipped. Time and attempts can run
+    // away (a night-long solve, a hundred guesses).
+    var cap = Infinity;
     if (metric === 'time') {
       cap = Math.min(TIME_CAP_MAX, Math.max(TIME_CAP_MIN, maxMedian * CAP_MEDIAN_FACTOR));
-    } else {
-      cap = Math.max(metric === 'hints' ? 4 : 10, maxMedian * CAP_MEDIAN_FACTOR);
+    } else if (metric === 'att') {
+      cap = Math.max(10, maxMedian * CAP_MEDIAN_FACTOR);
     }
     var maxValue = Math.max.apply(null, [maxMedian].concat(values).concat([metric === 'time' ? 60 : 1]));
     var top = Math.min(maxValue, cap);
@@ -402,7 +404,7 @@
       tile('#' + kpi.places.place_tie, kpi.places.tie_label, 'Место в таблице месяца, если при равном среднем балле учитывать ' + (kpi.places.tie_label === 'с учётом попыток' ? 'попытки' : 'время'));
     }
     if (kpi.score_pct !== null) {
-      tile(kpi.score_pct + '%', 'баллов', 'Набранные баллы от максимума по всем выпускам месяца, кроме авторских');
+      tile(kpi.score_pct + '%', 'баллов', 'Набранные баллы от максимума по всем выпускам месяца, кроме своих и сыгранных до публикации');
     }
     tile(kpi.played + ' из ' + kpi.eligible, plural(kpi.eligible, ['выпуска', 'выпусков', 'выпусков']) + ' сыграно');
     if (kpi.authored) tile(String(kpi.authored), plural(kpi.authored, ['выпуск', 'выпуска', 'выпусков']) + ' как автор');

@@ -53,3 +53,9 @@ assert.strictEqual(worst[1].label, '3× медианы');
 var worstScore = stats.worstReleases([{ n: 7, m: { score: 100 }, p: { score: 60 } }], 'score', 3);
 assert.strictEqual(worstScore[0].label, '60% при медиане 100%');
 console.log('worst releases tests passed');
+
+// Hints are never clipped, however far from the median.
+var hints = stats.yDomain([{ m: { hints: 0 }, p: { hints: 9 }, v: null }], 'hints', all);
+assert.strictEqual(hints.cap, null);
+assert.ok(hints.top >= 9);
+console.log('hint axis tests passed');

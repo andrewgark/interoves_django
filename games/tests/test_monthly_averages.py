@@ -20,8 +20,12 @@ from games.models import (
     Team,
 )
 from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page, snapshot_actor_place
-from games.results.snapshots.aggregate_snapshots import _authored_groups, _eligible_count
-from games.results.standings.aggregate_leaderboard import _projection_rank_page
+from games.results.snapshots.aggregate_snapshots import (
+    _authored_groups,
+    _eligible_count,
+    _prepublication_groups,
+)
+from games.results.standings.aggregate_leaderboard import _average_display, _projection_rank_page
 
 ALL = {'user', 'team', 'anon'}
 
@@ -145,3 +149,26 @@ class SnapshotBuildTimedCountTests(TestCase):
         # Release 1 has a timer, release 2 a fallback duration, release 3 nothing.
         self.assertEqual(int(rows[0]['timed_count']), 2)
         self.assertEqual(float(rows[0]['total_time_ms']), 90_000)
+
+
+class PrepublicationAndDisplayTests(TestCase):
+    def test_tested_release_is_not_a_skipped_one(self):
+        game = make_game('prepub_test')
+        tester = User.objects.create_user('pp_tester')
+        Profile.objects.create(user=tester, first_name='T', last_name='T')
+        groups = [TaskGroup.objects.create(label='pp-{}'.format(i)) for i in range(3)]
+        groups[0].authors.add(tester.profile)
+        for group, pre in ((groups[0], True), (groups[1], True), (groups[2], False)):
+            DailyResultProjection.objects.create(
+                game=game, task_group=group, actor_type='user', actor_key=str(tester.pk),
+                user=tester, score=5, is_prepublication=pre,
+            )
+        ids = [g.pk for g in groups]
+        row = {'actor_type': 'user', 'actor_key': str(tester.pk), 'user_id': tester.pk}
+        # Wrote #0 (and tested it), tested #1: only #2 counts.
+        self.assertEqual(_eligible_count(row, 3, _authored_groups(ids), _prepublication_groups(game, ids)), 1)
+
+    def test_average_attempts_read_without_trailing_zero(self):
+        self.assertEqual(_average_display(Decimal('19.000')), 19)
+        self.assertEqual(_average_display(19.333), 19.3)
+        self.assertIsNone(_average_display(None))

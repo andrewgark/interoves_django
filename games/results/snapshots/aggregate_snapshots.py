@@ -93,7 +93,8 @@ def _signature(columns, states):
 
 # Bumped when the stored row shape changes, so every month republishes once.
 # 2: rows carry eligible_count / timed_count for average-based ranking.
-ROW_FORMAT = 2
+# 3: eligible_count also skips releases played before publication.
+ROW_FORMAT = 3
 
 
 def _policy_signature(group_ids):
@@ -137,15 +138,32 @@ def _authored_groups(group_ids):
     return by_user, by_team
 
 
-def _eligible_count(row, release_count, authored):
+def _prepublication_groups(game, group_ids):
+    """``{(actor_type, actor_key): releases}`` played before publication.
+
+    Testers' plays are not in the table, like an author's; their release
+    must not count as a skipped one either.
+    """
+    out = defaultdict(set)
+    for group_id, kind, key in DailyResultProjection.objects.filter(
+        game=game, task_group_id__in=group_ids, is_prepublication=True,
+    ).values_list('task_group_id', 'actor_type', 'actor_key'):
+        out[(kind, key)].add(group_id)
+    return out
+
+
+def _eligible_count(row, release_count, authored, prepublication=None):
+    """Releases of the month the actor could play: not written, not tested."""
     by_user, by_team = authored
     if row['actor_type'] == 'user':
-        written = by_user.get(row['user_id'], ())
+        skipped = set(by_user.get(row['user_id'], ()))
     elif row['actor_type'] == 'team':
-        written = by_team.get(row['team_id'], ())
+        skipped = set(by_team.get(row['team_id'], ()))
     else:
-        written = ()
-    return max(0, release_count - len(written))
+        skipped = set()
+    if prepublication:
+        skipped |= prepublication.get((row['actor_type'], str(row['actor_key'])), set())
+    return max(0, release_count - len(skipped))
 
 
 def _incomplete_attempt_groups(game, group_ids):
@@ -380,6 +398,7 @@ def _publish(snapshot):
         source_versions=sources, missing_releases=missing,
     )
     authored = _authored_groups(usable)
+    prepublication = _prepublication_groups(game, usable)
     try:
         page = 1
         while True:
@@ -401,7 +420,7 @@ def _publish(snapshot):
                     score=row['window_score'], attempts_count=row['attempts_count'],
                     played_count=row['played_count'], total_time_ms=row['total_time_ms'],
                     used_fallback_time=bool(row.get('used_fallback_time')),
-                    eligible_count=_eligible_count(row, len(usable), authored),
+                    eligible_count=_eligible_count(row, len(usable), authored, prepublication),
                     timed_count=int(row.get('timed_count') or 0),
                     cells={str(key): float(value) for key, value in cells[(row['actor_type'], row['actor_key'])].items()},
                 ) for row in values
