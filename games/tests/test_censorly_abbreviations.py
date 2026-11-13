@@ -2,7 +2,7 @@
 
 from django.test import SimpleTestCase
 
-from games.puzzles.censorly.lexical.context import LANGUAGE_LABELS
+from games.puzzles.censorly.lexical.context import DR_ANCIENT, LANGUAGE_LABELS
 from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, matching_lemmas
 from games.puzzles.censorly.lexical.semantics import explain, opens
 from games.puzzles.censorly.text.tokenize import tokenize_text
@@ -218,6 +218,21 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
                     matching_lemmas(tokens, guess) & {item.marker for item in LANGUAGE_LABELS.values()},
                 )
 
+
+    def test_dr_before_a_hyphenated_language_reads_ancient(self):
+        for text in (
+            'Электрон (от др.-греч. ἤλεκτρον — янтарь).',
+            'Слово (др. - рус. слово).',
+        ):
+            with self.subTest(text=text):
+                tokens = tokenize_text(text)
+                for guess in ('древний', 'древнего', 'др'):
+                    self.assertIn(DR_ANCIENT.marker, matching_lemmas(tokens, guess))
+                self.assertNotIn(DR_ANCIENT.marker, matching_lemmas(tokens, 'другой'))
+        for text in ('Кошки, собаки и др. животные.', 'Город (др. название — Х) стоит.'):
+            with self.subTest(text=text):
+                tokens = tokenize_text(text)
+                self.assertFalse(matching_lemmas(tokens, 'древний'))
 
 
 class HomographLabelContextTests(SimpleTestCase):

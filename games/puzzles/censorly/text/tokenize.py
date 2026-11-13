@@ -12,6 +12,7 @@ from games.puzzles.censorly.lexical.context import (
     CENTURY_ABBR,
     CITY_ABBR,
     CM_UNIT,
+    DR_ANCIENT,
     LANGUAGE_LABELS,
     LI_NAME,
     N_ERA,
@@ -779,6 +780,18 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             else:
                 _set_context(tok, NEM_NONPRONOUN)
             continue
+
+        # «др.-греч.»: the period and hyphen glue into one «.-» token. Only
+        # this compound label reads «древний»; «(др. название)» is «другой».
+        if word == 'др' and after_word < len(tokens):
+            glue = tokens[after_word]
+            glued = glue.get('kind') == 'punct' and (glue.get('surface') or '').startswith('.-')
+            if not glued and has_period and after_period < len(tokens):
+                hyphen = tokens[after_period]
+                glued = hyphen.get('kind') == 'punct' and (hyphen.get('surface') or '').startswith('-')
+            if glued:
+                _set_context(tok, DR_ANCIENT)
+                continue
 
         # «том» is the prepositional «тот» only after a preposition
         # («в том числе», «о том, что»). Elsewhere — «первый том», «Том 2»,

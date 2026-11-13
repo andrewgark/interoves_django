@@ -64,6 +64,9 @@ NEM_PRONOUN = _ctx(
 )
 NEM_NONPRONOUN = _ctx('nem_nonpronoun', 'нем', readings=frozenset({'нем', 'немой'}))
 NEM_GERMAN = _ctx('nem_german', 'нем', lemmas=('немец',), expands_guess=True)
+# «др.-греч.», «др.-рус.»: «древний» in a compound language label. A bare
+# «др.» stays «другой» («и др.», «(др. название — …)»).
+DR_ANCIENT = _ctx('dr_ancient', 'др', lemmas=('древний',), expands_guess=True)
 TOM_VOLUME = _ctx('tom_volume', 'том', readings=frozenset({'том'}))
 N_ERA = _ctx('n_era', 'н', lemmas=('наш',))
 PO_SOFTWARE = _ctx('po_software', 'по', lemmas='self')
@@ -99,7 +102,7 @@ LANGUAGE_LABELS = _language_labels()
 _REGISTRY: dict[str, TokenContext] = {
     item.marker: item
     for item in (
-        NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, TOM_VOLUME, N_ERA,
+        NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, DR_ANCIENT, TOM_VOLUME, N_ERA,
         PO_SOFTWARE, LI_NAME, YEAR_ABBR, CITY_ABBR, PAGE_ABBR, STREET_ABBR,
         CENTURY_ABBR, TELE_PREFIX, CM_UNIT, SEE_REF, *LANGUAGE_LABELS.values(),
     )
