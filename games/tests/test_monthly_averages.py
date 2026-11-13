@@ -23,7 +23,9 @@ from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page, 
 from games.results.snapshots.aggregate_snapshots import (
     _authored_groups,
     _eligible_count,
+    _policy_signature,
     _prepublication_groups,
+    request_monthly_snapshot,
 )
 from games.results.standings.aggregate_leaderboard import _average_display, _projection_rank_page
 
@@ -101,6 +103,22 @@ class MonthlyAverageRankingTests(TestCase):
         self.row('steady', 36, eligible=4, played=4)
         Profile.objects.filter(user=self.users['steady']).update(is_hidden=True)
         self.assertIsNone(snapshot_actor_place(self.version.pk, 'user', self.users['steady'].pk, 'time'))
+
+    def test_old_worker_acknowledgement_requeues_month(self):
+        snapshot, _ = request_monthly_snapshot(self.game, date(2026, 11, 1), [])
+        snapshot.published_version = self.version
+        snapshot.completed_revision = snapshot.requested_revision
+        snapshot.save(update_fields=['published_version', 'completed_revision'])
+
+        repaired, _ = request_monthly_snapshot(self.game, date(2026, 11, 1), [])
+        self.assertEqual(repaired.requested_revision, snapshot.requested_revision + 1)
+
+        self.version.dependency_signature = _policy_signature([])
+        self.version.save(update_fields=['dependency_signature'])
+        repaired.completed_revision = repaired.requested_revision
+        repaired.save(update_fields=['completed_revision'])
+        current, _ = request_monthly_snapshot(self.game, date(2026, 11, 1), [])
+        self.assertEqual(current.requested_revision, repaired.requested_revision)
 
 
 class AuthoredReleaseCountTests(TestCase):

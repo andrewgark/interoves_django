@@ -186,18 +186,38 @@ def request_monthly_snapshot(game, month, columns):
     """Coalesce durable work by month, independently of filters and pagination."""
     group_ids = [col.link.task_group_id for col in columns]
     states = _states(game, group_ids)
+    policy_signature = _policy_signature(group_ids)
     signature = hashlib.sha256(json.dumps([
-        _signature(columns, states), _policy_signature(group_ids),
+        _signature(columns, states), policy_signature,
         sorted(_incomplete_attempt_groups(game, group_ids)),
         sorted(_pending_outbox(game, group_ids).values_list('task_group_id', flat=True).distinct()),
     ]).encode()).hexdigest()
     snapshot, _ = DailyAggregateSnapshot.objects.get_or_create(game=game, month=month)
-    DailyAggregateSnapshot.objects.filter(pk=snapshot.pk).exclude(
-        requested_signature=signature,
-    ).update(
-        requested_signature=signature, requested_revision=F('requested_revision') + 1,
-        requested_at=_requested_at_if_idle(),
+    # An older worker can acknowledge a request using its older row format.
+    # Requeue that publication once the new worker is running, even when the
+    # request signature itself has not changed.
+    needs_repair = (
+        snapshot.requested_signature == signature
+        and snapshot.requested_revision <= snapshot.completed_revision
+        and snapshot.published_version_id
+        and not DailyAggregateSnapshotVersion.objects.filter(
+            pk=snapshot.published_version_id, dependency_signature=policy_signature,
+        ).exists()
     )
+    if needs_repair:
+        DailyAggregateSnapshot.objects.filter(pk=snapshot.pk).filter(
+            requested_revision__lte=F('completed_revision')
+        ).update(
+            requested_signature=signature, requested_revision=F('requested_revision') + 1,
+            requested_at=timezone.now(),
+        )
+    elif snapshot.requested_signature != signature:
+        DailyAggregateSnapshot.objects.filter(pk=snapshot.pk).exclude(
+            requested_signature=signature,
+        ).update(
+            requested_signature=signature, requested_revision=F('requested_revision') + 1,
+            requested_at=_requested_at_if_idle(),
+        )
     snapshot.refresh_from_db()
     return snapshot, states
 
