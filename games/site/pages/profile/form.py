@@ -49,13 +49,11 @@ class ProfileSettingsForm(ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'avatar_url', 'timezone', 'page_hidden', 'avatar_hidden']
+        fields = ['first_name', 'last_name', 'timezone', 'page_hidden']
         widgets = {
             'first_name': TextInput(),
             'last_name': TextInput(),
-            'avatar_url': TextInput(),
             'page_hidden': CheckboxInput(),
-            'avatar_hidden': CheckboxInput(),
         }
 
     def clean_timezone(self):

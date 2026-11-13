@@ -12,7 +12,8 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.community.visibility import player_url
+from games.community import avatars
+from games.community.visibility import is_trusted_avatar_url, player_url
 from games.identity import has_profile
 from games.identity.merge.account import social_provider_label
 from games.models import (
@@ -122,6 +123,54 @@ def dismiss_unverified_telegram_handle(request):
     return redirect(_safe_profile_next(request.POST.get('next')))
 
 
+def _profile_edit_redirect(request):
+    response = _profile_redirect(request)
+    response['Location'] += '?edit=1#profile-avatar'
+    return response
+
+
+@login_required
+@require_POST
+def profile_avatar(request):
+    """Pick the photo: a connected account's, an uploaded file, or none."""
+    from games.community import avatars
+
+    if not has_profile(request.user):
+        return _profile_unavailable_redirect(request)
+    profile = request.user.profile
+    action = request.POST.get('action') or ''
+    try:
+        if action == 'upload':
+            uploaded = request.FILES.get('photo')
+            if uploaded is None:
+                raise avatars.AvatarError('Выберите файл с фото.')
+            avatars.use_upload(profile, uploaded)
+        elif action == 'remove':
+            avatars.remove(profile)
+        elif action.startswith('source:'):
+            avatars.use_source(profile, action.split(':', 1)[1])
+        else:
+            raise avatars.AvatarError('Неизвестное действие.')
+    except avatars.AvatarError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Фото убрано.' if action == 'remove' else 'Фото обновлено.')
+    return _profile_edit_redirect(request)
+
+
+@login_required
+@require_POST
+def profile_avatar_visibility(request):
+    """One-click show/hide of the photo for other players."""
+    if not has_profile(request.user):
+        return _profile_unavailable_redirect(request)
+    profile = request.user.profile
+    profile.avatar_hidden = request.POST.get('hidden') == '1'
+    profile.save(update_fields=['avatar_hidden'])
+    messages.success(request, 'Фото скрыто от других игроков.' if profile.avatar_hidden else 'Фото видно другим игрокам.')
+    return _profile_edit_redirect(request)
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def profile(request, project_id=None):
@@ -145,6 +194,7 @@ def profile(request, project_id=None):
     profile_avatar_url = profile.avatar_url
     profile_timezone = profile.timezone
     profile_page_hidden = profile.page_hidden
+    profile_avatar_hidden = profile.avatar_hidden
     profile_telegram_handle = (
         (profile.telegram_username or profile.telegram_handle or '').strip()
     )
@@ -211,6 +261,7 @@ def profile(request, project_id=None):
 
     tz_options = [(tz, _utc_offset_label(tz)) for tz in pytz.common_timezones]
 
+    avatar_sources = avatars.provider_sources(request.user, profile)
     scoped = _scoped_project_id(request)
     from games.site.pages.profile.feedback import profile_cabinet_flags
     ctx = {
@@ -221,6 +272,14 @@ def profile(request, project_id=None):
         ),
         'profile_initials': ''.join(part[0] for part in (display_first_name, display_last_name) if part) or '?',
         'profile_avatar_url': profile_avatar_url,
+        'profile_avatar_hidden': profile_avatar_hidden,
+        'profile_avatar_sources': avatar_sources,
+        'profile_avatar_current_source': next(
+            (source.key for source in avatar_sources if source.matches(profile_avatar_url)),
+            'upload' if avatars.is_uploaded_avatar_url(profile_avatar_url) else '',
+        ),
+        'profile_avatar_untrusted': bool(profile_avatar_url) and not is_trusted_avatar_url(profile_avatar_url),
+        'profile_avatar_max_mb': avatars.MAX_UPLOAD_BYTES // (1024 * 1024),
         'profile_timezone_label': _utc_offset_label(profile_timezone),
         'profile_telegram_label': profile_telegram_label,
         'profile_has_complete_name': profile_has_complete_name,
@@ -432,6 +491,8 @@ __all__ = [
     '_safe_profile_next',
     'dismiss_unverified_telegram_handle',
     'profile',
+    'profile_avatar',
+    'profile_avatar_visibility',
     'account_merge_confirm',
     'account_merge_status',
     'account_merge_retry',

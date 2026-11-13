@@ -68,6 +68,11 @@ def public_avatar_url(profile, viewer=None, *, page_visible=False):
 
 
 def is_trusted_avatar_url(url):
+    """Provider-hosted photo or a file we re-encoded and stored ourselves."""
+    from games.community.avatars import is_uploaded_avatar_url
+
+    if is_uploaded_avatar_url(url):
+        return True
     try:
         parts = urlsplit(str(url).strip())
     except ValueError:

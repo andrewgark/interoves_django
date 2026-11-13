@@ -289,4 +289,4 @@ class ConsistencyRoundTests(FriendsExtrasFixture):
         client.force_login(self.anna)
         body = client.get('/u/{}/'.format(self.anna_p.public_id)).content.decode()
         self.assertNotIn('my.site/me.png', body)
-        self.assertIn('подойдёт фото из VK', body)
+        self.assertIn('возьмите фото из VK', body)

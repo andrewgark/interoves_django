@@ -17,9 +17,12 @@ def og(request, *, title, description, image_url=''):
         'title': title,
         'description': description,
         'url': share_url(request, request.path),
-        # Only provider-hosted avatars reach here (see visibility); anything
-        # else falls back to the brand card.
-        'image': image_url or share_url(request, static(FALLBACK_IMAGE)),
+        # Only provider-hosted or uploaded avatars reach here (see
+        # visibility); anything else falls back to the brand card. Uploaded
+        # ones are site-relative, and messengers need an absolute URL.
+        'image': share_url(request, image_url) if image_url.startswith('/') else (
+            image_url or share_url(request, static(FALLBACK_IMAGE))
+        ),
     }
 
 

@@ -143,17 +143,20 @@ class PlayerPageTests(TestCase):
         self.assertIn('Сфинксы', body)
 
     def test_profile_settings_save_privacy_flags(self):
+        # The photo and its visibility have their own controls: the main form
+        # must neither take a typed URL nor reset the photo switch.
+        self.set_flags(avatar_hidden=True)
         owner = Client()
         owner.login(username='pp_owner', password='secret')
         response = owner.post(reverse('new_profile'), {
             'first_name': 'Анна', 'last_name': 'Петрова',
-            'avatar_url': 'https://lh3.googleusercontent.com/anna.jpg',
+            'avatar_url': 'https://evil.example/typed.jpg',
             'timezone': 'Europe/Moscow', 'page_hidden': 'on',
         })
         self.assertEqual(response.status_code, 302)
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.page_hidden)
-        self.assertFalse(self.profile.avatar_hidden)
+        self.assertTrue(self.profile.avatar_hidden)
         self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/anna.jpg')
 
 

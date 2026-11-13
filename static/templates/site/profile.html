@@ -43,6 +43,51 @@
         <h3>Изменить профиль</h3>
         {% if profile_has_complete_name %}<a class="new-account-action" data-profile-edit-cancel href="{{ request.path }}{% if profile_next_path %}?next={{ profile_next_path|urlencode }}{% endif %}">Отмена</a>{% endif %}
       </div>
+      <section id="profile-avatar" class="new-profile-avatar" aria-labelledby="profile-avatar-title">
+        <div class="new-profile-avatar__preview new-profile-card__avatar{% if profile_avatar_hidden %} is-private{% endif %}" aria-hidden="true">
+          <span>{{ profile_initials }}</span>
+          {% if profile_avatar_url %}<img src="{{ profile_avatar_url }}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+        </div>
+        <div class="new-profile-avatar__main">
+          <h4 id="profile-avatar-title" class="new-profile-avatar__title">Фото</h4>
+          <form method="post" action="{% url 'ui_profile_avatar' %}" enctype="multipart/form-data" class="new-profile-avatar__sources" data-profile-avatar-form>
+            {% csrf_token %}
+            {% for source in profile_avatar_sources %}
+              <button type="submit" name="action" value="source:{{ source.key }}" class="new-profile-avatar__source new-profile-avatar__source--{{ source.key }}{% if profile_avatar_current_source == source.key %} is-current{% endif %}"{% if profile_avatar_current_source == source.key %} aria-current="true"{% endif %}>
+                {% if source.url %}<img src="{{ source.url }}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+                <span>Из {{ source.label }}</span>
+              </button>
+            {% endfor %}
+            <label class="new-profile-avatar__source new-profile-avatar__source--upload{% if profile_avatar_current_source == 'upload' %} is-current{% endif %}">
+              <i class="ph ph-upload-simple" aria-hidden="true"></i>
+              <span>Загрузить…</span>
+              <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" data-profile-avatar-file>
+            </label>
+            <button type="submit" name="action" value="upload" class="new-btn new-btn--mini" data-profile-avatar-upload hidden>Загрузить</button>
+            {% if profile_avatar_url %}
+              <button type="submit" name="action" value="remove" class="new-account-action new-account-action--danger new-profile-avatar__remove">Убрать фото</button>
+            {% endif %}
+          </form>
+          {% if not profile_avatar_sources %}
+            <p class="new-login-hint">Подключите VK, Telegram, Google или Яндекс в разделе «Аккаунты» ниже — тогда фото можно будет взять оттуда в один клик.</p>
+          {% endif %}
+          <p class="new-login-hint">JPG, PNG, WebP или GIF до {{ profile_avatar_max_mb }} МБ — обрежем до квадрата.</p>
+          {% if profile_avatar_url %}
+          <form method="post" action="{% url 'ui_profile_avatar_visibility' %}" class="new-profile-avatar__visibility">
+            {% csrf_token %}
+            {% if profile_avatar_hidden %}
+              <input type="hidden" name="hidden" value="0">
+              <span class="new-profile-avatar__state"><i class="ph ph-eye-slash" aria-hidden="true"></i> Другие игроки видят инициалы</span>
+              <button type="submit" class="new-account-action">Показывать фото</button>
+            {% else %}
+              <input type="hidden" name="hidden" value="1">
+              <span class="new-profile-avatar__state"><i class="ph ph-eye" aria-hidden="true"></i> {% if profile_avatar_untrusted %}Фото по старой ссылке другим не видно — выберите источник или загрузите файл{% else %}Фото видно другим игрокам{% endif %}</span>
+              <button type="submit" class="new-account-action">Скрыть от других</button>
+            {% endif %}
+          </form>
+          {% endif %}
+        </div>
+      </section>
       <form method="post" class="new-form">
         {% csrf_token %}
         {% if profile_next_path %}<input type="hidden" name="next" value="{{ profile_next_path }}">{% endif %}
@@ -65,17 +110,9 @@
         </datalist>
         {% if form.timezone.errors %}<span class="new-field-error">{{ form.timezone.errors }}</span>{% endif %}
         <p class="new-login-hint new-profile-hint">Используется для времени в меню и дат игр. <span id="tz-offset-hint"></span></p>
-        <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
-        {{ form.avatar_url }}
-        {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
-        <p class="new-login-hint new-profile-avatar-hint">Фото из Google, Яндекса или VK обычно появляется автоматически. Другим игрокам показываем только фото из VK, Google, Яндекса и Telegram — по другим ссылкам они увидят инициалы.</p>
         <fieldset id="profile-privacy" class="new-profile-privacy">
           <legend>Что видят другие игроки</legend>
           <p class="new-login-hint">Имя видно в таблицах результатов. Telegram, VK и почта другим не показываются никогда.</p>
-          <label class="new-profile-privacy__option">
-            {{ form.avatar_hidden }}
-            <span>Не показывать фото<small>Вместо фото будут инициалы</small></span>
-          </label>
           <label class="new-profile-privacy__option">
             {{ form.page_hidden }}
             <span>Скрыть мою страницу<small>Другие увидят только имя, без статистики и команд. Друзья по-прежнему видят всё.</small></span>
@@ -395,6 +432,20 @@
       try { localStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + guestAnonKey); } catch (e) {}
       try { sessionStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + guestAnonKey); } catch (e) {}
       window.location.reload();
+    });
+  }
+
+  var avatarFile = document.querySelector('[data-profile-avatar-file]');
+  var avatarUpload = document.querySelector('[data-profile-avatar-upload]');
+  if (avatarFile && avatarUpload) {
+    avatarFile.addEventListener('change', function () {
+      if (!avatarFile.files || !avatarFile.files.length) return;
+      if (avatarFile.files[0].size > {{ profile_avatar_max_mb }} * 1024 * 1024) {
+        alert('Файл больше {{ profile_avatar_max_mb }} МБ.');
+        avatarFile.value = '';
+        return;
+      }
+      avatarUpload.click();
     });
   }
 

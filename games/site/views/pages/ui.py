@@ -55,6 +55,8 @@ from games.site.pages.profile.pages import (
     account_merge_status,
     dismiss_unverified_telegram_handle,
     profile,
+    profile_avatar,
+    profile_avatar_visibility,
     profile_report_detail,
     profile_reports,
     social_account_disconnect,

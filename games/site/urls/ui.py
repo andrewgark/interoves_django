@@ -220,6 +220,8 @@ urlpatterns = [
         name='ui_telegram_handle_dismiss',
     ),
     path('profile/disconnect/', ui.social_account_disconnect, name='ui_social_account_disconnect'),
+    path('profile/avatar/', ui.profile_avatar, name='ui_profile_avatar'),
+    path('profile/avatar/visibility/', ui.profile_avatar_visibility, name='ui_profile_avatar_visibility'),
     path('profile/reports/<int:report_id>/', ui.profile_report_detail, name='ui_profile_report_detail'),
     path('profile/reports/', ui.profile_reports, name='ui_profile_reports'),
     path('profile/', ui.profile, name='ui_profile'),
