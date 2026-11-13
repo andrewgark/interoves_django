@@ -561,3 +561,44 @@ def _series_point(item, max_score):
         ),
         'solved': item['solved'],
     }
+
+
+WARM_INTERVAL_SECONDS = 5 * 60
+
+
+def warm_release_baselines(*, now=None):
+    """Precompute medians of this and last month for every daily game.
+
+    Called by the background worker so the first player who opens a month
+    on a profile does not wait for its medians. At most once per interval
+    across workers; settled releases are cache hits, so a run only computes
+    fresh releases and the ones that expired.
+    """
+    from games.results.standings.aggregate_leaderboard import _monthly_columns
+
+    cache = caches['daily_statistics']
+    try:
+        if not cache.add('profile-release-baseline:warm-lock', 1, WARM_INTERVAL_SECONDS):
+            return {'skipped': True}
+    except Exception:
+        return {'skipped': True}
+    now = now or timezone.now()
+    today = now.astimezone(MOSCOW).date()
+    this_month = date(today.year, today.month, 1)
+    last_month = (this_month - timedelta(days=1)).replace(day=1)
+    warmed = {}
+    for game_id in month_games():
+        definition = get_daily_game(game_id)
+        game = Game.objects.filter(pk=game_id).first()
+        if game is None:
+            continue
+        count = 0
+        for month in (this_month, last_month):
+            try:
+                columns, selected, *_ = _monthly_columns(game, _month_key(month))
+                if selected == month and columns:
+                    count += len(release_baselines(game, definition.task_type, columns, now=now))
+            except Exception:
+                logger.exception('profile_baselines_warm_failed game=%s month=%s', game_id, month)
+        warmed[game_id] = count
+    return {'skipped': False, 'releases': warmed}

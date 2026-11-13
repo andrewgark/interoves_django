@@ -221,6 +221,34 @@ class GameMonthTests(TestCase):
         self.assertIn('data-pgs-card', body)
         self.assertIn('/u/{}/games/GAME/MONTH/'.format(self.profile.public_id), body)
 
+    def test_warm_precomputes_month_medians_once_per_interval(self):
+        self.play(self.owner, 0, 10, ms=100_000)
+        self.play(self.viewer, 0, 10, ms=300_000)
+        monthly = (self.columns(), date(2026, 11, 1), date(2026, 10, 1), None, {})
+        with patch('games.results.standings.aggregate_leaderboard._monthly_columns', return_value=monthly), \
+             patch('games.community.game_month.month_games', return_value=[GAME_ID]):
+            first = game_month.warm_release_baselines(now=NOW)
+            again = game_month.warm_release_baselines(now=NOW)
+        self.assertEqual(first, {'skipped': False, 'releases': {GAME_ID: 3}})
+        self.assertEqual(again, {'skipped': True})
+        cached = caches['daily_statistics'].get(game_month._baseline_key(self.game, self.groups[0].pk))
+        self.assertEqual(cached['time'], 200)
+
+    def test_author_who_never_plays_still_gets_the_game_tab(self):
+        from games.community.stats import player_stats
+
+        # Анна played nothing of Лесенка but wrote release 3; some other game
+        # gives her a played game so the block shows at all.
+        self.play(self.owner, 0, 10, ms=100_000)
+        DailyResultProjection.objects.filter(user=self.owner).delete()
+        PlayerCompletedGame.objects.filter(user=self.owner).update(game_id='walls')
+        Game.objects.get_or_create(id='walls', defaults={'name': 'Стенки', 'author': 't', 'author_extra': '', 'project_id': 'main'})
+        with patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}), \
+             patch('games.community.game_month.authored_release_count', return_value=1):
+            games = {g.game_id: g for g in player_stats(self.owner, now=NOW).games}
+        self.assertIn(GAME_ID, games)
+        self.assertEqual((games[GAME_ID].played, games[GAME_ID].authored), (0, 1))
+
 class CensorlyHintTests(TestCase):
     def test_hints_come_from_chain_state_key(self):
         from games.community.game_month import _hint_counts

@@ -246,6 +246,15 @@ def _actor_stats(actor, *, now=None):
             authored=game_month.authored_release_count(month_actor, game),
             has_month_view=game_id in month_game_ids,
         ))
+    # Authors who never play a game of theirs still get its tab: "как
+    # автор" and the month charts are the interesting part for them.
+    for game in Game.objects.filter(pk__in=month_game_ids - set(counts)):
+        authored = game_month.authored_release_count(month_actor, game)
+        if authored:
+            stats.games.append(GameStats(
+                game_id=str(game.pk), name=game.get_no_html_name() or game.name,
+                authored=authored, has_month_view=True,
+            ))
     stats.games.sort(key=lambda item: (-item.played, item.name))
     stats.total_played = sum(item.played for item in stats.games)
 

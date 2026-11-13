@@ -209,6 +209,12 @@ def _projection_reconcile(message, message_id):
         if not result['skipped_locked']:
             from games.results.snapshots.aggregate_snapshots import reconcile_monthly_snapshots
             result['aggregate_snapshots'] = reconcile_monthly_snapshots(limit=2)
+            # Profile charts: medians of fresh releases, before anyone asks.
+            from games.community.game_month import warm_release_baselines
+            try:
+                result['profile_baselines'] = warm_release_baselines()
+            except Exception:
+                logger.exception('background worker profile baselines warm failed message_id=%s', message_id)
     except Exception as exc:
         finish_queue_heartbeat(
             PROJECTION_CRON_LOCK_NAME,

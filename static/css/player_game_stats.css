@@ -310,3 +310,13 @@ html.new-ui-dark .pgs {
 }
 .pgs-worst__item span { color: var(--muted); }
 .pgs-worst__item:hover { background: color-mix(in srgb, var(--pgs-worse) 10%, var(--surface)); }
+
+.pgs-table { margin-top: 0.6rem; font-size: 0.82rem; }
+.pgs-table summary { color: var(--muted); cursor: pointer; }
+.pgs-table summary:hover { color: var(--text); }
+.pgs-table__scroll { max-height: 22rem; margin-top: 0.4rem; overflow: auto; }
+.pgs-table__grid { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.pgs-table__grid caption { padding-bottom: 0.3rem; color: var(--muted); text-align: left; }
+.pgs-table__grid th, .pgs-table__grid td { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.pgs-table__grid th:first-child, .pgs-table__grid :is(th, td):nth-child(2) { text-align: left; }
+.pgs-table__grid thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 600; }

@@ -266,6 +266,7 @@
     };
 
     renderWorst(card, state);
+    renderTable(card, state);
 
     var note = card.querySelector('[data-pgs-note]');
     var parts = [];
@@ -329,6 +330,59 @@
       link.appendChild(html('span', '', item.label));
       box.appendChild(link);
     });
+  }
+
+  function cellText(metric, point) {
+    if (!point) return '—';
+    if (metric === 'time' && !point.solved) return 'не решено';
+    return formatValue(metric, point[metric]);
+  }
+
+  /* The chart's numbers as a table: reachable by keyboard and screen
+     readers, and easy to copy. */
+  function renderTable(card, state) {
+    var body = card.querySelector('[data-pgs-table-body]');
+    if (!body) return;
+    var metric = state.metric;
+    var table = html('table', 'pgs-table__grid');
+    var caption = html('caption', '', METRICS[metric].label + ' · ' + state.data.month_label);
+    table.appendChild(caption);
+    var head = html('tr');
+    ['Выпуск', 'Дата', state.ownerLabel, 'Медиана'].concat(state.hasViewer ? ['Вы'] : []).forEach(function (label) {
+      var th = html('th', '', label);
+      th.scope = 'col';
+      head.appendChild(th);
+    });
+    var thead = html('thead');
+    thead.appendChild(head);
+    table.appendChild(thead);
+    var tbody = html('tbody');
+    state.data.releases.slice().reverse().forEach(function (rel) {
+      var row = html('tr');
+      var first = html('th');
+      first.scope = 'row';
+      var link = html('a', '', '№' + rel.n);
+      link.href = rel.url;
+      first.appendChild(link);
+      row.appendChild(first);
+      row.appendChild(html('td', '', dateLabel(rel.date)));
+      var own = rel.author ? 'автор' : (rel.pre ? 'до публикации' : cellText(metric, rel.p));
+      var median = rel.m ? rel.m[metric] : null;
+      var cell = html('td');
+      var kind = rel.p && !rel.author && !rel.pre ? verdict(metric, rel.p[metric], median) : '';
+      if (kind === 'better' || kind === 'worse') {
+        cell.appendChild(html('i', 'pgs-swatch pgs-swatch--' + kind));
+        cell.appendChild(document.createTextNode(' '));
+      }
+      cell.appendChild(document.createTextNode(own));
+      row.appendChild(cell);
+      row.appendChild(html('td', '', formatValue(metric, median)));
+      if (state.hasViewer) row.appendChild(html('td', '', cellText(metric, rel.v)));
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    body.textContent = '';
+    body.appendChild(table);
   }
 
   function showTip(card, tip, state, rel, cx, width) {
