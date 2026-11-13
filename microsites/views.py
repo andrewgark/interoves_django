@@ -595,8 +595,8 @@ def eurovision_booklet_asia_2026(request):
             or "https://github.com/andrewgark/eurovision2026booklet"
         ).strip(),
         "booklet_last_updated": {
-            "iso": "2026-11-02T10:06:52+00:00",
-            "display": "2 November 2026, 13:06 MSK",
+            "iso": "2026-11-13T13:00:33+00:00",
+            "display": "13 November 2026, 16:00 MSK",
         },
     })
 
