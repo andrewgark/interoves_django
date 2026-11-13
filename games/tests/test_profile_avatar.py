@@ -184,3 +184,29 @@ class VisibilityToggleTests(AvatarTestBase):
         self.assertNotIn('name="avatar_url"', body)
         # The signup-time 96px Google link still counts as "from Google".
         self.assertIn('new-profile-avatar__source--google is-current', body)
+
+
+class RefreshOnLoginTests(AvatarTestBase):
+    def login_refresh(self, provider, **extra):
+        from allauth.socialaccount.models import SocialLogin
+        from allauth.socialaccount.signals import social_account_updated
+
+        account = SocialAccount.objects.get(user=self.user, provider=provider)
+        account.extra_data = extra
+        account.save()
+        social_account_updated.send(sender=SocialLogin, request=None, sociallogin=SocialLogin(account=account))
+        self.profile.refresh_from_db()
+
+    def test_photo_from_this_provider_follows_the_new_link(self):
+        self.login_refresh('google', picture='https://lh3.googleusercontent.com/new=s96-c')
+        self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/new=s400-c')
+
+    def test_other_provider_photo_is_kept(self):
+        self.login_refresh('vk', photo_big='https://sun6-22.userapi.com/new.jpg')
+        self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/a=s96-c')
+
+    def test_upload_and_removed_photo_are_kept(self):
+        for kept in ('/media/avatars/' + 'a' * 32 + '.jpg', ''):
+            Profile.objects.filter(pk=self.profile.pk).update(avatar_url=kept)
+            self.login_refresh('google', picture='https://lh3.googleusercontent.com/new=s96-c')
+            self.assertEqual(self.profile.avatar_url, kept)

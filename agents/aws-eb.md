@@ -81,8 +81,10 @@ object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zi
 
 - `.ebignore` означает, что EB пакует рабочее дерево; `.gitignore` для этого
   не является заменой `.ebignore`;
-- роль `interoves-green-web-role` может `s3:GetObject` для
-  `arn:aws:s3:::interoves-django-static/*`, но не `PutObject`;
+- роль `interoves-green-web-role` может `s3:GetObject`, `PutObject`,
+  `PutObjectAcl` и `DeleteObject` для `arn:aws:s3:::interoves-django-static/*`
+  (медиа-загрузки, например `media/avatars/`) и `ListBucket` на бакет;
+  статику при этом публикует не она (см. ниже);
 - `scripts/collectstatic_if_changed.sh` запускается на свежей инстанции;
   container command `03_collectstatic` требует, чтобы скрипт в zip сразу
   завершался с кодом 0 (этот skip остаётся только в zip, в git его не коммитить);

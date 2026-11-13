@@ -105,6 +105,47 @@ def provider_sources(user, profile=None):
     ]
 
 
+_PROVIDER_HOSTS = {
+    'vk': ('userapi.com', 'vk.com', 'vk.me', 'vkuserphoto.ru'),
+    'google': ('googleusercontent.com', 'ggpht.com'),
+    'yandex': ('yandex.net',),
+    'telegram': ('t.me', 'telesco.pe', 'telegram.org'),
+}
+
+
+def _hosted_by(provider, url):
+    from urllib.parse import urlsplit
+
+    try:
+        host = (urlsplit(str(url)).hostname or '').lower()
+    except ValueError:
+        return False
+    return any(host == suffix or host.endswith('.' + suffix) for suffix in _PROVIDER_HOSTS.get(provider, ()))
+
+
+def refresh_from_login(account):
+    """Follow the provider's current photo when the player uses it.
+
+    Provider photo links go stale (Telegram and VK change them when the photo
+    changes, Google retires old ones), while allauth refreshes ``extra_data``
+    on every login. Only a photo already coming from this provider is
+    replaced: uploads and another provider's photo stay as chosen.
+    """
+    from games.models import Profile
+
+    pick = _PROVIDER_URL.get(account.provider)
+    if pick is None:
+        return
+    fresh = (pick(account.extra_data or {}) or '').strip()
+    if not fresh.startswith('https://'):
+        return
+    profile = Profile.objects.filter(user_id=account.user_id).only('user_id', 'avatar_url').first()
+    if profile is None or not profile.avatar_url or profile.avatar_url == fresh:
+        return
+    if _hosted_by(account.provider, profile.avatar_url):
+        Profile.objects.filter(pk=profile.pk, avatar_url=profile.avatar_url).update(avatar_url=fresh)
+
+
 # --- Uploaded files --------------------------------------------------------
 
 def _uploaded_prefix():

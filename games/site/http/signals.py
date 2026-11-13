@@ -1,6 +1,7 @@
 import logging
 
 from allauth.account.signals import user_signed_up
+from allauth.socialaccount.signals import social_account_updated
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
@@ -328,6 +329,22 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
 
 
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")
+
+
+def refresh_avatar_on_login(sender, sociallogin=None, **kwargs):
+    from games.community.avatars import refresh_from_login
+
+    account = getattr(sociallogin, 'account', None)
+    if account is None or not account.user_id:
+        return
+    try:
+        refresh_from_login(account)
+    except Exception:
+        # A stale photo must never break signing in.
+        logger.warning('Avatar refresh on login failed for user %s', account.user_id, exc_info=True)
+
+
+social_account_updated.connect(refresh_avatar_on_login, dispatch_uid='socialaccount-avatar-refresh')
 
 
 def sync_telegram_identity(sender, **kw):
