@@ -1120,7 +1120,13 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
         'aggregate_show_attempts': daily_game_counts_attempts(game.id),
-        'aggregate_averages': bool(saved_monthly),
+        # Older published versions have no eligibility/timing counts and the
+        # snapshot reader deliberately returns their totals. Match the headers
+        # to those values until the background worker republishes the month.
+        'aggregate_averages': bool(
+            saved_monthly and snapshot_version and
+            snapshot_version.rows.filter(eligible_count__gt=0).exists()
+        ),
     }
     if month_context is not None:
         _, selected_month, previous_month, next_month, _ = month_context

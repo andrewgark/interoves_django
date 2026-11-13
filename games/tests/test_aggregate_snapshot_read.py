@@ -122,6 +122,16 @@ class AggregateSnapshotReadTests(TestCase):
         self.assertEqual(data['aggregate_page'].paginator.count, 0)
         self.assertEqual(len(request._aggregate_snapshot_view), 64)
 
+    def test_saved_page_labels_legacy_totals_until_averages_are_published(self):
+        _, data = self._saved_page({'actors': 'team'})
+        self.assertFalse(data['aggregate_averages'])
+
+        DailyAggregateSnapshotRow.objects.filter(version=self.version).update(
+            eligible_count=2, timed_count=1,
+        )
+        _, data = self._saved_page({'actors': 'team'})
+        self.assertTrue(data['aggregate_averages'])
+
     def test_results_view_turns_expired_snapshot_into_reload_response(self):
         with patch(
             'games.results.standings.aggregate_leaderboard.build_aggregate_page',
