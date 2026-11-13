@@ -203,6 +203,24 @@ class GameMonthTests(TestCase):
         self.assertEqual(self.month()['releases'][0]['p']['hints'], 2)
 
 
+    def test_profile_page_shows_daily_stats_with_charts(self):
+        from allauth.socialaccount.models import SocialApp
+        from django.contrib.sites.models import Site
+
+        site = Site.objects.get_current()
+        for provider in ('google', 'vk', 'yandex'):
+            app, _ = SocialApp.objects.get_or_create(
+                provider=provider, defaults={'name': provider, 'client_id': 'x', 'secret': 'x'},
+            )
+            app.sites.add(site)
+        self.play(self.owner, 0, 10, ms=100_000)
+        client = Client()
+        client.login(username='gm_owner', password='secret')
+        body = client.get(reverse('new_profile')).content.decode()
+        self.assertIn('Ежедневные игры', body)
+        self.assertIn('data-pgs-card', body)
+        self.assertIn('/u/{}/games/GAME/MONTH/'.format(self.profile.public_id), body)
+
 class CensorlyHintTests(TestCase):
     def test_hints_come_from_chain_state_key(self):
         from games.community.game_month import _hint_counts
@@ -222,3 +240,4 @@ class CensorlyHintTests(TestCase):
         )
         counts = _hint_counts(game, 'censorly', [group.pk])
         self.assertEqual(counts[(group.pk, ('user', str(user.pk)))], 3)
+

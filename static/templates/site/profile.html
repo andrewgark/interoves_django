@@ -88,6 +88,10 @@
 
 <p class="new-profile-notif-link"><a class="new-btn new-btn--ghost new-btn--mini" href="{% url 'new_notification_settings' %}"><i class="ph ph-bell" aria-hidden="true"></i> Уведомления и напоминания о ежедневках</a></p>
 
+{% if player_stats %}
+  {% include "site/partials/daily_stats.html" with stats=player_stats stats_empty_text="Вы ещё не играли в ежедневные игры лично." stats_owner_name=profile_display_name stats_owner_short="Вы" %}
+{% endif %}
+
 <h2 class="new-heading">Аккаунты</h2>
 <div class="new-card">
   {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}

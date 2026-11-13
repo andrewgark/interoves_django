@@ -166,7 +166,8 @@
     releases.forEach(function (rel, i) {
       // Counted from the end so the latest release always has a label.
       if ((releases.length - 1 - i) % every !== 0) return;
-      var text = el('text', { class: 'pgs-chart__tick', x: x(i), y: CHART_HEIGHT - 8, 'text-anchor': 'middle' }, svg);
+      var anchor = el('a', { href: rel.url, class: 'pgs-chart__xlink' }, svg);
+      var text = el('text', { class: 'pgs-chart__tick', x: x(i), y: CHART_HEIGHT - 8, 'text-anchor': 'middle' }, anchor);
       text.textContent = '№' + rel.n;
     });
 
@@ -232,16 +233,37 @@
         class: 'pgs-chart__hit', x: PAD.left + band * i, y: PAD.top, width: band, height: innerH,
       }, svg);
       var show = function () {
+        clearTimeout(state.hideTimer);
         hover.setAttribute('x', PAD.left + band * i);
         showTip(card, tip, state, rel, x(i), width);
       };
       hit.addEventListener('mouseenter', show);
-      hit.addEventListener('click', show);
+      // With a mouse the tooltip is already open: a click goes to the
+      // release. A tap opens the tooltip, whose links lead on.
+      hit.addEventListener('click', function () {
+        if (canHover() && rel.url) {
+          root.location.href = rel.url;
+          return;
+        }
+        show();
+      });
     });
-    svg.addEventListener('mouseleave', function () {
+    var hide = function () {
       hover.setAttribute('x', -999);
-      if (!tip.matches(':hover')) tip.hidden = true;
+      tip.hidden = true;
+    };
+    // A short grace period lets the pointer travel into the tooltip.
+    svg.addEventListener('mouseleave', function () {
+      clearTimeout(state.hideTimer);
+      state.hideTimer = setTimeout(hide, 250);
     });
+    tip.onmouseenter = function () { clearTimeout(state.hideTimer); };
+    tip.onmouseleave = function () {
+      clearTimeout(state.hideTimer);
+      state.hideTimer = setTimeout(hide, 250);
+    };
+
+    renderWorst(card, state);
 
     var note = card.querySelector('[data-pgs-note]');
     var parts = [];
@@ -251,6 +273,60 @@
     if (releases.some(function (r) { return r.pre; })) parts.push('т — играл до публикации');
     note.textContent = parts.join(' · ');
     note.hidden = !parts.length;
+  }
+
+  function canHover() {
+    return !!(root.matchMedia && root.matchMedia('(hover: hover) and (pointer: fine)').matches);
+  }
+
+  /* Releases where the player lost most to the median, as links: the chart
+     shows that something went wrong, these lead to where. */
+  function worstReleases(releases, metric, limit) {
+    var lowerIsBetter = METRICS[metric].lowerIsBetter;
+    var scored = [];
+    releases.forEach(function (rel) {
+      var player = rel.p;
+      var median = rel.m ? rel.m[metric] : null;
+      if (!player || rel.author || median === null || median === undefined) return;
+      if (metric === 'time' && !player.solved) {
+        scored.push({ rel: rel, gap: Infinity, label: 'не решено' });
+        return;
+      }
+      var value = player[metric];
+      if (value === null || value === undefined || verdict(metric, value, median) !== 'worse') return;
+      var gap;
+      var label;
+      if (metric === 'time' && median > 0) {
+        gap = value / median;
+        label = String(Math.round(gap * 10) / 10).replace('.', ',') + '× медианы';
+      } else if (lowerIsBetter) {
+        gap = value - median;
+        label = '+' + formatValue(metric, gap) + ' к медиане';
+      } else {
+        gap = median - value;
+        label = formatValue(metric, value) + ' при медиане ' + formatValue(metric, median);
+      }
+      scored.push({ rel: rel, gap: gap, label: label });
+    });
+    scored.sort(function (a, b) { return b.gap - a.gap || b.rel.n - a.rel.n; });
+    return scored.slice(0, limit);
+  }
+
+  function renderWorst(card, state) {
+    var box = card.querySelector('[data-pgs-worst]');
+    if (!box) return;
+    box.textContent = '';
+    var worst = state.visible.p ? worstReleases(state.data.releases, state.metric, 3) : [];
+    box.hidden = !worst.length;
+    if (!worst.length) return;
+    box.appendChild(html('span', 'pgs-worst__title', 'Хуже медианы:'));
+    worst.forEach(function (item) {
+      var link = html('a', 'pgs-worst__item');
+      link.href = item.rel.url;
+      link.appendChild(html('b', '', '№' + item.rel.n));
+      link.appendChild(html('span', '', item.label));
+      box.appendChild(link);
+    });
   }
 
   function showTip(card, tip, state, rel, cx, width) {
@@ -288,6 +364,16 @@
       line.appendChild(html('strong', '', row[2]));
       tip.appendChild(line);
     });
+    if (rel.url) {
+      var actions = html('div', 'pgs-tip__actions');
+      var open = html('a', 'pgs-tip__action', 'Выпуск');
+      open.href = rel.url;
+      var results = html('a', 'pgs-tip__action', 'Результаты');
+      results.href = rel.url + 'results/';
+      actions.appendChild(open);
+      actions.appendChild(results);
+      tip.appendChild(actions);
+    }
     tip.hidden = false;
     // Beside the column, never over it: the hovered marks stay visible.
     var tipWidth = tip.offsetWidth || 180;
@@ -512,6 +598,7 @@
     yDomain: yDomain,
     verdict: verdict,
     plural: plural,
+    worstReleases: worstReleases,
     preferredMetric: null,
   };
   root.PlayerGameStats = api;

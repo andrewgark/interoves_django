@@ -236,6 +236,17 @@ def profile(request, project_id=None):
         'profile_page_hidden': profile_page_hidden,
         'page_title': 'Профиль',
     }
+    if profile.public_id:
+        # The same per-game stats and charts other players see, without a
+        # detour through the public page.
+        from django.urls import reverse
+
+        from games.community.stats import player_stats
+
+        ctx['player_stats'] = player_stats(request.user)
+        ctx['stats_month_url'] = reverse('new_player_game_month', kwargs={
+            'public_id': profile.public_id, 'game_id': 'GAME', 'month': 'MONTH',
+        })
     ctx.update(profile_cabinet_flags(request.user))
     ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
     _merge_nav_project_for_scope(ctx, request, scoped)

@@ -39,3 +39,17 @@ assert.ok(hidden.top < 1200);
 assert.deepStrictEqual(stats.yDomain(releases, 'score', all), { top: 100, step: 25, cap: null });
 
 console.log('player_game_stats tests passed');
+
+// Worst releases: unsolved first, then by ratio to the median; authored skipped.
+var worst = stats.worstReleases([
+  { n: 1, m: { time: 100 }, p: { time: 300, solved: true } },
+  { n: 2, m: { time: 100 }, p: { time: 50, solved: true } },
+  { n: 3, m: { time: 100 }, p: { time: null, solved: false } },
+  { n: 4, m: { time: 100 }, p: { time: 150, solved: true } },
+  { n: 5, author: true, m: { time: 100 }, p: { time: 900, solved: true } },
+], 'time', 3);
+assert.deepStrictEqual(worst.map(function (w) { return w.rel.n; }), [3, 1, 4]);
+assert.strictEqual(worst[1].label, '3× медианы');
+var worstScore = stats.worstReleases([{ n: 7, m: { score: 100 }, p: { score: 60 } }], 'score', 3);
+assert.strictEqual(worstScore[0].label, '60% при медиане 100%');
+console.log('worst releases tests passed');

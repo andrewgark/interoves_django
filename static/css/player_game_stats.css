@@ -276,3 +276,37 @@ html.new-ui-dark .pgs {
 .pgs-tip__row strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .pgs-note { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.75rem; }
+
+.pgs-chart__xlink:hover .pgs-chart__tick,
+.pgs-chart__xlink:focus-visible .pgs-chart__tick { fill: var(--accent); text-decoration: underline; }
+
+.pgs-tip__actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; padding-top: 0.45rem; border-top: 1px solid var(--border); }
+.pgs-tip__action {
+  flex: 1 1 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  color: var(--text);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.pgs-tip__action:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+
+/* Links to the releases that went worst against the median. */
+.pgs-worst { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+.pgs-worst[hidden] { display: none; }
+.pgs-worst__title { color: var(--muted); font-size: 0.78rem; }
+.pgs-worst__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--pgs-worse) 45%, var(--border));
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+.pgs-worst__item span { color: var(--muted); }
+.pgs-worst__item:hover { background: color-mix(in srgb, var(--pgs-worse) 10%, var(--surface)); }
