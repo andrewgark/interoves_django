@@ -110,7 +110,7 @@
         '<span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span>' +
         '<div class="new-daily-statistics__salad-bar"><i style="--bar-width:' + width + '%"></i></div>' +
         '<strong class="new-daily-statistics__complexity-value">' + esc(complexityLabel) + '</strong>' +
-        '<span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
+        '<span class="new-daily-statistics__hint-rate" data-tooltip="Доля игроков, взявших подсказку к этому слову" tabindex="0"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '</li>';
     }).join('');
   }
@@ -143,10 +143,10 @@
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
         '<strong data-tooltip="Время перед вводом слова" tabindex="0"><i class="ph ph-hourglass" aria-hidden="true"></i> ' + esc(label) + '</strong>' +
-        '<span class="new-daily-statistics__ladder-last" data-tooltip="Отгадано самым последним" tabindex="0"><i class="ph ph-flag-checkered" aria-hidden="true"></i> ' + esc(lastPercent) + '</span>' +
-        '<span class="new-daily-statistics__hint-rate" data-tooltip="Использованы подсказки" tabindex="0"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
+        '<span class="new-daily-statistics__ladder-last" data-tooltip="Доля игроков, отгадавших это слово последним" tabindex="0"><i class="ph ph-flag-checkered" aria-hidden="true"></i> ' + esc(lastPercent) + '</span>' +
+        '<span class="new-daily-statistics__hint-rate" data-tooltip="Доля игроков, взявших подсказку к этому слову" tabindex="0"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '<div class="new-daily-statistics__ladder-bar" data-tooltip="Сложность слова" tabindex="0"><i style="--bar-width:' + width + '%"></i></div>' +
-        '<div class="new-daily-statistics__ladder-last-bar" data-tooltip="Отгадано самым последним" tabindex="0"><i style="--bar-width:' + lastWidth + '%"></i></div>' +
+        '<div class="new-daily-statistics__ladder-last-bar" data-tooltip="Доля игроков, отгадавших это слово последним" tabindex="0"><i style="--bar-width:' + lastWidth + '%"></i></div>' +
         '</li>';
     }).join('');
   }
