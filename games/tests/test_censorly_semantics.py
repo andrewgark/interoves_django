@@ -2566,6 +2566,19 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertTrue(opens('ходить', 'переходить'))
         self.assertTrue(opens('выходить', 'входить'))
 
+    def test_heavy_does_not_open_extension_or_lawsuit(self):
+        self.assertNotIn('протяжение', matching_lemmas(tokenize_text('протяжении'), 'тяжелой'))
+        for target in ('протяженность', 'протяжный', 'подтяжка', 'тяжба'):
+            self.assertEqual(explain('тяжелый', target), '', target)
+        self.assertEqual(explain('тягота', 'протяжении'), '')
+
+        self.assertEqual(explain('протяжение', 'протяженность'), 'root')
+        self.assertEqual(explain('протянуть', 'протяжении'), 'root')
+        self.assertEqual(explain('подтяжка', 'подтягивать'), 'root')
+        self.assertEqual(explain('тяжба', 'тяжебный'), 'root')
+        self.assertEqual(explain('тяжелый', 'тяжесть'), 'root')
+        self.assertEqual(explain('тягота', 'тяжесть'), 'root')
+
     def test_given_and_transfer_senses_stay_apart(self):
         self.assertFalse(opens('данный', 'передачи'))
         self.assertTrue(opens('передать', 'передача'))
