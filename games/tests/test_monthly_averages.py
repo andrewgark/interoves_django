@@ -40,7 +40,7 @@ def make_game(game_id):
 
 
 class MonthlyAverageRankingTests(TestCase):
-    """Monthly tables rank by averages over the releases an actor could play."""
+    """Monthly tables rank by total points and break ties by average time."""
 
     @classmethod
     def setUpTestData(cls):
@@ -65,14 +65,14 @@ class MonthlyAverageRankingTests(TestCase):
         rows, *_ = read_snapshot_page(self.version, 1, ALL, sort)
         return [(row['user_id'], row['place']) for row in rows]
 
-    def test_author_is_not_punished_for_own_release(self):
-        # 4 releases; the author wrote one and solved the other three fully.
-        self.row('author', 30, eligible=3, played=3)
+    def test_author_credit_counts_toward_total_score(self):
+        # Snapshot publication has credited the author's own release with 10.
+        self.row('author', 40, eligible=3, played=3)
         self.row('steady', 36, eligible=4, played=4)  # 9 per release
         rows, *_ = read_snapshot_page(self.version, 1, ALL, 'time')
         self.assertEqual([r['user_id'] for r in rows], [self.users['author'].pk, self.users['steady'].pk])
-        self.assertEqual(float(rows[0]['window_score']), 10.0)
-        self.assertEqual(float(rows[0]['total_score']), 30.0)
+        self.assertEqual(float(rows[0]['window_score']), 40.0)
+        self.assertEqual(float(rows[0]['total_score']), 40.0)
 
     def test_skipped_release_counts_as_zero(self):
         self.row('sprinter', 10, eligible=4, played=1)  # one perfect release

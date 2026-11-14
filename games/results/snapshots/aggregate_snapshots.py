@@ -7,6 +7,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import replace
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 from django.db import transaction
@@ -94,7 +95,8 @@ def _signature(columns, states):
 # Bumped when the stored row shape changes, so every month republishes once.
 # 2: rows carry eligible_count / timed_count for average-based ranking.
 # 3: eligible_count also skips releases played before publication.
-ROW_FORMAT = 3
+# 4: authored releases receive their maximum score; ranking uses score sums.
+ROW_FORMAT = 4
 
 
 def _policy_signature(group_ids):
@@ -419,6 +421,18 @@ def _publish(snapshot):
     )
     authored = _authored_groups(usable)
     prepublication = _prepublication_groups(game, usable)
+    maximum_by_group = {
+        col['group_id']: col['max_score']
+        for col in serialized_columns
+        if col['group_id'] in usable and col['max_score'] is not None
+    }
+
+    def author_credit(row):
+        groups = (authored[0].get(row['user_id'], ()) if row['actor_type'] == 'user'
+                  else authored[1].get(row['team_id'], ()) if row['actor_type'] == 'team'
+                  else ())
+        return {group_id: maximum_by_group[group_id] for group_id in groups if group_id in maximum_by_group}
+
     try:
         page = 1
         while True:
@@ -433,21 +447,51 @@ def _publish(snapshot):
             if not values:
                 break
             cells = _projection_page_cells(game, usable, values, include_hidden=True)
-            DailyAggregateSnapshotRow.objects.bulk_create([
-                DailyAggregateSnapshotRow(
-                    version=version, actor_type=row['actor_type'], actor_key=row['actor_key'],
-                    team_id=row['team_id'], user_id=row['user_id'], anon_key=row['anon_key'],
-                    score=row['window_score'], attempts_count=row['attempts_count'],
-                    played_count=row['played_count'], total_time_ms=row['total_time_ms'],
-                    used_fallback_time=bool(row.get('used_fallback_time')),
-                    eligible_count=_eligible_count(row, len(usable), authored, prepublication),
-                    timed_count=int(row.get('timed_count') or 0),
-                    cells={str(key): float(value) for key, value in cells[(row['actor_type'], row['actor_key'])].items()},
-                ) for row in values
-            ], batch_size=50)
+            snapshot_rows = []
+            for row in values:
+                identity = (row['actor_type'], row['actor_key'])
+                credited = author_credit(row)
+                row_cells = {str(key): float(value) for key, value in cells[identity].items()}
+                row_cells.update({str(key): value for key, value in credited.items()})
+                snapshot_rows.append(
+                    DailyAggregateSnapshotRow(
+                        version=version, actor_type=row['actor_type'], actor_key=row['actor_key'],
+                        team_id=row['team_id'], user_id=row['user_id'], anon_key=row['anon_key'],
+                        score=Decimal(str(row['window_score'])) + sum(
+                            (Decimal(str(value)) for value in credited.values()), Decimal('0')
+                        ), attempts_count=row['attempts_count'],
+                        played_count=row['played_count'], total_time_ms=row['total_time_ms'],
+                        used_fallback_time=bool(row.get('used_fallback_time')),
+                        eligible_count=_eligible_count(row, len(usable), authored, prepublication),
+                        timed_count=int(row.get('timed_count') or 0),
+                        cells=row_cells,
+                    )
+                )
+            DailyAggregateSnapshotRow.objects.bulk_create(snapshot_rows, batch_size=50)
             if page * BUILD_PAGE_SIZE >= total:
                 break
             page += 1
+        # An author who did not play another release still belongs in the month.
+        existing_users = set(version.rows.filter(actor_type='user').values_list('user_id', flat=True))
+        existing_teams = set(version.rows.filter(actor_type='team').values_list('team_id', flat=True))
+        author_only = []
+        for user_id, groups in authored[0].items():
+            credited = {group_id: maximum_by_group[group_id] for group_id in groups if group_id in maximum_by_group}
+            if user_id not in existing_users and credited:
+                author_only.append(DailyAggregateSnapshotRow(
+                    version=version, actor_type='user', actor_key=str(user_id), user_id=user_id,
+                    score=sum((Decimal(str(value)) for value in credited.values()), Decimal('0')),
+                    cells={str(key): value for key, value in credited.items()},
+                ))
+        for team_id, groups in authored[1].items():
+            credited = {group_id: maximum_by_group[group_id] for group_id in groups if group_id in maximum_by_group}
+            if team_id not in existing_teams and credited:
+                author_only.append(DailyAggregateSnapshotRow(
+                    version=version, actor_type='team', actor_key=str(team_id), team_id=team_id,
+                    score=sum((Decimal(str(value)) for value in credited.values()), Decimal('0')),
+                    cells={str(key): value for key, value in credited.items()},
+                ))
+        DailyAggregateSnapshotRow.objects.bulk_create(author_only, batch_size=50)
         _finish_publication(snapshot, version, group_ids, sources, policy_signature, pending, repair_error)
         logger.info('aggregate_snapshot_published game=%s month=%s version=%s missing=%s',
                     game.pk, snapshot.month, version.pk, len(missing))

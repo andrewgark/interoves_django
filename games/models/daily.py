@@ -298,9 +298,8 @@ class DailyAggregateSnapshotRow(models.Model):
     played_count = models.PositiveIntegerField(default=0)
     total_time_ms = models.DecimalField(max_digits=20, decimal_places=3, blank=True, null=True)
     used_fallback_time = models.BooleanField(default=False)
-    # Monthly tables rank by averages: score over the month's releases the
-    # actor did not write (0 in versions built before averages), time over
-    # the releases that have one.
+    # Historical eligibility count remains for publication compatibility;
+    # timed_count divides only the time spent solving non-authored releases.
     eligible_count = models.PositiveIntegerField(default=0)
     timed_count = models.PositiveIntegerField(default=0)
     cells = models.JSONField(default=dict)

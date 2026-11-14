@@ -1059,6 +1059,10 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     window_max = sum(column.max_score for column in columns if column.max_score is not None)
     column_max = {column.link.pk: column.max_score for column in columns}
     release_links = [column.link for column in columns]
+    authored = None
+    if saved_monthly and snapshot_version is not None:
+        from games.results.snapshots.aggregate_snapshots import _authored_groups
+        authored = _authored_groups([link.task_group_id for link in release_links])
     rows = []
     for result in page_values:
         identity = (result['actor_type'], result['actor_key'])
@@ -1071,7 +1075,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
                 actor._display_name_override = '{} {}'.format(
                     profile.first_name or '', profile.last_name or '',
                 ).strip()
-        # Saved monthly rows carry averages (see aggregate_snapshot_read).
+        # Saved monthly rows carry score sums and average solving times.
         time_ms = result.get('avg_time', result.get('total_time_ms'))
         elapsed = float(time_ms) / 1000 if time_ms is not None else None
         attempts = result.get('avg_attempts', result['attempts_count'])
@@ -1098,6 +1102,13 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
                 for link in release_links if link.task_group_id in cells[identity]
             },
         })
+        if authored is not None:
+            own_groups = (authored[0].get(result['user_id'], ()) if result['actor_type'] == 'user'
+                          else authored[1].get(result['team_id'], ()) if result['actor_type'] == 'team'
+                          else ())
+            for link in release_links:
+                if link.task_group_id in own_groups and link.pk in rows[-1]['cell_meta']:
+                    rows[-1]['cell_meta'][link.pk] = {'cls': 'cell-author', 'author': True}
 
     result = {
         'aggregate_leaderboard': True,

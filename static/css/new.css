@@ -8155,6 +8155,11 @@ a.new-btn.new-hub-next-game-vote__btn {
   background: var(--results-cell-no-bg);
   color: var(--results-cell-no-fg);
 }
+.new-results-table td.cell-author{
+  background: #8b691c;
+  color: #fff9e8;
+  font-weight: 700;
+}
 
 .new-results-table .hint-numbers{
   margin-left: 0.15rem;

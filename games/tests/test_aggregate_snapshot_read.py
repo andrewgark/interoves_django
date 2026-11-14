@@ -71,6 +71,18 @@ class AggregateSnapshotReadTests(TestCase):
         self.assertEqual((rows, total, page, cells), ([], 0, 1, {}))
         self.assertEqual(len(view), 64)
 
+    def test_monthly_rank_uses_total_points_even_with_different_eligible_counts(self):
+        rows = list(DailyAggregateSnapshotRow.objects.filter(version=self.version).order_by('-score'))
+        rows[0].eligible_count = 3
+        rows[0].save(update_fields=['eligible_count'])
+        rows[1].eligible_count = 1
+        rows[1].save(update_fields=['eligible_count'])
+
+        page, _, _, _, _ = read_snapshot_page(self.version, 1, {'team'}, 'time')
+
+        self.assertEqual(page[0]['actor_key'], rows[0].actor_key)
+        self.assertEqual(page[0]['window_score'], rows[0].score)
+
     def test_progressive_page_request_sends_snapshot_view_token(self):
         script = (Path(__file__).resolve().parents[2] / 'static/js/results_progressive.js').read_text()
         load_next = script.split('async function loadNext()', 1)[1].split('catch (error)', 1)[0]

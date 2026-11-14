@@ -16,13 +16,8 @@ def _snapshot_view_token(version, actor_types, total, hidden_identities, scope_k
     return hashlib.sha256(view.encode('utf-8')).hexdigest()
 
 
-# Monthly tables rank by averages over the releases an actor could play
-# (every release of the month except the ones they wrote; a skipped release
-# counts as zero), so writing a release no longer costs its author places.
-# Rows from versions built before averages have eligible_count = 0 and keep
-# their sums until the month republishes. ``* 1.0`` avoids SQLite integer
-# division on whole-number scores.
-AVG_SCORE_SQL = '(CASE WHEN s.eligible_count > 0 THEN s.score * 1.0 / s.eligible_count ELSE s.score END)'
+# The publication stores the sum, including maximum credit for authored releases.
+SCORE_SQL = 's.score'
 AVG_ATTEMPTS_SQL = ('(CASE WHEN s.eligible_count > 0 AND s.played_count > 0 '
                     'THEN s.attempts_count * 1.0 / s.played_count ELSE s.attempts_count END)')
 AVG_TIME_SQL = ('(CASE WHEN s.eligible_count > 0 AND s.timed_count > 0 '
@@ -91,11 +86,11 @@ def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, pag
         page = min(max(1, page_number), max(1, (total + page_size - 1) // page_size))
         cursor.execute(f'''WITH ranked AS (
             SELECT s.actor_type, s.actor_key, s.team_id, s.user_id, s.anon_key,
-                   {AVG_SCORE_SQL} AS window_score, s.score AS total_score,
+                   {SCORE_SQL} AS window_score, s.score AS total_score,
                    {AVG_ATTEMPTS_SQL} AS avg_attempts, {AVG_TIME_SQL} AS avg_time,
                    s.attempts_count, s.played_count, s.eligible_count, s.timed_count,
                    s.total_time_ms, s.used_fallback_time, s.cells,
-                   RANK() OVER (ORDER BY {AVG_SCORE_SQL} DESC) AS place
+                   RANK() OVER (ORDER BY {SCORE_SQL} DESC) AS place
               FROM {table} s WHERE {eligible}
         ) SELECT * FROM ranked WHERE {scope_sql}
           ORDER BY window_score DESC, {order}, actor_type, actor_key LIMIT %s OFFSET %s''',
@@ -131,7 +126,7 @@ def snapshot_actor_place(version_id, actor_type, actor_key, aggregate_sort):
     with connection.cursor() as cursor:
         cursor.execute(f'''WITH ranked AS (
             SELECT s.actor_type, s.actor_key,
-                   {AVG_SCORE_SQL} AS avg_score,
+                   {SCORE_SQL} AS avg_score,
                    {AVG_ATTEMPTS_SQL} AS avg_attempts, {AVG_TIME_SQL} AS avg_time
               FROM {table} s
              WHERE s.version_id = %s AND s.actor_type IN ({marks})
