@@ -56,7 +56,7 @@ stats_month_url (month JSON with GAME / MONTH placeholders), stats_owner_name.{%
                 {% if game.median_display %}<div><dt>обычно</dt><dd>{{ game.median_display }}</dd></div>{% endif %}
                 {% if game.streak %}<div><dt>серия</dt><dd><i class="ph ph-fire" aria-hidden="true"></i> {{ game.streak }}</dd></div>{% endif %}
                 {% if game.authored %}<div><dt>как автор</dt><dd>{{ game.authored }} {{ game.authored|ru_plural:"выпуск,выпуска,выпусков" }}</dd></div>{% endif %}
-                {% if game.month_place %}<div data-tooltip="Место в общей таблице {{ game.month_label }}"><dt>место {{ game.month_label }}</dt><dd>#{{ game.month_place }} <small>из {{ game.month_total }}</small></dd></div>{% endif %}
+                {% if game.month_place %}<div data-tooltip="Место в общей таблице {{ game.month_label }}"><dt><a href="{{ game.month_results_url }}">место {{ game.month_label }}</a></dt><dd>#{{ game.month_place }} <small>из {{ game.month_total }}</small></dd></div>{% endif %}
               </dl>
               {% if game.duel %}
                 <div class="pgs-overall__duel">

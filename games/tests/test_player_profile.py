@@ -263,8 +263,16 @@ class PlayerStatsTests(TestCase):
                 version=version, actor_type=actor_type, actor_key=key, score=score, **extra,
             )
         with patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}):
-            [game] = player_stats(self.me, now=now).games
+            stats = player_stats(self.me, now=now)
+        [game] = stats.games
         self.assertEqual((game.month_place, game.month_total), (2, 3))
+        self.assertEqual(
+            game.month_results_url,
+            '/walls/results/?month={:%Y-%m}&sort=time'.format(today),
+        )
+        from django.template.loader import render_to_string
+        html = render_to_string('site/partials/daily_stats.html', {'stats': stats})
+        self.assertIn('href="/walls/results/?month={:%Y-%m}&amp;sort=time"'.format(today), html)
 
     def test_head_to_head(self):
         self.project(self.me, self.groups[0], 5)

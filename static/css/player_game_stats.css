@@ -69,6 +69,9 @@ html.new-ui-dark .pgs {
 .pgs-facts { display: grid; gap: 0.45rem; margin: 0; }
 .pgs-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
 .pgs-facts dt { color: var(--muted); font-size: 0.85rem; }
+.pgs-facts dt a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
+.pgs-facts dt a:hover { color: var(--accent); }
+.pgs-facts dt a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pgs-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .pgs-facts dd small { color: var(--muted); font-weight: 500; }
 .pgs-facts .ph-fire { color: var(--warning); }

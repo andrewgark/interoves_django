@@ -22,6 +22,7 @@ from games.models import (
     Game,
     PlayerCompletedGame,
 )
+from games.sections.paths import section_results_path
 
 ACTIVITY_WEEKS = 16
 MONTH_NAMES_PREPOSITIONAL = (
@@ -41,6 +42,7 @@ class GameStats:
     month_place: int | None = None
     month_total: int | None = None
     month_label: str = ''
+    month_results_url: str = ''
     authored: int = 0
     has_month_view: bool = False
     duel: dict | None = None
@@ -184,6 +186,7 @@ def _month_places(actor, game_ids, *, today):
         out[str(game_id)] = (
             place['place'], place['total'],
             'в {}'.format(MONTH_NAMES_PREPOSITIONAL[month.month]),
+            '{}?month={:%Y-%m}&sort=time'.format(section_results_path(str(game_id)), month),
         )
     return out
 
@@ -243,6 +246,7 @@ def _actor_stats(actor, *, now=None):
             month_place=place[0] if place else None,
             month_total=place[1] if place else None,
             month_label=place[2] if place else '',
+            month_results_url=place[3] if place else '',
             authored=game_month.authored_release_count(month_actor, game),
             has_month_view=game_id in month_game_ids,
         ))
