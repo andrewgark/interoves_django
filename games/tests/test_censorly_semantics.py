@@ -2827,6 +2827,27 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
 
 class ConfirmedSingleTokenRelationTests(SimpleTestCase):
+    def test_cremation_family_keeps_its_participle_and_excludes_cosmetic_cream(self):
+        for guess, target in (
+            ('кремация', 'кремировать'),
+            ('кремация', 'кремированный'),
+            ('кремировать', 'кремационный'),
+            ('кремированный', 'крематорий'),
+            ('кремироваться', 'кремация'),
+        ):
+            self.assertEqual(explain(guess, target), 'root', f'{guess} / {target}')
+        self.assertEqual(explain('крем', 'кремация'), '')
+        self.assertEqual(explain('кремация', 'кремовый'), '')
+
+    def test_companion_does_not_open_travel_verb(self):
+        self.assertEqual(explain('спутник', 'путешествуют'), '')
+        self.assertEqual(explain('путешествовать', 'спутник'), '')
+        self.assertEqual(explain('спутниковый', 'путешественник'), '')
+        self.assertEqual(explain('попутчик', 'путешествие'), '')
+        self.assertEqual(explain('спутник', 'спутница'), 'root')
+        self.assertEqual(explain('сопутник', 'спутник'), 'root')
+        self.assertEqual(explain('путешествие', 'путешествуют'), 'root')
+
     def test_reviewed_missing_root_assignments_are_structural(self):
         from games.puzzles.censorly.lexical.match.rootbank import assignment_of, structures_of
 

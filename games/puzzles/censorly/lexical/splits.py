@@ -5586,6 +5586,14 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_analysis'
         return 'sense:review_taking'
     if family == 'пут²':
+        # A companion or satellite can accompany a journey, but is not the
+        # journey itself. Keep the companion derivatives together.
+        if lemma in {
+            'попутчик', 'попутчица', 'сопутник', 'сопутница', 'сопутный',
+            'сопутствовать', 'сопутствующий', 'спутник', 'спутница',
+            'спутничество',
+        }:
+            return 'sense:review_companion'
         return 'sense:review_travel_path'
     if family == 'глад²|глод|голод':
         if lemma.startswith(('глод', 'выглод', 'доглод', 'изглод', 'наглод', 'поглод')):
