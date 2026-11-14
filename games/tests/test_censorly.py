@@ -1958,6 +1958,78 @@ class CensorlyWikiHelperTests(TestCase):
                 tokens = tokenize_text(cleaned)
                 self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
+    def test_disproportionation_oxidation_states_and_temperature(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+
+        # Exact TeX from the saved Wikipedia revision 129889729.
+        raw = (
+            r'{\displaystyle 4{\mbox{K}}{\stackrel {+5}{\mbox{Cl}}}{\mbox{O}}_{3}'
+            r'~{\stackrel {t^{\circ }}{\rightarrow }}~{\mbox{K}}'
+            r'{\stackrel {-1}{\mbox{Cl}}}+3{\mbox{K}}'
+            r'{\stackrel {+7}{\mbox{Cl}}}{\mbox{O}}_{4}}'
+        )
+        expected = '4KCl⁺⁵O₃ → (t°) KCl⁻¹ + 3KCl⁺⁷O₄'
+
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
+        self.assertNotIn('^', [token['surface'] for token in tokens])
+        self.assertEqual([token['id'] for token in tokens], list(range(len(tokens))))
+
+        ion_raw = (
+            r'{\displaystyle 3{\stackrel {0}{\mbox{I}}}_{2}'
+            r'+6{\mbox{OH}}^{{}-{}}~\rightarrow '
+            r'~{5}{\stackrel {-1}{\mbox{I}}}{}^{{}-{}}'
+            r'+{}\stackrel {+5}{\mbox{I}}{\mbox{O}}_{3}^{{}-{}}'
+            r'+{3}{{\mbox{H}}_{2}}{\mbox{O}}}'
+        )
+        ion_expected = '3I⁰₂ + 6OH⁻ → 5I⁻¹⁻ + I⁺⁵O₃⁻ + 3H₂O'
+        self.assertEqual(
+            clean_wiki_extract(ion_raw, mark_formulas=True),
+            f'{FORMULA_START}{ion_expected}{FORMULA_END}',
+        )
+
+    def test_formula_charges_keep_their_digits_and_sign_together(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+
+        # Zn{}^{2+} and SO{}_{4}{}^{2-} occur in the saved electrolysis extract.
+        raw = r'{\displaystyle Zn{}^{2+}+SO{}_{4}{}^{2-}+\stackrel{+5}{Cl}}'
+        expected = 'Zn²⁺ + SO₄²⁻ + Cl⁺⁵'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        self.assertEqual(
+            ''.join(tok.get('display') or tok['surface'] for tok in tokenize_text(cleaned)),
+            expected,
+        )
+
+    def test_algebraic_superscript_keeps_operator_inside_index(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        # The Fourier article contains (2π)^{1+a}; spaces after TeX parsing
+        # must not detach the + and a from its exponent.
+        self.assertEqual(
+            clean_wiki_extract(r'{\displaystyle (2\pi)^{1+a}+x^{n + 1}+y^{n m}}'),
+            '(2π)¹⁺ᵃ + xⁿ⁺¹ + yⁿ ᵐ',
+        )
+        self.assertEqual(
+            clean_wiki_extract(r'{\displaystyle e^{i\omega x}}'),
+            'e^(iω x)',
+        )
+
+    def test_annotation_on_long_arrow_does_not_leak_tex(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        # Saved revision of «Изоморфизм» uses this exact arrow annotation.
+        raw = (
+            r'{\displaystyle \mathbb {R} [x]/(x^{2}+1)\ '
+            r'{\stackrel {\cong }{\longrightarrow }}\ \mathbb {C} }'
+        )
+        self.assertEqual(clean_wiki_extract(raw), 'ℝ [x]/(x² + 1) ⟶ (≅) ℂ')
+
     def test_mathbb_number_sets_keep_double_struck_identity(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text

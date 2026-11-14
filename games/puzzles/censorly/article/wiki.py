@@ -942,6 +942,7 @@ _TEX_TEXT_ARROWS = (
     ('<=>', '⇌'), ('<->', '⇌'), ('->', '→'), ('<-', '←'),
     ('=>', '⇒'), ('<=', '⇐'),
 )
+_TEX_ANNOTATED_ARROWS = frozenset('→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦')
 _TEX_SYMBOLS = {
     'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
     'epsilon': 'ε', 'varepsilon': 'ϵ', 'zeta': 'ζ', 'eta': 'η',
@@ -1027,6 +1028,19 @@ _BIG_OPERATOR_WITH_LIMITS_RE = re.compile(
 _SINGLE_SCRIPT_ATOM_RE = re.compile(
     rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ][{re.escape(_SCRIPT_CHARS)}]*$'
 )
+
+
+def _compact_numeric_script(value: str) -> str:
+    """Undo operator spacing only inside a signed numeric script."""
+    plain = value.replace('−', '-')
+    if re.fullmatch(r'(?:[+-]\s*\d+|\d+\s*[+-]|[+-])', plain):
+        return re.sub(r'\s+', '', plain)
+    return value
+
+
+def _tighten_script_operators(value: str) -> str:
+    """Keep a fully rendered index such as ⁿ⁺¹ or ²⁻ on one baseline."""
+    return re.sub(r'\s*([⁺⁻⁼₊₋₌])\s*', r'\1', value)
 
 
 def _tex_group(text: str, start: int) -> tuple[str, int] | None:
@@ -1176,20 +1190,28 @@ class _TexTextParser:
             if annotation and base:
                 label = annotation[0].strip()
                 value = base[0].strip()
+                # The generic TeX spacing pass turns an oxidation state into
+                # "+ 5" or "− 1". Keep it as one superscript on the element.
+                label = _compact_numeric_script(label)
+                if value in _TEX_ANNOTATED_ARROWS and name in ('overset', 'stackrel'):
+                    # A reaction condition belongs to the arrow, rather than
+                    # becoming a guessed word inside a raw ^{...} fragment.
+                    label = re.sub(r'\^\([∘°]\)$', '°', label)
+                    return f'{value} ({label})', base[1]
                 if name in ('overset', 'stackrel'):
                     translated = label.translate(_SUPERSCRIPTS)
                     fully_translated = all(
                         char.isspace() or char.translate(_SUPERSCRIPTS) != char
                         for char in label
                     )
-                    script = translated if translated != label and fully_translated else f'^{{{label}}}'
+                    script = _tighten_script_operators(translated) if translated != label and fully_translated else f'^{{{label}}}'
                 else:
                     translated = label.translate(_SUBSCRIPTS)
                     fully_translated = all(
                         char.isspace() or char.translate(_SUBSCRIPTS) != char
                         for char in label
                     )
-                    script = translated if translated != label and fully_translated else f'₍{label}₎'
+                    script = _tighten_script_operators(translated) if translated != label and fully_translated else f'₍{label}₎'
                 return f'{value}{script}', base[1]
             return name, j
         if name == 'sqrt':
@@ -1399,13 +1421,16 @@ class _TexTextParser:
                 if arg:
                     value, i = arg
                     trans = _SUPERSCRIPTS if ch == '^' else _SUBSCRIPTS
-                    translated = value.translate(trans)
+                    # The nested parser uses the mathematical minus sign in
+                    # prose. Script glyph tables expect TeX's ASCII minus.
+                    script_value = _compact_numeric_script(value)
+                    translated = script_value.translate(trans)
                     fully_translated = all(
                         char.isspace() or char.translate(trans) != char
-                        for char in value
+                        for char in script_value
                     )
-                    if translated != value and fully_translated:
-                        out.append(translated)
+                    if translated != script_value and fully_translated:
+                        out.append(_tighten_script_operators(translated))
                     elif ch == '_':
                         out.append(f'₍{value}₎')
                     else:
