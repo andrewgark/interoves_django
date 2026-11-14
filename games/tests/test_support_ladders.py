@@ -376,6 +376,46 @@ class LadderSupportViewTests(TestCase):
         self.assertEqual(linked['telegram_handle'], 'astrolabe12')
         self.assertContains(response, 'Telegram: @')
 
+    def test_returned_offer_has_separate_dashboard_list(self):
+        from games.club.offers.ladder import (
+            accept_offer,
+            create_offer,
+            send_offer,
+            update_offer_content,
+        )
+
+        author = User.objects.create_user('revision_author', password='x')
+        Profile.objects.create(
+            user=author,
+            first_name='Влад',
+            last_name='Чесноков',
+            telegram_handle='revision_author',
+            telegram_verified=True,
+        )
+        offer = create_offer(author)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='Влад Чесноков')
+        send_offer(offer)
+        offer = accept_offer(offer)
+        returned = self.client.post(
+            reverse('support:ladder_link_request_revision', args=[offer.accepted_link_id]),
+            data=json.dumps({'admin_note': 'Поправьте подсказку'}),
+            content_type='application/json',
+        )
+        self.assertEqual(returned.status_code, 200)
+        self.assertEqual([row['id'] for row in returned.json()['revisions']], [offer.pk])
+
+        response = self.client.get(reverse('support:ladders'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['sent_offers_json'], [])
+        revisions = response.context['revision_offers_json']
+        self.assertEqual([row['id'] for row in revisions], [offer.pk])
+        self.assertEqual(revisions[0]['status_label'], 'На доработке')
+        self.assertEqual(
+            response.context['offer_by_link_json'][str(offer.accepted_link_id)]['status'],
+            'draft',
+        )
+        self.assertContains(response, 'data-tab="revision"')
+
     def test_sent_offer_contains_author_telegram(self):
         from games.club.offers.ladder import create_offer, send_offer, update_offer_content
 

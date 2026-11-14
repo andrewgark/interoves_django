@@ -429,6 +429,15 @@ def list_sent_offers() -> list[OfferRow]:
     return [serialize_offer(o) for o in qs]
 
 
+def list_revision_offers() -> list[OfferRow]:
+    qs = (
+        _offers_queryset_base()
+        .filter(status=LadderOffer.STATUS_DRAFT, sent_at__isnull=False)
+        .order_by('-updated_at')
+    )
+    return [serialize_offer(o) for o in qs]
+
+
 def offer_for_link(link_id: int) -> Optional[LadderOffer]:
     return (
         _offers_queryset_base()
@@ -596,7 +605,10 @@ def can_access_offer_hash(offer: LadderOffer, user, *, now=None) -> bool:
 
 def dashboard_offers_context() -> dict[str, Any]:
     offers = list_sent_offers()
+    revisions = list_revision_offers()
     return {
         'sent_offers': offers,
         'sent_offers_json': [o.to_dict() for o in offers],
+        'revision_offers': revisions,
+        'revision_offers_json': [o.to_dict() for o in revisions],
     }

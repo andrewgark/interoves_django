@@ -25,6 +25,7 @@ from games.club.offers.ladder import (
     LadderOfferError,
     accept_offer,
     dashboard_offers_context,
+    list_revision_offers,
     list_sent_offers,
     offer_for_link,
     offers_by_link_ids,
@@ -971,6 +972,7 @@ def ladder_offer_accept(request, offer_id):
         'ok': True,
         'offer': serialize_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_offers()],
+        'revisions': [r.to_dict() for r in list_revision_offers()],
         'ladders': [r.to_dict() for r in rows],
     })
 
@@ -992,6 +994,7 @@ def ladder_offer_request_revision(request, offer_id):
         'ok': True,
         'offer': serialize_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_offers()],
+        'revisions': [r.to_dict() for r in list_revision_offers()],
     })
 
 
@@ -1014,6 +1017,7 @@ def ladder_link_request_revision(request, link_id):
         'ok': True,
         'offer': serialize_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_offers()],
+        'revisions': [r.to_dict() for r in list_revision_offers()],
     })
 
 

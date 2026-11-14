@@ -4,6 +4,7 @@
 {% block schedule_bootstrap %}
 {{ ladders_json|json_script:"ladders-bootstrap" }}
 {{ sent_offers_json|json_script:"offers-bootstrap" }}
+{{ revision_offers_json|json_script:"revision-offers-bootstrap" }}
 {{ offer_by_link_json|json_script:"offer-by-link-bootstrap" }}
 {% endblock %}
 
@@ -20,6 +21,7 @@
 
 {% block schedule_extra_tabs %}
   <button type="button" class="support-tabs__btn" data-tab="sent">Отправленные{% if sent_offers %} ({{ sent_offers|length }}){% endif %}</button>
+  <button type="button" class="support-tabs__btn" data-tab="revision">На доработке{% if revision_offers %} ({{ revision_offers|length }}){% endif %}</button>
 {% endblock %}
 
 {% block schedule_modals %}
@@ -112,6 +114,7 @@
   var bootstrap = JSON.parse(document.getElementById('ladders-bootstrap').textContent);
   var allRows = bootstrap.slice();
   var sentOffers = JSON.parse(document.getElementById('offers-bootstrap').textContent || '[]');
+  var revisionOffers = JSON.parse(document.getElementById('revision-offers-bootstrap').textContent || '[]');
   var offerByLink = JSON.parse(document.getElementById('offer-by-link-bootstrap').textContent || '{}');
   var scheduleUi = window.SupportScheduleTabs;
   var viewTab = 'schedule';
@@ -163,13 +166,20 @@
         return String(b.sent_at || '').localeCompare(String(a.sent_at || ''));
       });
     }
-    return scheduleUi.rowsForTab(allRows, tab);
+    if (tab === 'revision') return revisionOffers.slice();
+    return scheduleUi.rowsForTab(allRows, tab).filter(function (row) {
+      var offer = offerByLink[String(row.link_id)];
+      return !offer || offer.status !== 'draft';
+    });
   }
   function isScheduleView() {
     return viewTab === 'schedule';
   }
   function isSentView() {
     return viewTab === 'sent';
+  }
+  function isOfferView() {
+    return viewTab === 'sent' || viewTab === 'revision';
   }
   function canReorder() {
     return viewTab === 'schedule' || viewTab === 'future';
@@ -196,13 +206,13 @@
     }
     listEl.innerHTML = '';
     if (!rows.length) {
-      listEl.innerHTML = isSentView()
-        ? '<p class="support-empty">Нет отправленных лесенок.</p>'
+      listEl.innerHTML = isOfferView()
+        ? '<p class="support-empty">' + (isSentView() ? 'Нет отправленных лесенок.' : 'Нет лесенок на доработке.') + '</p>'
         : '<p class="support-empty">Пока нет лесенок. Нажмите «+ В конец».</p>';
       renderMeta(allRows);
       return;
     }
-    if (isSentView()) {
+    if (isOfferView()) {
       rows.forEach(function (offer) {
         var item = document.createElement('div');
         item.className = 'support-ladder-item support-schedule-item';
@@ -210,13 +220,15 @@
           '<div class="support-ladder-item__num">#' + offer.id + '</div>' +
           '<div class="support-ladder-item__body">' +
             '<div class="support-ladder-item__title">' + escapeHtml(offer.author || offer.user_name || 'Лесенка') +
-              ' <span class="support-flag support-flag--warn">отправлена</span></div>' +
+              ' <span class="support-flag support-flag--warn">' + (isSentView() ? 'отправлена' : 'на доработке') + '</span></div>' +
             '<div class="support-ladder-item__meta">' +
-              escapeHtml((offer.sent_at || '').slice(0, 16).replace('T', ' ')) +
+              (offer.production_number ? '№' + offer.production_number + ' · ' : '') +
+              escapeHtml(((isSentView() ? offer.sent_at : offer.updated_at) || '').slice(0, 16).replace('T', ' ')) +
               (offer.telegram_handle ? ' · Telegram: @' + escapeHtml(offer.telegram_handle) : '') +
               ' · ' + offer.word_count + ' сл.' +
             '</div>' +
             '<div class="support-ladder-item__preview">' + escapeHtml(offer.words_preview || '') + '</div>' +
+            (!isSentView() && offer.admin_note ? '<div class="support-hint">' + escapeHtml(offer.admin_note) + '</div>' : '') +
             (offer.comment ? '<div class="support-hint">' + escapeHtml(offer.comment) + '</div>' : '') +
           '</div>' +
           '<div class="support-ladder-item__actions">' +
@@ -298,6 +310,16 @@
     allRows = rows;
     refreshView();
   }
+  function setRevisionOffers(offers) {
+    revisionOffers = offers || [];
+    var tab = document.querySelector('#ladder-tabs [data-tab="revision"]');
+    if (tab) tab.textContent = 'На доработке' + (revisionOffers.length ? ' (' + revisionOffers.length + ')' : '');
+  }
+  function rememberOffer(offer) {
+    if (offer && offer.accepted_link_id) {
+      offerByLink[String(offer.accepted_link_id)] = offer;
+    }
+  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -315,13 +337,16 @@
   }
 
   function fullOrderFromView() {
-    var visible = currentOrder();
-    if (viewTab !== 'future') return visible;
-    var publishedIds = allRows
-      .filter(function (r) { return r.is_published; })
+    return mergeVisibleOrder(currentOrder());
+  }
+
+  function mergeVisibleOrder(visibleOrder) {
+    var shown = {};
+    rowsForTab(viewTab).forEach(function (row) { shown[row.link_id] = true; });
+    var next = visibleOrder.slice();
+    return allRows.filter(function (row) { return !row.is_deferred; })
       .sort(function (a, b) { return a.number - b.number; })
-      .map(function (r) { return r.link_id; });
-    return publishedIds.concat(visible);
+      .map(function (row) { return shown[row.link_id] ? next.shift() : row.link_id; });
   }
 
   function persistOrder(order) {
@@ -377,9 +402,8 @@
       postJson(endpoints.linkRevisionTpl.replace('{id}', String(linkId)), { admin_note: note })
         .then(function (data) {
           sentOffers = data.offers || sentOffers;
-          if (data.offer && data.offer.accepted_link_id) {
-            offerByLink[String(data.offer.accepted_link_id)] = data.offer;
-          }
+          setRevisionOffers(data.revisions);
+          rememberOffer(data.offer);
           refreshView();
           alert('Отправлено на доработку');
         })
@@ -428,18 +452,20 @@
     isBusy: function () { return busy || !canReorder(); },
     canDrag: function (item) { return item.dataset.published !== '1'; },
     minIndex: function () {
-      return viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
+      return viewTab === 'future' ? 0 : rowsForTab('schedule').filter(function (row) {
+        return row.is_published;
+      }).length;
     },
     onOrder: function (order) {
       var byId = {};
       allRows.forEach(function (r) { byId[r.link_id] = r; });
-      var fullOrder = scheduleUi.fullOrder(allRows, order, viewTab);
+      var fullOrder = mergeVisibleOrder(order);
       var preview = fullOrder.map(function (pk, i) {
         var row = byId[pk];
         if (!row) return null;
         return Object.assign({}, row, { number: i + 1 });
       }).filter(Boolean);
-      allRows = preview;
+      allRows = preview.concat(allRows.filter(function (row) { return row.is_deferred; }));
       refreshView();
       persistOrder(fullOrder);
     }
@@ -582,9 +608,8 @@
     postJson(endpoints.linkRevisionTpl.replace('{id}', String(linkId)), { admin_note: note })
       .then(function (data) {
         sentOffers = data.offers || sentOffers;
-        if (data.offer && data.offer.accepted_link_id) {
-          offerByLink[String(data.offer.accepted_link_id)] = data.offer;
-        }
+        setRevisionOffers(data.revisions);
+        rememberOffer(data.offer);
         closeModal();
         refreshView();
       })
@@ -724,6 +749,8 @@
       document.getElementById('offer-edit-mixed-script').checked = !!offer.mixed_script;
       renderOfferWordRows(offer.words || [], offer.hints || [], offer.emojis || []);
       document.getElementById('offer-edit-preview').href = offer.play_url || '#';
+      document.getElementById('offer-edit-accept').hidden = offer.status !== 'sent';
+      document.getElementById('offer-edit-revision').hidden = offer.status === 'draft';
       openOfferModal();
     }
     if (preloaded) { fill(preloaded); return; }
@@ -751,6 +778,7 @@
       mixed_script: document.getElementById('offer-edit-mixed-script').checked
     }).then(function (data) {
       sentOffers = data.offers || sentOffers;
+      rememberOffer(data.offer);
       errEl.hidden = true;
       openOfferEdit(editOfferId, data.offer);
     }).catch(function (e) {
@@ -776,10 +804,9 @@
       return postJson(endpoints.offerAcceptTpl.replace('{id}', String(editOfferId)), {});
     }).then(function (data) {
       sentOffers = data.offers || [];
+      setRevisionOffers(data.revisions);
       if (data.ladders) setRows(data.ladders);
-      if (data.offer && data.offer.accepted_link_id) {
-        offerByLink[String(data.offer.accepted_link_id)] = data.offer;
-      }
+      rememberOffer(data.offer);
       closeOfferModal();
       viewTab = 'schedule';
       document.querySelectorAll('#ladder-tabs .support-tabs__btn').forEach(function (el) {
@@ -798,6 +825,8 @@
     postJson(endpoints.offerRevisionTpl.replace('{id}', String(editOfferId)), { admin_note: note })
       .then(function (data) {
         sentOffers = data.offers || [];
+        setRevisionOffers(data.revisions);
+        rememberOffer(data.offer);
         closeOfferModal();
         refreshView();
       })
