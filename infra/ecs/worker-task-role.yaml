@@ -24,6 +24,7 @@ Conditions:
   IsRecheck: !Equals [!Ref WorkerName, recheck]
   IsIdentity: !Equals [!Ref WorkerName, identity]
   IsIntegrations: !Equals [!Ref WorkerName, integrations]
+  IsBackground: !Equals [!Ref WorkerName, background]
 
 Resources:
   TaskRole:
@@ -117,6 +118,22 @@ Resources:
               - sqs:SendMessage
             Resource: !Ref QueueArn
           - Sid: PublishIdentityAdminAlerts
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:interoves-integrations
+
+  PublishBackgroundAdminAlertsPolicy:
+    Type: AWS::IAM::Policy
+    Condition: IsBackground
+    Properties:
+      PolicyName: PublishBackgroundAdminAlerts
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublishClubPaymentAdminAlerts
             Effect: Allow
             Action:
               - sqs:SendMessage

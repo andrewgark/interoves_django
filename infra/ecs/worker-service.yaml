@@ -108,6 +108,8 @@ Conditions:
   IsRecheck: !Equals [!Ref WorkerName, recheck]
   IsIdentity: !Equals [!Ref WorkerName, identity]
   IsIntegrations: !Equals [!Ref WorkerName, integrations]
+  IsBackground: !Equals [!Ref WorkerName, background]
+  PublishesAdminAlerts: !Or [!Condition IsIdentity, !Condition IsBackground]
 
 Resources:
   LogGroup:
@@ -161,9 +163,10 @@ Resources:
               Value: !If [IsIdentity, !Ref QueueUrl, '']
             - Name: ANONYMOUS_MERGE_EVENTS
               Value: !If [IsIdentity, '1', '']
-            # Failed merges alert the admin through the integrations queue.
+            # Failed merges (identity) and Club payment outbox alerts (background)
+            # reach the admin through the integrations queue.
             - Name: INTEGRATIONS_SQS_QUEUE_URL
-              Value: !If [IsIdentity, !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/interoves-integrations', '']
+              Value: !If [PublishesAdminAlerts, !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/interoves-integrations', '']
             - Name: INTEROVES_CLOUDWATCH_METRICS
               Value: !If [IsRecheck, '1', '']
             - Name: INTEROVES_CONFIG_SECRET_ID
