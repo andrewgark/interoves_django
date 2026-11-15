@@ -652,6 +652,22 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(allowed.json()['status'], 'ok')
 
+    def test_future_ladder_offline_pack_takes_the_share_token(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
+        send_offer(offer)
+        accept_offer(offer, at_number=100)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        client = Client()
+        client.force_login(self.other)
+        url = '/raddle_offline_pack/{}/'.format(task.pk)
+        payload = {'game_id': LADDER_GAME_ID}
+
+        self.assertEqual(client.post(url, payload).json()['status'], 'not_published')
+        allowed = client.post(url, dict(payload, offer_share=offer.share_hash))
+        self.assertEqual(allowed.status_code, 200)
+        self.assertIn(allowed.json()['status'], ('ok', 'disabled'))
+
     def test_reset_all_progress_clears_every_actor(self):
         from games.club.offers.ladder import reset_all_raddle_progress
 

@@ -2186,6 +2186,11 @@
     var context = gameplayContextForTask(taskId);
     if (context) body.set('gameplay_context', context);
     if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(body);
+    // A ladder opened by its share link before its daily number is public
+    // is refused as not_published without the share token, as moves are.
+    if (window.WordSaladPath && typeof window.WordSaladPath.stampOfferShare === 'function') {
+      window.WordSaladPath.stampOfferShare(body);
+    }
     return body;
   }
 
