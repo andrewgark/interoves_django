@@ -1,10 +1,13 @@
 """Tests for user ladder offers (/create_ladder, share hash, accept)."""
 
 import json
+from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from games.club.offers.ladder import (
     accept_offer,
@@ -667,6 +670,33 @@ class LadderOfferFlowTests(TestCase):
         allowed = client.post(url, dict(payload, offer_share=offer.share_hash))
         self.assertEqual(allowed.status_code, 200)
         self.assertIn(allowed.json()['status'], ('ok', 'disabled'))
+
+    def test_served_offline_pack_is_counted(self):
+        from django.core.cache import caches
+
+        from games.gameplay import offline_telemetry
+        from games.site.views.game import raddle_offline
+
+        caches['offline_play'].clear()
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
+        send_offer(offer)
+        accept_offer(offer, at_number=100)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        client = Client()
+        client.force_login(self.other)
+        with patch.object(raddle_offline, 'resolve_capabilities') as caps:
+            caps.return_value.offline_attempts = True
+            caps.return_value.offline_timing = False
+            response = client.post(
+                '/raddle_offline_pack/{}/'.format(task.pk),
+                {'game_id': LADDER_GAME_ID, 'offer_share': offer.share_hash},
+            )
+        self.assertEqual(response.json()['status'], 'ok')
+        now = timezone.now()
+        self.assertEqual(
+            offline_telemetry.totals(now - timedelta(hours=1), now + timedelta(hours=1)).get('pack_served'), 1,
+        )
 
     def test_reset_all_progress_clears_every_actor(self):
         from games.club.offers.ladder import reset_all_raddle_progress

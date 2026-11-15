@@ -82,6 +82,13 @@ class CountersTests(SimpleTestCase):
         self.assertIn('Офлайн-ходов отправлено после восстановления связи: 4', lines)
         self.assertIn('Засчитано время офлайн-игры: 1', lines)
 
+    def test_failed_packs_are_shown_against_all_pack_requests(self):
+        telemetry.count('pack_failed', 3, now=HOUR)
+        telemetry.count('pack_served', 97, now=HOUR)
+        lines = telemetry.report_lines(HOUR.replace(minute=0), HOUR + timedelta(hours=1))
+        self.assertIn('Пакет офлайн-режима не загрузился: 3 из 100', lines)
+        self.assertIn('Пакетов офлайн-режима выдано: 97', lines)
+
 
 class TelemetryEndpointTests(TestCase):
     def setUp(self):
@@ -93,6 +100,12 @@ class TelemetryEndpointTests(TestCase):
     def test_accepts_a_batch(self):
         response = self._post(json.dumps({'events': [{'kind': 'sw_failed', 'detail': {'error': 'SecurityError'}}]}))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'ok': True, 'accepted': 1})
+
+    def test_accepts_an_interrupted_page_save(self):
+        response = self._post(json.dumps({'events': [
+            {'kind': 'sw_interrupted', 'detail': {'status': 'cache', 'error': 'TypeError: Load failed'}},
+        ]}))
         self.assertEqual(response.json(), {'ok': True, 'accepted': 1})
 
     def test_rejects_bad_json_and_huge_bodies(self):

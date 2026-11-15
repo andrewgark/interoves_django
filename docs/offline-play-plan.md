@@ -493,9 +493,12 @@ rollout_percent=5` → смотреть логи `offline_verdict_divergence` �
 - Телеметрия (`games/gameplay/offline_telemetry.py`): страница копит
   отчёты в localStorage и шлёт пачками на `POST /offline_telemetry/`
   (`queue_synced`, `pack_failed`, `storage_failed`, `sw_failed` с этапом
-  `register`/`cache`, `queue_stale`, `assemble_failed`, `restore_failed`,
-  `queue_dropped`); сервер считает свои (`verdict_divergence`,
-  `pack_build_failed`, `offline_credit`). Всё — почасовые счётчики в кэше
+  `register`/`cache`, `sw_interrupted` — обрыв загрузки страницы в кэш,
+  `queue_stale`, `assemble_failed`, `restore_failed`, `queue_dropped`;
+  `error` у `sw_*` помечается `[wv,tg,vk,meta,pwa]` для встроенных
+  браузеров); сервер считает свои (`verdict_divergence`,
+  `pack_build_failed`, `offline_credit`, `pack_served` — знаменатель для
+  `pack_failed`, в отчёте «N из M»). Всё — почасовые счётчики в кэше
   (9 дней) и структурный лог `offline_client_event`; виды, означающие баг
   (`assemble_failed`, `restore_failed`, `queue_dropped`), шлют алерт —
   не чаще раза в 6 ч на игрока и не больше 20 в час. Дневной/недельный

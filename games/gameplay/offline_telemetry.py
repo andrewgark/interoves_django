@@ -33,6 +33,9 @@ CLIENT_KINDS = {
     'storage_failed': ('Браузер не дал сохранить данные офлайн-режима', False),
     # status: 'register' (no worker) or 'cache' (the page was not kept).
     'sw_failed': ('Страница не сохранилась для открытия без сети', False),
+    # The page download for the cache broke off (navigation away, flaky
+    # network); the next visit tries again. Not a failure of the feature.
+    'sw_interrupted': ('Сохранение страницы для открытия без сети прервалось (сеть)', False),
     'queue_stale': ('Офлайн-ходы ждали отправки больше суток', False),
     'assemble_failed': ('Карточка не собралась из кусочков', True),
     'restore_failed': ('Прогресс не восстановился при открытии без сети', True),
@@ -41,6 +44,8 @@ CLIENT_KINDS = {
     'queue_blocked': ('Офлайн-ходы ждут обновления страницы (устаревший CSRF)', False),
 }
 SERVER_KINDS = {
+    # Packs handed to pages: the base for the client's pack_failed.
+    'pack_served': 'Пакетов офлайн-режима выдано',
     'verdict_divergence': 'Вердикт страницы разошёлся с сервером',
     'pack_build_failed': 'Не собралась клиентская проверка задания',
     'offline_credit': 'Засчитано время офлайн-игры',
@@ -181,6 +186,11 @@ def report_lines(since, until):
         return []
     lines = ['<b>Офлайн-режим</b>']
     for kind, label in [(k, v[0]) for k, v in CLIENT_KINDS.items()] + list(SERVER_KINDS.items()):
-        if counts.get(kind):
-            lines.append('{}: {}'.format(label, counts[kind]))
+        if not counts.get(kind):
+            continue
+        value = str(counts[kind])
+        if kind == 'pack_failed' and counts.get('pack_served'):
+            # Every pack request either was served or reported as failed.
+            value = '{} из {}'.format(counts[kind], counts[kind] + counts['pack_served'])
+        lines.append('{}: {}'.format(label, value))
     return lines

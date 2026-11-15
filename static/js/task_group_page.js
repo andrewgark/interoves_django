@@ -2133,8 +2133,26 @@
     }).catch(function (err) {
       // The message tells a refused response from a blocked storage.
       var error = err && err.name ? err.name + (err.message ? ': ' + err.message : '') : String(err);
-      reportRaddleOffline('sw_failed', { status: stage, error: error }, true);
+      var env = raddleBrowserEnv();
+      if (env) error += ' [' + env + ']';
+      // A TypeError from fetching the page is a broken download (the player
+      // left, the network blinked), not a refusal; the next visit retries.
+      var interrupted = stage === 'cache' && err && err.name === 'TypeError'
+        && !/writ|quota|space|storage/i.test(err.message || '');
+      reportRaddleOffline(interrupted ? 'sw_interrupted' : 'sw_failed', { status: stage, error: error }, true);
     });
+  }
+
+  // In-app browsers often refuse service workers: mark them in failure reports.
+  function raddleBrowserEnv() {
+    var tags = [];
+    var ua = navigator.userAgent || '';
+    if (/; wv\)/.test(ua)) tags.push('wv');
+    if (window.TelegramWebviewProxy || /Telegram/i.test(ua)) tags.push('tg');
+    if (/\bVKAndroidApp|\bvk\.com/i.test(ua)) tags.push('vk');
+    if (/Instagram|FBAN|FBAV/.test(ua)) tags.push('meta');
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) tags.push('pwa');
+    return tags.join(',');
   }
 
   // A page opened without the network shows the card it had when it was

@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 
 from games.gameplay.attempts import client_spec_for_task
 from games.gameplay.moves import MoveContext
-from games.gameplay.offline_telemetry import record_client_events
+from games.gameplay.offline_telemetry import count as count_offline_event, record_client_events
 from games.gameplay.policy import resolve_capabilities
 from games.models import Attempt, GameTaskGroup
 from games.puzzles.raddle.engine import resolve_assist_tiers
@@ -118,6 +118,7 @@ def process_raddle_offline_pack(request, task_id):
     pack = ladder_offline_pack(request, ctx, mode, offline_timing=capabilities.offline_timing)
     if pack is None:
         return {'status': 'invalid'}
+    count_offline_event('pack_served')
     return {'status': 'ok', 'pack': pack}
 
 
