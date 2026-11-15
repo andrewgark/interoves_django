@@ -2579,6 +2579,21 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertEqual(explain('тяжелый', 'тяжесть'), 'root')
         self.assertEqual(explain('тягота', 'тяжесть'), 'root')
 
+    def test_let_family_splits_into_fine_senses(self):
+        for guess, target in (
+            ('выпускник', 'запущенного'), ('выпуск', 'пропуск'), ('пустить', 'выпуск'),
+            ('выпуск', 'спуск'), ('распущенный', 'допуск'), ('упустить', 'запуск'),
+            ('выпускник', 'запущенность'),
+        ):
+            self.assertEqual(explain(guess, target), '', (guess, target))
+        for guess, target in (
+            ('выпускник', 'выпуск'), ('запуск', 'запущенного'), ('пустить', 'запуск'),
+            ('пустить', 'впустить'), ('допуск', 'пропуск'), ('спуск', 'опустить'),
+            ('распущенный', 'роспуск'), ('упущение', 'упустить'),
+            ('запущенность', 'запущенный'),
+        ):
+            self.assertEqual(explain(guess, target), 'root', (guess, target))
+
     def test_given_and_transfer_senses_stay_apart(self):
         self.assertFalse(opens('данный', 'передачи'))
         self.assertTrue(opens('передать', 'передача'))
@@ -3065,8 +3080,8 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('врастяжку', 'растяжение'),
             ('враскачку', 'раскачиваться'),
             ('росплывь', 'сплывать'),
-            ('роспуск', 'выпуск'),
-            ('роспуски', 'выпуск'),
+            ('роспуск', 'распустить'),
+            ('роспуски', 'распустить'),
             ('росчисть', 'расчистить'),
             ('росчерк', 'прочерк'),
             ('роспись', 'писать'),
