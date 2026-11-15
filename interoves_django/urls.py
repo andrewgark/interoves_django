@@ -164,8 +164,6 @@ urlpatterns = [
     path('meta/deploy-version/', deploy_version, name='deploy_version'),
     path('analytics/goals/ack/', analytics_goal_ack, name='analytics_goal_ack'),
 
-    path('inline-edit', include('inlineedit.urls')),
-
     path('explorer/', include('explorer.urls')),
 
     path('support/', include('games.console.http.urls')),
