@@ -10,6 +10,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from games.club.access.archive import get_club_subscription, has_club_access
@@ -25,14 +26,35 @@ _TICKET_RETURN_PARAMS = ('payment', 'telegram')
 
 
 def _club_status(user):
+    """Club access and when it ends: paid period, gift or manual grant, whichever is later."""
+    from zoneinfo import ZoneInfo
+
+    from django.db.models import Q
+
+    from games.models import ClubEntitlement
+
     if not has_club_access(user):
         return {'active': False, 'until_label': ''}
+    now = timezone.now()
+    ends = []
     subscription = get_club_subscription(user)
-    paid_until = getattr(subscription, 'paid_until', None)
-    until_label = ''
-    if paid_until and paid_until > timezone.now():
-        until_label = date_format(timezone.localtime(paid_until), 'j E')
-    return {'active': True, 'until_label': until_label}
+    if subscription is not None and subscription.paid_until and subscription.paid_until > now:
+        ends.append(subscription.paid_until)
+    grants = ClubEntitlement.objects.filter(
+        user=user, revoked_at__isnull=True, starts_at__lte=now,
+        kind__in=(ClubEntitlement.KIND_GIFT, ClubEntitlement.KIND_MANUAL),
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
+    for ends_at in grants.values_list('ends_at', flat=True):
+        if ends_at is None:
+            return {'active': True, 'until_label': 'навсегда'}
+        ends.append(ends_at)
+    if not ends:
+        return {'active': True, 'until_label': ''}
+    try:
+        tz = ZoneInfo(getattr(user.profile, 'timezone', None) or 'Europe/Moscow')
+    except Exception:
+        tz = ZoneInfo('Europe/Moscow')
+    return {'active': True, 'until_label': 'до ' + date_format(timezone.localtime(max(ends), tz), 'j E')}
 
 
 def _account_links(user, team):
@@ -51,6 +73,7 @@ def _account_links(user, team):
     return links if any(links.values()) else {}
 
 
+@never_cache
 @require_http_methods(['GET'])
 def pay_hub_page(request):
     if any(key in request.GET for key in _TICKET_RETURN_PARAMS):

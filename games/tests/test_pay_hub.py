@@ -60,3 +60,28 @@ class PayHubTests(TestCase):
         body = self.client.get('/pay/').content.decode()
         self.assertIn('Мои платежи', body)
         self.assertIn('href="/pay/tickets/#orders"', body)
+
+    def test_hub_is_not_cached(self):
+        resp = self.client.get('/pay/')
+        self.assertIn('no-cache', resp.get('Cache-Control', ''))
+
+    def test_wallet_marks_checkout_pages(self):
+        body = self.client.get('/pay/tickets/').content.decode()
+        self.assertRegex(body, r'new-nav__quick--pay"\s+href="/pay/"[^>]*aria-current="true"')
+
+    def test_gift_club_access_shows_its_end_date(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from games.models import ClubEntitlement, ClubSubscription
+
+        subscription = ClubSubscription.objects.create(user=self.user)
+        ClubEntitlement.objects.create(
+            user=self.user, club_subscription=subscription, kind=ClubEntitlement.KIND_GIFT,
+            starts_at=timezone.now() - timedelta(days=1), ends_at=timezone.now() + timedelta(days=20),
+        )
+        self.client.force_login(self.user)
+        body = self.client.get('/pay/').content.decode()
+        self.assertIn('Клубная подписка активна до ', body)
+        self.assertIn('Управлять подпиской', body)

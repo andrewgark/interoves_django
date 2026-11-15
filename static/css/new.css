@@ -14246,7 +14246,7 @@ button.new-word-salad__hint-btn:disabled {
 }
 
 .new-nav__quick.new-nav__quick--pay:hover,
-.new-nav__quick.new-nav__quick--pay[aria-current="page"] {
+.new-nav__quick.new-nav__quick--pay[aria-current] {
   border-color: var(--warning-hover);
   background: var(--warning-hover);
   color: #1a1a1a;
@@ -14256,7 +14256,9 @@ button.new-word-salad__hint-btn:disabled {
   display: none;
 }
 
-@media (min-width: 920px) {
+/* The label only where the logged-in nav still fits on one line with it;
+   between 920 and 1280px the text links already fill the row. */
+@media (min-width: 1280px) {
   .new-nav__quick.new-nav__quick--pay {
     width: auto;
     gap: 0.35rem;

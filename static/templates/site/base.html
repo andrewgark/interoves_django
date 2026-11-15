@@ -150,7 +150,7 @@
           <a class="new-nav__quick new-nav__quick--pay"
              href="{% url 'new_pay_hub' %}"
              data-tooltip="Билеты, подписка и донаты" aria-label="Оплата и поддержка"
-             {% if un == 'new_pay_hub' or un == 'ui_pay_hub' %}aria-current="page"{% endif %}>
+             {% if un == 'new_pay_hub' or un == 'ui_pay_hub' %}aria-current="page"{% elif un == 'new_pay' or un == 'ui_pay' or un == 'new_subscription' or un == 'ui_subscription' or un == 'donate' %}aria-current="true"{% endif %}>
             <i class="ph ph-wallet" aria-hidden="true"></i><span class="new-nav__quick-label">Оплата</span>
           </a>
         {% endif %}

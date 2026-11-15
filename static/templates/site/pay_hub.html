@@ -12,10 +12,10 @@
   {% if team or club.active %}
   <ul class="new-pay-hub__status" aria-label="Ваш статус">
     {% if team %}
-    <li><i class="ph ph-ticket" aria-hidden="true"></i> У команды «{{ team.visible_name|default:team.name }}» {{ team_tickets }} {{ team_tickets|ru_plural:"билет,билета,билетов" }}</li>
+    <li><a href="{% url 'new_pay' %}"><i class="ph ph-ticket" aria-hidden="true"></i> У команды «{{ team.visible_name|default:team.name }}» {{ team_tickets }} {{ team_tickets|ru_plural:"билет,билета,билетов" }}</a></li>
     {% endif %}
     {% if club.active %}
-    <li><a href="{% url 'new_subscription' %}"><i class="ph ph-star" aria-hidden="true"></i> Клубная подписка активна{% if club.until_label %} до {{ club.until_label }}{% endif %}</a></li>
+    <li><a href="{% url 'new_subscription' %}"><i class="ph ph-star" aria-hidden="true"></i> Клубная подписка активна{% if club.until_label %} {{ club.until_label }}{% endif %}</a></li>
     {% endif %}
   </ul>
   {% endif %}
