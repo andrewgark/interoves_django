@@ -91,7 +91,7 @@ def sanitize_telegram_link_next(raw: str) -> str:
 def _relink_hint(next_path: str) -> str:
     if str(next_path or '').startswith('/subscription'):
         return 'Создайте новую на interoves.com/subscription/.'
-    return 'Создайте новую на interoves.com/pay/.'
+    return 'Создайте новую на interoves.com/pay/tickets/.'
 
 
 def _token_hash(raw_token: str) -> str:
@@ -184,6 +184,6 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
         token.user_id,
         numeric_id,
         username,
-        next_path=sanitize_telegram_link_next(token.next_path) or '/pay/?telegram=linked',
+        next_path=sanitize_telegram_link_next(token.next_path) or '/pay/tickets/?telegram=linked',
     )
 

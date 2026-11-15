@@ -356,7 +356,7 @@ class HubPayCtaTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
         self.assertIn('Купить билеты', body)
-        self.assertIn('href="/pay/"', body)
+        self.assertIn('href="/pay/tickets/"', body)
         self.assertIn('new-btn--yellow', body)
         self.assertTrue(resp.context['show_desyatochki_pay_cta'])
 

@@ -146,6 +146,14 @@
 
       <div class="new-nav__end">
         {% with un=request.resolver_match.url_name %}
+        {% if not ui_project_base %}
+          <a class="new-nav__quick new-nav__quick--pay"
+             href="{% url 'new_pay_hub' %}"
+             data-tooltip="Билеты, подписка и донаты" aria-label="Оплата и поддержка"
+             {% if un == 'new_pay_hub' or un == 'ui_pay_hub' %}aria-current="page"{% endif %}>
+            <i class="ph ph-wallet" aria-hidden="true"></i><span class="new-nav__quick-label">Оплата</span>
+          </a>
+        {% endif %}
         {% if user.is_authenticated and notifications_enabled %}
           <div class="new-bell" data-bell data-src="{% url 'new_notifications_dropdown' %}" data-read-all-url="{% url 'new_notifications_read_all' %}">
             <button type="button" class="new-nav__quick new-nav__quick--bell" data-bell-toggle
@@ -212,9 +220,6 @@
             {% if not ui_project_base %}
             <a href="{% url 'new_friends' %}" {% if un == 'new_friends' or un == 'ui_friends' %}aria-current="page"{% endif %}>Друзья{% if friend_requests_count %} <span class="new-nav__inline-badge" aria-label="новые заявки в друзья"></span>{% endif %}</a>
             {% endif %}
-            {% if not ui_project_base %}
-            <a href="{% url 'new_pay' %}" {% if un == 'new_pay' or un == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
-            {% endif %}
             <a href="{% url 'logout' %}?next={{ request.path|urlencode }}">Выйти</a>
           {% else %}
           <button type="button" class="new-nav__loginbtn" data-login-open>Войти</button>
@@ -256,6 +261,9 @@
             <a class="new-nav__drawer-link new-mode-toggle" href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-user" aria-hidden="true"></i> Лично</a>
           {% endif %}
         {% endif %}
+        {% if not ui_project_base %}
+          <a class="new-nav__drawer-link" href="{% url 'new_pay_hub' %}" {% if request.resolver_match.url_name == 'new_pay_hub' or request.resolver_match.url_name == 'ui_pay_hub' %}aria-current="page"{% endif %}><i class="ph ph-wallet" aria-hidden="true"></i> Оплата и поддержка</a>
+        {% endif %}
         {% if user.is_authenticated %}
           {% with un=request.resolver_match.url_name %}
           <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" {% if un == 'project_profile' or un == 'new_profile' %}aria-current="page"{% endif %}><i class="ph ph-user" aria-hidden="true"></i> Профиль{% if has_unread_feedback %} <span class="new-nav__inline-badge" aria-hidden="true"></span>{% endif %}</a>
@@ -263,9 +271,6 @@
           <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_team_url }}{% else %}{% url 'new_team' %}{% endif %}" {% if un == 'project_team' or un == 'project_team_join_page' or un == 'project_team_create' or un == 'new_team' or un == 'new_team_join_page' or un == 'new_team_create' %}aria-current="page"{% endif %}><i class="ph ph-users" aria-hidden="true"></i> Команда</a>
           {% if not ui_project_base %}
           <a class="new-nav__drawer-link" href="{% url 'new_friends' %}" {% if un == 'new_friends' or un == 'ui_friends' %}aria-current="page"{% endif %}><i class="ph ph-handshake" aria-hidden="true"></i> Друзья{% if friend_requests_count %} <span class="new-nav__inline-badge" aria-hidden="true"></span>{% endif %}</a>
-          {% endif %}
-          {% if not ui_project_base %}
-          <a class="new-nav__drawer-link" href="{% url 'new_pay' %}" {% if un == 'new_pay' or un == 'ui_pay' %}aria-current="page"{% endif %}><i class="ph ph-credit-card" aria-hidden="true"></i> Оплата</a>
           {% endif %}
           <a class="new-nav__drawer-link new-nav__drawer-link--muted" href="{% url 'logout' %}?next={{ request.path|urlencode }}"><i class="ph ph-sign-out" aria-hidden="true"></i> Выйти</a>
           {% endwith %}

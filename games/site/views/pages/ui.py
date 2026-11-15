@@ -92,6 +92,7 @@ from games.site.pages.team.pages import (
     team_request_join,
     team_set_primary,
 )
+from games.site.pages.pay.hub import pay_hub_page
 from games.site.pages.pay.pages import (
     create_crypto_donation,
     create_crypto_ticket_payment,

@@ -37,7 +37,7 @@ class OldUiRetiredTests(TestCase):
         self.assertPermanentRedirectsTo('/old/games/old_ui_main/2', '/games/old_ui_main/2/')
         self.assertPermanentRedirectsTo('/old/results/old_ui_main/', '/games/old_ui_main/results/')
         self.assertPermanentRedirectsTo('/old/create_team/', '/team/')
-        self.assertPermanentRedirectsTo('/old/request_ticket/', '/pay/')
+        self.assertPermanentRedirectsTo('/old/request_ticket/', '/pay/tickets/')
 
     def test_old_task_deep_link_opens_its_task_group(self):
         self.assertPermanentRedirectsTo('/games/old_ui_main/2/1', '/games/old_ui_main/2/')

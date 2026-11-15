@@ -14220,3 +14220,216 @@ button.new-word-salad__hint-btn:disabled {
   left: 0;
   right: auto;
 }
+
+/* ── Payments hub (/pay/) and the wallet button in the nav ─────────────── */
+/* The wallet is the first item of .new-nav__end and, unlike the other quick
+   buttons, stays visible on wide screens — with a short text label there. */
+.new-nav__quick.new-nav__quick--pay {
+  display: inline-flex;
+  order: -1;
+  border-color: var(--warning);
+  background: var(--warning);
+  color: #1a1a1a;
+}
+
+.new-nav__quick.new-nav__quick--pay:hover,
+.new-nav__quick.new-nav__quick--pay[aria-current="page"] {
+  border-color: var(--warning-hover);
+  background: var(--warning-hover);
+  color: #1a1a1a;
+}
+
+.new-nav__quick-label {
+  display: none;
+}
+
+@media (min-width: 920px) {
+  .new-nav__quick.new-nav__quick--pay {
+    width: auto;
+    gap: 0.35rem;
+    padding: 0 0.7rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .new-nav__quick--pay .new-nav__quick-label {
+    display: inline;
+  }
+}
+
+.new-pay-hub__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.new-pay-hub__status li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: var(--success-soft-bg);
+  border: 1px solid var(--success-soft-border);
+  font-size: 0.9rem;
+}
+
+.new-pay-hub__status .ph {
+  color: var(--accent);
+}
+
+.new-pay-hub__status a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.new-pay-hub__status a:hover {
+  text-decoration: underline;
+}
+
+.new-pay-hub__mine {
+  margin-top: 1.5rem;
+}
+
+.new-pay-hub__mine ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.new-pay-hub__mine a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.new-pay-hub__mine a:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.new-pay-hub__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .new-pay-hub__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.new-pay-hub__card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon title"
+    "icon text"
+    "icon cta";
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+  align-content: start;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.14s ease, background-color 0.14s ease, transform 0.14s ease;
+}
+
+.new-pay-hub__card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+
+.new-pay-hub__card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.new-pay-hub__card--wide {
+  grid-column: 1 / -1;
+}
+
+.new-pay-hub__card--accent {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}
+
+.new-pay-hub__card--quiet {
+  background: transparent;
+}
+
+.new-pay-hub__icon {
+  grid-area: icon;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+
+.new-pay-hub__card--accent .new-pay-hub__icon {
+  background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+  color: var(--warning);
+}
+
+.new-pay-hub__title {
+  grid-area: title;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.new-pay-hub__text {
+  grid-area: text;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.new-pay-hub__cta {
+  grid-area: cta;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.new-pay-hub__docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.new-pay-hub__docs a {
+  color: var(--muted);
+}

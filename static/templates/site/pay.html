@@ -3,7 +3,7 @@
 {% block title %}Оплата{% endblock %}
 
 {% block content %}
-<p class="new-tg-back"><a href="{% if user.is_authenticated %}{{ ui_team_url_hub|default:'/team/' }}{% else %}{{ ui_project_home_url|default:'/' }}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {% if user.is_authenticated %}Команда{% else %}Все игры{% endif %}</a></p>
+<p class="new-tg-back"><a href="{% url 'new_pay_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Оплата и поддержка</a></p>
 
 <div class="new-pay-checkout">
   <header class="new-pay-checkout__header">
@@ -190,7 +190,7 @@
   <p class="new-pay-refund-summary">Передумали до начала игры — вернем полную стоимость. При отмене игры возврат также полный, а при переносе можно сохранить билет или вернуть деньги. <a href="/refunds/">Подробнее о возврате</a>.</p>
 
   {% if team and recent_ticket_requests %}
-  <div class="new-card new-pay-history">
+  <div id="orders" class="new-card new-pay-history">
     <h2 class="new-pay-section-title">Последние заказы</h2>
     <div class="new-pay-history__list">
       {% for tr in recent_ticket_requests %}

@@ -3,7 +3,7 @@
 {% block title %}Задонатить{% endblock %}
 
 {% block content %}
-<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Все игры</a></p>
+<p class="new-tg-back"><a href="{% url 'new_pay_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Оплата и поддержка</a></p>
 
 <h1 class="new-heading new-heading--page">Задонатить</h1>
 <p class="new-login-hint new-donate-lead">

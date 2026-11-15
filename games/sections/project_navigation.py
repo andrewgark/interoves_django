@@ -71,7 +71,7 @@ def project_urls_context(
         'ui_project_reports_url': (
             (base + '/profile/reports/') if base else '/profile/reports/'
         ),
-        'ui_project_pay_url': (base + '/pay/') if base else '/pay/',
+        'ui_project_pay_url': (base + '/pay/tickets/') if base else '/pay/tickets/',
     }
 
 

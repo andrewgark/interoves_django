@@ -1,0 +1,87 @@
+{% extends "site/base.html" %}
+{% load filters %}
+{% block title %}Оплата и поддержка{% endblock %}
+
+{% block content %}
+<div class="new-pay-checkout new-pay-hub">
+  <header class="new-pay-checkout__header">
+    <h1 class="new-heading new-heading--page">Оплата и поддержка</h1>
+    <p class="new-pay-checkout__lead">Всё, за что можно заплатить на Inter&nbsp;Oves, в одном месте. Деньги идут на новые игры и на то, чтобы сайт работал.</p>
+  </header>
+
+  {% if team or club.active %}
+  <ul class="new-pay-hub__status" aria-label="Ваш статус">
+    {% if team %}
+    <li><i class="ph ph-ticket" aria-hidden="true"></i> У команды «{{ team.visible_name|default:team.name }}» {{ team_tickets }} {{ team_tickets|ru_plural:"билет,билета,билетов" }}</li>
+    {% endif %}
+    {% if club.active %}
+    <li><a href="{% url 'new_subscription' %}"><i class="ph ph-star" aria-hidden="true"></i> Клубная подписка активна{% if club.until_label %} до {{ club.until_label }}{% endif %}</a></li>
+    {% endif %}
+  </ul>
+  {% endif %}
+
+  <div class="new-pay-hub__grid">
+    <a class="new-pay-hub__card" href="{% url 'new_pay' %}">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-ticket"></i></span>
+      <span class="new-pay-hub__title">Билеты на Десяточку</span>
+      <span class="new-pay-hub__text">Участие команды в турнирной игре. Билет можно отложить на будущие игры.</span>
+      <span class="new-pay-hub__cta">{{ ticket_price_display }}&nbsp;₽ за билет <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="new-pay-hub__card" href="{% url 'new_subscription' %}">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-star"></i></span>
+      <span class="new-pay-hub__title">Клубная подписка</span>
+      <span class="new-pay-hub__text">Доступ к архиву ежедневных игр и регулярная поддержка проекта.</span>
+      <span class="new-pay-hub__cta">{% if club.active %}Управлять подпиской{% else %}Оформить{% endif %} <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="new-pay-hub__card" href="{% url 'donate' %}">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-heart"></i></span>
+      <span class="new-pay-hub__title">Задонатить</span>
+      <span class="new-pay-hub__text">Любая сумма: российская или иностранная карта, крипта.</span>
+      <span class="new-pay-hub__cta">Поддержать <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="new-pay-hub__card" href="{% url 'new_subscription' %}?gift=1#gift">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-gift"></i></span>
+      <span class="new-pay-hub__title">Подписка в подарок</span>
+      <span class="new-pay-hub__text">Подарите клубную подписку другу или активируйте полученный код.</span>
+      <span class="new-pay-hub__cta">Подарить или ввести код <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    {% if show_next_game_vote %}
+    <a class="new-pay-hub__card new-pay-hub__card--wide new-pay-hub__card--accent" href="{% url 'next_game_vote_autumn' %}">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-check-square"></i></span>
+      <span class="new-pay-hub__title">Выбор следующей игры</span>
+      <span class="new-pay-hub__text">Голосуйте донатом за игру, которую мы сделаем следующей.</span>
+      <span class="new-pay-hub__cta">К голосованию <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+    {% endif %}
+
+    <a class="new-pay-hub__card new-pay-hub__card--wide new-pay-hub__card--quiet" href="{% url 'order_game_landing' %}">
+      <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-buildings"></i></span>
+      <span class="new-pay-hub__title">Игра для компании</span>
+      <span class="new-pay-hub__text">Корпоративная онлайн-игра для ваших сотрудников.</span>
+      <span class="new-pay-hub__cta">Заказать <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+    </a>
+  </div>
+
+  {% if account_links %}
+  <section class="new-pay-hub__mine" aria-labelledby="new-pay-hub-mine-title">
+    <h2 id="new-pay-hub-mine-title" class="new-pay-section-title">Мои платежи</h2>
+    <ul>
+      {% if account_links.ticket_orders %}<li><a href="{% url 'new_pay' %}#orders"><i class="ph ph-receipt" aria-hidden="true"></i> Заказы билетов</a></li>{% endif %}
+      {% if account_links.saved_card %}<li><a href="{% url 'new_subscription' %}#new-sub-payment-method"><i class="ph ph-credit-card" aria-hidden="true"></i> Привязанная карта и автопродление</a></li>{% endif %}
+      {% if account_links.gifts %}<li><a href="{% url 'new_subscription' %}?gift=1#gift"><i class="ph ph-gift" aria-hidden="true"></i> Мои подарочные подписки</a></li>{% endif %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <nav class="new-pay-hub__docs" aria-label="Документы об оплате">
+    <a href="{% url 'terms_russia' %}">Оферта</a>
+    <a href="{% url 'refunds' %}">Возвраты</a>
+    <a href="{% url 'sellers' %}">Продавцы</a>
+    <a href="{% url 'contacts' %}">Контакты</a>
+  </nav>
+</div>
+{% endblock %}

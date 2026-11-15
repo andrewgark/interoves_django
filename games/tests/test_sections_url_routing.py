@@ -38,4 +38,4 @@ class SectionsUrlRoutingTests(TestCase):
     def test_legacy_tickets_redirects_to_pay(self):
         resp = self.client.get('/tickets/')
         self.assertEqual(resp.status_code, 301)
-        self.assertEqual(resp['Location'], '/pay/')
+        self.assertEqual(resp['Location'], '/pay/tickets/')

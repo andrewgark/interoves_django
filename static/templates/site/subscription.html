@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block content %}
-<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Все игры</a></p>
+<p class="new-tg-back"><a href="{% url 'new_pay_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Оплата и поддержка</a></p>
 
 {% if payment_success_return and club_archive_telegram_url %}
 <div id="new-sub-payment-success-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-sub-payment-success-title" aria-modal="true" hidden>
@@ -307,7 +307,7 @@
   {% endif %}
 
   {# Folded by default: most visitors come for their own subscription. #}
-  <details class="new-sub-gift-details"{% if gift_payment_return or purchased_subscription_gifts %} open{% endif %}>
+  <details id="gift" class="new-sub-gift-details"{% if gift_payment_return or purchased_subscription_gifts or request.GET.gift %} open{% endif %}>
   <summary class="new-sub-gift-details__summary"><i class="ph ph-gift" aria-hidden="true"></i> <span>Подписка в подарок</span> <span class="new-sub-gift-details__hint">активировать код или подарить другому</span></summary>
   <section class="new-sub-gift-section" aria-labelledby="new-sub-gift-section-title">
     <header class="new-sub-gift-section__header">

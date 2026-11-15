@@ -141,8 +141,8 @@ def telegram_link_start(request):
         telegram_deep_link,
     )
 
-    next_path = sanitize_telegram_link_next(request.POST.get('next')) or '/pay/?telegram=linked'
-    fallback = '/subscription/' if next_path.startswith('/subscription') else '/pay/'
+    next_path = sanitize_telegram_link_next(request.POST.get('next')) or '/pay/tickets/?telegram=linked'
+    fallback = '/subscription/' if next_path.startswith('/subscription') else '/pay/tickets/'
     if not has_profile(request.user):
         messages.error(request, 'Сначала создайте профиль Inter Oves.')
         return redirect(fallback)
@@ -158,7 +158,7 @@ def telegram_link_start(request):
 @require_http_methods(['POST'])
 def create_ticket_payment(request):
     """
-    Called via fetch() from /new/pay/ — must always return JSON so the client can r.json().
+    Called via fetch() from /pay/tickets/ — must always return JSON so the client can r.json().
     (Redirects/HTML from @login_required or redirect() break fetch and show «Ошибка сети».)
     """
     if not request.user.is_authenticated:
@@ -295,7 +295,7 @@ def create_ticket_payment(request):
     return JsonResponse({
         'status': 'ok',
         'confirmation_token': confirmation_token,
-        'return_url': request.build_absolute_uri('/pay/?payment=return'),
+        'return_url': request.build_absolute_uri('/pay/tickets/?payment=return'),
         'ticket_request_id': ticket_request.id,
         'analytics_events': [
             yandex_goal_payload(
@@ -365,7 +365,7 @@ def create_crypto_ticket_payment(request):
 
         team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
         payment_description = f'Билеты для команды {team_label} (request {ticket_request.id})'
-        return_url = request.build_absolute_uri('/pay/?payment=crypto_return')
+        return_url = request.build_absolute_uri('/pay/tickets/?payment=crypto_return')
         ipn_url = nowpayments_ipn_callback_url()
 
         invoice = nowpayments_create_invoice(

@@ -43,9 +43,9 @@ def _handle_account_link_start(message: dict, text: str) -> bool:
         return True
     from django.conf import settings
 
-    next_path = result.next_path or '/pay/?telegram=linked'
+    next_path = result.next_path or '/pay/tickets/?telegram=linked'
     if not next_path.startswith('/') or next_path.startswith('//'):
-        next_path = '/pay/?telegram=linked'
+        next_path = '/pay/tickets/?telegram=linked'
     return_url = '{}{}'.format(
         (getattr(settings, 'SITE_BASE_URL', '') or 'https://interoves.com').rstrip('/'),
         next_path,

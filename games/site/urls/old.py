@@ -13,7 +13,7 @@ urlpatterns = [
     path("create_team/", legacy.to_path("/team/")),
     path("join_team/", legacy.to_path("/team/")),
     path("quit_from_team/", legacy.to_path("/team/")),
-    path("request_ticket/", legacy.to_path("/pay/")),
+    path("request_ticket/", legacy.to_path("/pay/tickets/")),
     url(r"^confirm_user_joining_team/(?P<user_id>\d+)/$", legacy.to_path("/confirm_user_joining_team/{user_id}/")),
     url(r"^reject_user_joining_team/(?P<user_id>\d+)/$", legacy.to_path("/reject_user_joining_team/{user_id}/")),
     url(r"^kick_out_user/(?P<user_id>\d+)/$", legacy.to_path("/kick_out_user/{user_id}/")),
