@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from games.community import friends, game_month, preview, visibility
+from games.community.authorship import player_author_work
 from games.community.stats import head_to_head, player_stats
 from games.identity import has_profile
 from games.models import Profile, Team
@@ -51,6 +52,7 @@ def player_profile(request, public_id):
         'robots_noindex': True,
     }
     if state == visibility.PAGE_FULL:
+        author_work = player_author_work(profile.user)
         ctx.update({
             'player_since': profile.user.date_joined,
             'player_is_club': profile.user_id in club_subscriber_user_ids(
@@ -60,7 +62,8 @@ def player_profile(request, public_id):
                 Team.objects.filter(member_links__profile=profile, is_hidden=False)
                 .order_by('visible_name', 'name').distinct()
             ),
-            'player_stats': player_stats(profile.user),
+            'author_work': author_work,
+            'player_stats': player_stats(profile.user, author_work=author_work),
         })
         their_friends = friends.friend_user_ids(profile.user_id)
         ctx['player_friends_count'] = len(their_friends)

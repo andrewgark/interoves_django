@@ -289,6 +289,54 @@ class AccountMergeTests(TestCase):
             ProfileTeamMembership.objects.filter(profile__user=self.source).exists(),
         )
 
+    def test_merge_moves_authorship_to_target(self):
+        from games.models import GameAuthor
+
+        source_profile = Profile.objects.get(user=self.source)
+        target_profile = Profile.objects.get(user=self.target)
+        self.task_group.authors.add(source_profile)
+        shared = Game.objects.create(id='merge_des1', name='D1', author='t', author_extra='', project_id='main')
+        own = Game.objects.create(id='merge_des2', name='D2', author='t', author_extra='', project_id='main')
+        GameAuthor.objects.create(game=shared, profile=source_profile)
+        GameAuthor.objects.create(game=shared, profile=target_profile)
+        GameAuthor.objects.create(game=own, profile=source_profile)
+
+        merge = merge_accounts(
+            target_user=self.target, source_user=self.source,
+            provider='vk', provider_uid='vk-source',
+        )
+
+        self.assertEqual(list(self.task_group.authors.values_list('user_id', flat=True)), [self.target.pk])
+        self.assertEqual(
+            sorted(GameAuthor.objects.filter(profile=target_profile).values_list('game_id', flat=True)),
+            ['merge_des1', 'merge_des2'],
+        )
+        self.assertFalse(GameAuthor.objects.filter(profile=source_profile).exists())
+        self.assertEqual(
+            (merge.summary['authored_task_groups'], merge.summary['game_author_grants']), (1, 1),
+        )
+
+    def test_repair_command_moves_authorship_left_by_old_merges(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        source_profile = Profile.objects.get(user=self.source)
+        self.task_group.authors.add(source_profile)
+        # Merges before the fix left authorship on the source account.
+        with patch('games.identity.merge.account._merge_authorship', return_value=(0, 0)):
+            merge_accounts(
+                target_user=self.target, source_user=self.source,
+                provider='vk', provider_uid='vk-source',
+            )
+        out = StringIO()
+        call_command('repair_merged_authorship', stdout=out)
+        self.assertIn('would move (dry run): 1 releases', out.getvalue())
+        self.assertEqual(list(self.task_group.authors.values_list('user_id', flat=True)), [self.source.pk])
+
+        call_command('repair_merged_authorship', '--apply', stdout=StringIO())
+        self.assertEqual(list(self.task_group.authors.values_list('user_id', flat=True)), [self.target.pk])
+
     def test_merge_analytics_uses_earlier_complete_provenance_bundles(self):
         now = timezone.now()
         instance_id = '{}:{}'.format(self.game.pk, self.task_group.pk)

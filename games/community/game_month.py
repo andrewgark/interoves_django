@@ -376,18 +376,6 @@ def authored_group_ids(actor, group_ids=None):
     return set(through.values_list('taskgroup_id', flat=True))
 
 
-def authored_release_count(actor, game):
-    from games.daily.page.section import current_number_for
-    from games.results.standings.aggregate_leaderboard import _numbered_links
-
-    authored = authored_group_ids(actor)
-    if not authored:
-        return 0
-    if current_number_for(game) is None:
-        return 0
-    return _numbered_links(game).filter(task_group_id__in=authored).count()
-
-
 # --- head to head ---------------------------------------------------------
 
 @dataclass

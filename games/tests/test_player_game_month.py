@@ -243,8 +243,7 @@ class GameMonthTests(TestCase):
         DailyResultProjection.objects.filter(user=self.owner).delete()
         PlayerCompletedGame.objects.filter(user=self.owner).update(game_id='walls')
         Game.objects.get_or_create(id='walls', defaults={'name': 'Стенки', 'author': 't', 'author_extra': '', 'project_id': 'main'})
-        with patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}), \
-             patch('games.community.game_month.authored_release_count', return_value=1):
+        with patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}):
             games = {g.game_id: g for g in player_stats(self.owner, now=NOW).games}
         self.assertIn(GAME_ID, games)
         self.assertEqual((games[GAME_ID].played, games[GAME_ID].authored), (0, 1))

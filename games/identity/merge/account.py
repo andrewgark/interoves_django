@@ -24,6 +24,7 @@ from games.models import (
     ChainTaskState,
     DailySolveTiming,
     Donation,
+    GameAuthor,
     HintAttempt,
     LadderOffer,
     Like,
@@ -400,6 +401,27 @@ def _move_social_account(account, target_user, target_profile):
     account.save(update_fields=['user'])
 
 
+def _merge_authorship(target_user, source_user):
+    """Move release authorship and Десяточка grants to the surviving profile.
+
+    Authorship excludes a player from a release's table and credits it on
+    their page; left on the deactivated account it is simply lost. The m2m
+    calls (not a bulk update) keep the daily statistics invalidation signal.
+    """
+    target = Profile.objects.filter(user=target_user).first()
+    source = Profile.objects.filter(user=source_user).first()
+    if target is None or source is None:
+        return 0, 0
+    group_ids = list(source.authored_task_groups.values_list('pk', flat=True))
+    if group_ids:
+        target.authored_task_groups.add(*group_ids)
+        source.authored_task_groups.remove(*group_ids)
+    owned = set(GameAuthor.objects.filter(profile=target).values_list('game_id', flat=True))
+    GameAuthor.objects.filter(profile=source, game_id__in=owned).delete()
+    grants = GameAuthor.objects.filter(profile=source).update(profile=target)
+    return len(group_ids), grants
+
+
 def _merge_user_fields(target, source):
     updates = []
     for field in ('first_name', 'last_name', 'email'):
@@ -756,6 +778,7 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
 
     summary = {}
     _merge_profiles(target, source, summary)
+    summary['authored_task_groups'], summary['game_author_grants'] = _merge_authorship(target, source)
     _merge_user_fields(target, source)
     _merge_email_addresses(target, source, summary)
 

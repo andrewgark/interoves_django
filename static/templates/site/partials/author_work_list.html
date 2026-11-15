@@ -1,0 +1,16 @@
+{% comment %}Links to authored releases, newest first; the tail folds after 10.{% endcomment %}
+<ul class="author-work__list">
+  {% for item in items|slice:":10" %}
+    <li><a href="{{ item.url }}">{{ item.title }}</a>{% if item.published_on %}<small>{{ item.published_on|date:"j E Y" }}</small>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% if items|length > 10 %}
+  <details class="author-work__more">
+    <summary>Ещё {{ items|length|add:"-10" }}</summary>
+    <ul class="author-work__list">
+      {% for item in items|slice:"10:" %}
+        <li><a href="{{ item.url }}">{{ item.title }}</a>{% if item.published_on %}<small>{{ item.published_on|date:"j E Y" }}</small>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}

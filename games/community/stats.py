@@ -191,17 +191,22 @@ def _month_places(actor, game_ids, *, today):
     return out
 
 
-def player_stats(user, *, now=None):
-    """Personal play only: in team mode the result belongs to the team."""
-    return _actor_stats(_Actor(DailyResultProjection.ACTOR_USER, user), now=now)
+def player_stats(user, *, now=None, author_work=None):
+    """Personal play only: in team mode the result belongs to the team.
+
+    ``author_work`` (``games.community.authorship.AuthorWork``) saves a
+    recount when the page already lists the player's releases.
+    """
+    return _actor_stats(_Actor(DailyResultProjection.ACTOR_USER, user), now=now, author_work=author_work)
 
 
-def team_stats(team, *, now=None):
-    return _actor_stats(_Actor(DailyResultProjection.ACTOR_TEAM, team), now=now)
+def team_stats(team, *, now=None, author_work=None):
+    return _actor_stats(_Actor(DailyResultProjection.ACTOR_TEAM, team), now=now, author_work=author_work)
 
 
-def _actor_stats(actor, *, now=None):
+def _actor_stats(actor, *, now=None, author_work=None):
     from games.community import game_month
+    from games.community.authorship import daily_releases
     from games.daily.activity import active_days
     from games.daily.timing.streak import daily_streaks_for_actor
 
@@ -231,6 +236,11 @@ def _actor_stats(actor, *, now=None):
     places = _month_places(actor, list(counts), today=today)
     month_actor = game_month.Actor(actor.kind, actor.obj)
     month_game_ids = set(game_month.month_games())
+    # "как автор" counts exactly the releases the "Автор" section lists.
+    authored = (
+        author_work.daily_counts() if author_work is not None
+        else {game.game_id: len(game.items) for game in daily_releases(month_actor, now=now)}
+    )
     for game_id, row in counts.items():
         game = games.get(game_id)
         if game is None:
@@ -247,18 +257,16 @@ def _actor_stats(actor, *, now=None):
             month_total=place[1] if place else None,
             month_label=place[2] if place else '',
             month_results_url=place[3] if place else '',
-            authored=game_month.authored_release_count(month_actor, game),
+            authored=authored.get(game_id, 0),
             has_month_view=game_id in month_game_ids,
         ))
     # Authors who never play a game of theirs still get its tab: "как
     # автор" and the month charts are the interesting part for them.
-    for game in Game.objects.filter(pk__in=month_game_ids - set(counts)):
-        authored = game_month.authored_release_count(month_actor, game)
-        if authored:
-            stats.games.append(GameStats(
-                game_id=str(game.pk), name=game.get_no_html_name() or game.name,
-                authored=authored, has_month_view=True,
-            ))
+    for game in Game.objects.filter(pk__in=(month_game_ids & set(authored)) - set(counts)):
+        stats.games.append(GameStats(
+            game_id=str(game.pk), name=game.get_no_html_name() or game.name,
+            authored=authored[str(game.pk)], has_month_view=True,
+        ))
     stats.games.sort(key=lambda item: (-item.played, item.name))
     stats.total_played = sum(item.played for item in stats.games)
 

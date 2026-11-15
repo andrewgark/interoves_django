@@ -111,7 +111,7 @@ class ReleaseColumn:
     pending: bool = False
 
 
-def _numbered_links(game):
+def _numbered_links(game, now=None):
     """Select published integer releases in the site's public number order."""
     from games.daily.page.section import current_number_for, schedule_for
 
@@ -122,7 +122,7 @@ def _numbered_links(game):
         _release_number=Cast('number', IntegerField()),
     )
     schedule = schedule_for(game.id)
-    current = current_number_for(game)
+    current = current_number_for(game, now)
     if schedule is not None:
         if current is not None:
             qs = qs.filter(_release_number__lte=current)

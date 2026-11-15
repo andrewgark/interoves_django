@@ -297,9 +297,11 @@ def profile(request, project_id=None):
         # detour through the public page.
         from django.urls import reverse
 
+        from games.community.authorship import player_author_work
         from games.community.stats import player_stats
 
-        ctx['player_stats'] = player_stats(request.user)
+        ctx['author_work'] = player_author_work(request.user)
+        ctx['player_stats'] = player_stats(request.user, author_work=ctx['author_work'])
         ctx['stats_month_url'] = reverse('new_player_game_month', kwargs={
             'public_id': profile.public_id, 'game_id': 'GAME', 'month': 'MONTH',
         })

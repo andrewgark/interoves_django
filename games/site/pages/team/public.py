@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from games.community import game_month, preview, visibility
+from games.community.authorship import team_author_work
 from games.community.stats import team_stats
 from games.identity import has_profile
 from games.models import Profile, ProfileTeamMembership, Team, TeamInvite
@@ -63,11 +64,13 @@ def team_public_page(request, public_id):
     team, profile, is_member = _visible_team(request, public_id)
     viewer = request.user
 
+    author_work = team_author_work(team)
     ctx = {
         'team': team,
         'team_url': request.path,
         'team_members': _roster(team, viewer),
-        'team_stats': team_stats(team),
+        'team_stats': team_stats(team, author_work=author_work),
+        'author_work': author_work,
         'stats_month_url': reverse('new_team_game_month', kwargs={'public_id': team.public_id, 'game_id': 'GAME', 'month': 'MONTH'}),
         'team_is_member': is_member,
         'team_is_active': bool(is_member and profile.team_on_id == team.pk),
