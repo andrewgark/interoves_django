@@ -393,12 +393,11 @@
         // answer still waits in the queue, for the server to judge.
         if (isOrdinaryAttemptForm && form.hasAttribute('data-offline-spec') && submittedAttemptText.trim()) {
           if (window.InterovesClientEventId) body.set('client_event_id', window.InterovesClientEventId.create());
+          // No navigator.onLine check here or in the queues below: Chrome
+          // can keep it at false on a working network (VPN), and a queue
+          // that trusted it never sent (2026-11-16). The fetch itself tells:
+          // when it fails, the catch below queues the answer.
           ordinarySent = { body: body, verdict: verdict };
-          if (navigator.onLine === false && queueOrdinaryAnswer(form, body, verdict)) {
-            var queued = new Error('queued');
-            queued.ordinaryQueued = true;
-            throw queued;
-          }
         }
         return fetch(formSubmitUrl(form), {
           method: 'POST',
@@ -549,7 +548,6 @@
       .catch(function (err) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (submitBtn) submitBtn.disabled = false;
-        if (err && err.ordinaryQueued) return;
         // No network: the checked answer waits in the queue (a resend after a
         // lost response is answered by its client_event_id, not counted twice).
         if (ordinarySent && !(err && err.httpStatus)
@@ -2093,7 +2091,7 @@
   function sendRaddleTelemetry() {
     raddleTelemetryTimer = null;
     var list = readRaddleTelemetry();
-    if (!list.length || navigator.onLine === false) return;
+    if (!list.length) return;
     var batch = list.slice(0, 20);
     fetch('/offline_telemetry/', {
       method: 'POST',
@@ -2232,7 +2230,7 @@
   function loadRaddleOfflinePack(taskRoot) {
     var url = taskRoot.getAttribute('data-offline-pack-url');
     var taskId = taskRoot.getAttribute('data-task-id');
-    if (!url || !taskId || !raddleOutbox || navigator.onLine === false) return;
+    if (!url || !taskId || !raddleOutbox) return;
     var known = raddleOfflinePacks[taskId];
     if ((known && raddlePackFits(known, taskRoot)) || raddleOfflinePackLoading[taskId]) return;
     raddleOfflinePackLoading[taskId] = true;
@@ -2366,6 +2364,9 @@
   // (a login or logout elsewhere): no resend from this page can pass, a reload
   // can. The moves stay queued and the page stops sending until then.
   var offlineSendingPaused = false;
+  // The last flush left moves unsent: only then is navigator.onLine === false
+  // believed (for the note; sending never waits for the flag).
+  var raddleOutboxSendFailing = false;
   function pauseOfflineSending(taskId) {
     if (offlineSendingPaused) return;
     offlineSendingPaused = true;
@@ -2386,7 +2387,8 @@
     var waiting = entries.length;
     var stuck = entries.some(function (entry) { return Date.now() - (entry.at || 0) > RADDLE_QUEUE_STUCK_MS; });
     var note = taskRoot.querySelector('.new-raddle-offline-note');
-    if (!waiting || (navigator.onLine !== false && !stuck && !offlineSendingPaused)) {
+    var offline = navigator.onLine === false && raddleOutboxSendFailing;
+    if (!waiting || (!offline && !stuck && !offlineSendingPaused)) {
       if (note) note.parentNode.removeChild(note);
       return;
     }
@@ -2527,7 +2529,7 @@
       raddleOutboxFlushAgain = true;
       return;
     }
-    if (!raddleOutbox || navigator.onLine === false || offlineSendingPaused) return;
+    if (!raddleOutbox || offlineSendingPaused) return;
     var scopes = [];
     raddleOutbox.entries().forEach(function (entry) {
       if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
@@ -2555,10 +2557,12 @@
     });
     chain.then(function () {
       raddleOutboxFlushing = false;
+      raddleOutboxSendFailing = !!left;
+      if (left) syncAllRaddleOfflineNotes();
       if (raddleOutboxFlushAgain) {
         raddleOutboxFlushAgain = false;
         flushRaddleOutbox();
-      } else if (left && navigator.onLine !== false) {
+      } else if (left) {
         window.setTimeout(flushRaddleOutbox, raddleOutboxRetryMs);
         raddleOutboxRetryMs = Math.min(raddleOutboxRetryMs * 2, 16000);
       } else if (!left) {
@@ -3225,8 +3229,7 @@
   }
 
   function flushOrdinaryOutbox() {
-    if (!ordinaryOutbox || ordinaryOutboxFlushing || navigator.onLine === false || offlineSendingPaused
-        || !ordinaryOutbox.size()) return;
+    if (!ordinaryOutbox || ordinaryOutboxFlushing || offlineSendingPaused || !ordinaryOutbox.size()) return;
     ordinaryOutboxFlushing = true;
     window.InterovesOutbox.flush(ordinaryOutbox, null, sendQueuedOrdinaryAnswer).then(function (result) {
       ordinaryOutboxFlushing = false;
@@ -3241,7 +3244,7 @@
     restoreQueuedOrdinaryAnswers();
     flushOrdinaryOutbox();
     // Keep a page with offline answers for opening without the network.
-    if (navigator.onLine !== false && document.querySelector('form.new-attempt-form[data-offline-attempts="1"]')) {
+    if (document.querySelector('form.new-attempt-form[data-offline-attempts="1"]')) {
       rememberRaddlePageForOffline();
     }
   }, 1000);

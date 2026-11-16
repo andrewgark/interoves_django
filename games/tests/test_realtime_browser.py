@@ -782,6 +782,78 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             reload_first=True,
         )
 
+    def test_raddle_offline_queue_ignores_stuck_offline_flag(self):
+        """2026-11-16: with navigator.onLine stuck at false on a working
+        network the ladder page never asked for its offline pack and its
+        queue never sent. The flag must not stop either."""
+        from playwright.sync_api import expect
+
+        from games.models import Attempt
+        from games.models.offline import OfflinePlayRule
+
+        def setup():
+            close_old_connections()
+            try:
+                OfflinePlayRule.objects.create(
+                    task_type='raddle', instant_verdict=True, offline_attempts=True,
+                    rollout_percent=100,
+                )
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=setup)
+        thread.start()
+        thread.join()
+
+        page = self.browser_page_for(self.personal_user)
+        page.context.add_init_script(
+            "Object.defineProperty(Navigator.prototype, 'onLine', {"
+            "  get: function () { return false; }, configurable: true"
+            "});"
+        )
+        with page.expect_response(
+            lambda response: '/raddle_offline_pack/' in response.url, timeout=10_000,
+        ) as pack:
+            page.goto(f'{self.live_server_url}/games/{self.game.pk}/2/')
+        self.assertEqual(pack.value.json().get('status'), 'ok')
+        # The pack is in: the next word is played from it, through the queue.
+        page.wait_for_function(
+            "Object.keys(localStorage).some(function (key) {"
+            "  return (localStorage.getItem(key) || '').indexOf('\"pack\"') >= 0; })",
+            timeout=10_000,
+        )
+
+        page.locator(
+            '.new-raddle-row[data-word-index="1"]:not([data-raddle-pin-row]) '
+            'input.new-raddle-input:not([data-raddle-pin-proxy])'
+        ).fill('BBB')
+        expect(page.locator(
+            '.new-raddle-row[data-word-index="1"]:not([data-raddle-pin-row])'
+        )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+
+        credited = []
+
+        def read():
+            close_old_connections()
+            try:
+                credited.extend(
+                    Attempt.manager.filter(task=self.raddle_task, user=self.personal_user)
+                    .values_list('text', flat=True)
+                )
+            finally:
+                close_old_connections()
+
+        for _ in range(20):
+            thread = Thread(target=read)
+            thread.start()
+            thread.join()
+            if credited:
+                break
+            page.wait_for_timeout(500)
+        self.assertEqual(len(credited), 1)
+        self.assertIn('BBB', credited[0])
+        expect(page.locator('.new-raddle-offline-note')).to_have_count(0)
+
     def test_raddle_remote_advance_preserves_active_draft_and_focus(self):
         from playwright.sync_api import expect
 
