@@ -37,6 +37,9 @@ LONG_LADDER = {
 
 @override_settings(
     TRACK_WS_IDLE_TIMEOUT=0,
+    # The live server is another process: only class-level settings reach it.
+    # Without an OfflinePlayRule this changes nothing.
+    OFFLINE_PLAY_ENABLED=True,
 )
 @skipUnless(
     getattr(settings, 'INTEROVES_LIVE_BROWSER_TESTS', False),
@@ -647,7 +650,9 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
 
     @staticmethod
     def _salad_cell_center(page, index):
-        box = page.locator(f'[data-word-salad-root] [data-index="{index}"]').bounding_box()
+        cell = page.locator(f'[data-word-salad-root] [data-index="{index}"]')
+        cell.wait_for(state='visible')
+        box = cell.bounding_box()
         return box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
 
     def test_word_salad_trace_survives_a_teammates_find(self):
@@ -689,6 +694,93 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         second.mouse.up()
         expect(second.locator(solved.format('ABCD'))).to_have_count(1, timeout=10_000)
         expect(second.locator(solved.format('IJKL'))).to_have_count(1, timeout=10_000)
+
+    def _instant_salad_solve_reaches_server(self, init_script, reload_first=False):
+        """Trace IJKL on an instant-verdict salad page broken by init_script:
+        the word must reach the server and no hint may stay locked."""
+        from playwright.sync_api import expect
+
+        from games.models import Attempt
+        from games.models.offline import OfflinePlayRule
+
+        self._salad_task()
+
+        def setup():
+            close_old_connections()
+            try:
+                OfflinePlayRule.objects.create(
+                    task_type='word_salad', instant_verdict=True, rollout_percent=100,
+                )
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=setup)
+        thread.start()
+        thread.join()
+
+        page = self.browser_page_for(self.personal_user)
+        page.context.add_init_script(init_script)
+        page.goto(f'{self.live_server_url}/games/{self.game.pk}/4/')
+        expect(page.locator('[data-word-salad-root][data-instant-verdict="1"]')).to_have_count(1)
+
+        page.mouse.move(*self._salad_cell_center(page, 8))
+        page.mouse.down()
+        for index in (9, 10, 11):
+            page.mouse.move(*self._salad_cell_center(page, index), steps=5)
+        page.mouse.up()
+        if reload_first:
+            page.reload()
+
+        solved = page.locator(
+            '[data-word-salad-root] .new-word-salad__word.is-solved[data-word-normalized="IJKL"]'
+        )
+        expect(solved).to_have_count(1, timeout=10_000)
+        expect(page.locator('[data-word-salad-root].is-syncing')).to_have_count(0, timeout=10_000)
+        expect(page.locator('.new-word-salad__hint-btn:disabled')).to_have_count(0)
+
+        credited = []
+
+        def read():
+            close_old_connections()
+            try:
+                credited.extend(
+                    Attempt.manager.filter(
+                        task__task_type='word_salad', user=self.personal_user,
+                        status__in=('Ok', 'Partial'),
+                    ).values_list('text', flat=True)
+                )
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=read)
+        thread.start()
+        thread.join()
+        self.assertEqual(len(credited), 1)
+        self.assertIn('[8, 9, 10, 11]', credited[0])
+
+    def test_word_salad_instant_solve_with_unwritable_queue_reaches_server(self):
+        """A localStorage that refuses the salad queue: the word was solved
+        only on the page, never sent, and every hint stayed "syncing"."""
+        self._instant_salad_solve_reaches_server(
+            "var setItem = Storage.prototype.setItem;"
+            "Storage.prototype.setItem = function (key, value) {"
+            "  if (String(key).indexOf('salad-outbox') >= 0) {"
+            "    throw new DOMException('full', 'QuotaExceededError');"
+            "  }"
+            "  return setItem.call(this, key, value);"
+            "};"
+        )
+
+    def test_word_salad_instant_solve_with_stuck_offline_flag_reaches_server(self):
+        """2026-11-16: Chrome kept navigator.onLine at false on a working
+        network; the queue never sent a word, even after a reload, and every
+        hint stayed disabled as "syncing"."""
+        self._instant_salad_solve_reaches_server(
+            "Object.defineProperty(Navigator.prototype, 'onLine', {"
+            "  get: function () { return false; }, configurable: true"
+            "});",
+            reload_first=True,
+        )
 
     def test_raddle_remote_advance_preserves_active_draft_and_focus(self):
         from playwright.sync_api import expect

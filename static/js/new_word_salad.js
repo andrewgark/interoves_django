@@ -626,6 +626,7 @@
   var saladFlushing = false;
   var saladFlushAgain = false;
   var saladRetryMs = 1000;
+  var SALAD_SEND_TIMEOUT_MS = 20000;
   var saladRetryTimer = 0;
   var saladServerCards = {};
   var saladDiverged = {};
@@ -652,6 +653,10 @@
     var body = new FormData();
     entry.fields.forEach(function (pair) { body.append(pair[0], pair[1]); });
     if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+    // A request that never settles would hold the whole queue (and the
+    // hints) forever; the resend is safe, client_event_id dedupes it.
+    var controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
+    var timer = controller ? global.setTimeout(function () { controller.abort(); }, SALAD_SEND_TIMEOUT_MS) : 0;
     return fetch(entry.url, {
       method: 'POST',
       headers: {
@@ -659,8 +664,10 @@
         'X-Interoves-Play-Mode': entry.mode || ''
       },
       body: body,
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      signal: controller ? controller.signal : undefined
     }).then(function (response) {
+      if (timer) global.clearTimeout(timer);
       if (response.status >= 500 || response.status === 429 || response.status === 408) return 'retry';
       if (response.status === 403) {
         saladPaused = true;
@@ -699,15 +706,23 @@
 
   function flushSaladOutbox() {
     var outbox = saladQueue();
-    if (!outbox || !outbox.size() || saladPaused) return;
+    if (!outbox || saladPaused) return;
+    if (!outbox.size()) {
+      // Nothing left to send: no board may stay locked as syncing.
+      if (!saladFlushing && global.document) {
+        global.document.querySelectorAll('[data-word-salad-root].is-syncing').forEach(function (root) {
+          finishSaladScope(root.getAttribute('data-task-id') || '');
+        });
+      }
+      return;
+    }
     if (saladFlushing) {
       saladFlushAgain = true;
       return;
     }
-    if (global.navigator && global.navigator.onLine === false) {
-      scheduleSaladFlush(saladRetryMs);
-      return;
-    }
+    // No navigator.onLine gate: Chrome can keep it at false while the
+    // network works (VPN, virtual adapters), and the queue then never sent a
+    // word, across reloads too. A send that really fails is retried below.
     var scopes = [];
     outbox.entries().forEach(function (entry) {
       if (scopes.indexOf(String(entry.scope)) < 0) scopes.push(String(entry.scope));
@@ -777,6 +792,10 @@
     delete saladServerCards[taskId];
     if (root && typeof root.__keepWordSaladSelection === 'function') root.__keepWordSaladSelection();
     if (typeof global.applyNewUiTaskHtml === 'function') global.applyNewUiTaskHtml(card);
+    // applyNewUiTaskHtml may keep this board (a card missing a word solved
+    // here, or one deferred while tracing): the queue is through either way,
+    // so the hints must not stay locked.
+    if (root && root.isConnected) setSaladSyncing(root, false);
   }
 
   function initWordSalad(scope) {
@@ -1667,7 +1686,10 @@
 
       // A rare word: found here, the server confirms it later. The path stays
       // selected, as after a rare find from the server.
-      function findRareInstantly(path, word) {
+      // False when the queue could not keep the path (localStorage full or
+      // refusing writes): it would never be sent, so the caller asks the
+      // server instead of solving on the page.
+      function queuePath(path, verdict, kind) {
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
         stampOfferShare(body, form);
@@ -1675,21 +1697,29 @@
         body.set('correct_only', '1');
         var eventId = global.InterovesClientEventId.create();
         body.set('client_event_id', eventId);
-        body.set('client_verdict', 'Partial');
-        saladQueue().add({
+        body.set('client_verdict', verdict);
+        var entry = {
           id: eventId,
-          kind: 'rare',
           scope: root.getAttribute('data-task-id') || '',
           url: formSubmitUrl(form),
           mode: global.InterovesPlayMode || '',
           fields: global.InterovesOutbox.formFields(body),
           at: Date.now()
-        });
+        };
+        if (kind) entry.kind = kind;
+        var queue = saladQueue();
+        if (!queue.add(entry)) return false;
+        return queue.entries().some(function (queued) { return queued.id === eventId; });
+      }
+
+      function findRareInstantly(path, word) {
+        if (!queuePath(path, 'Partial', 'rare')) return false;
         cancelIdleFind();
         addRareWord(word);
         showAnswerToast(root, word, sideFindResult(word));
         renderSelection();
         flushSaladOutbox();
+        return true;
       }
 
       // A found word holds its finished path for a moment (is-found) before
@@ -1700,22 +1730,7 @@
 
       // An answer word: solve it here, the server confirms it later.
       function solveInstantly(wordRow, path, word) {
-        var body = new FormData(form);
-        if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
-        stampOfferShare(body, form);
-        body.set('path', JSON.stringify(path));
-        body.set('correct_only', '1');
-        var eventId = global.InterovesClientEventId.create();
-        body.set('client_event_id', eventId);
-        body.set('client_verdict', 'Ok');
-        saladQueue().add({
-          id: eventId,
-          scope: root.getAttribute('data-task-id') || '',
-          url: formSubmitUrl(form),
-          mode: global.InterovesPlayMode || '',
-          fields: global.InterovesOutbox.formFields(body),
-          at: Date.now()
-        });
+        if (!queuePath(path, 'Ok')) return false;
         setSaladSyncing(root, true);
 
         var keepSelection = hasWordContinuation(word, unsolvedAnswerWords());
@@ -1737,6 +1752,7 @@
             scheduleIdleFind();
           }
         }, SALAD_FOUND_HOLD_MS);
+        return true;
       }
 
       function markInstantSolved(wordRow, path) {
@@ -1896,16 +1912,18 @@
         var pathKey = currentPath.join(',');
         if (attemptedPaths[pathKey]) return;
         if (rareNow) {
-          attemptedPaths[pathKey] = true;
-          findRareInstantly(currentPath.slice(), selected);
-          return;
+          if (findRareInstantly(currentPath.slice(), selected)) {
+            attemptedPaths[pathKey] = true;
+            return;
+          }
         }
         var instantRow = instantNow && matchesAnswerLength && !isRareCandidate
           ? unsolvedAnswerRow(selected) : null;
         if (instantRow) {
-          attemptedPaths[pathKey] = true;
-          solveInstantly(instantRow, currentPath.slice(), selected);
-          return;
+          if (solveInstantly(instantRow, currentPath.slice(), selected)) {
+            attemptedPaths[pathKey] = true;
+            return;
+          }
         }
         if (busy) return;
         attemptedPaths[pathKey] = true;
