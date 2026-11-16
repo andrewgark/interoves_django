@@ -22,3 +22,7 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
 
 # Never reach real Telegram from tests (see test_isolation.py).
 from .test_isolation import *  # noqa: E402,F403,F401
+
+# Test users get small ids: the first one must not inherit every unauthored
+# daily release. Tests of that fallback turn it on with override_settings.
+DAILY_DEFAULT_AUTHOR_USER_ID = None

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from games.community.authorship import player_author_work, team_author_work
@@ -145,3 +145,23 @@ class AuthorWorkTests(TestCase):
                 [passed] = player_stats(self.author, author_work=work).games
         recount.assert_not_called()
         self.assertEqual((counted.authored, passed.authored), (2, work.daily_count))
+
+    def test_unauthored_daily_releases_default_to_the_site_author(self):
+        site_author = User.objects.create_user('aw_site_author')
+        walls, _ = Game.objects.get_or_create(
+            id='walls', defaults={'name': 'Стены', 'author': 't', 'author_extra': '', 'project_id': 'main'},
+        )
+        with patch('games.realtime.track_compat.track_task_change'):
+            GameTaskGroup.objects.create(
+                game=walls, task_group=TaskGroup.objects.create(label='aw-walls'), number='1', name='1',
+            )
+        with override_settings(DAILY_DEFAULT_AUTHOR_USER_ID=site_author.pk):
+            work = player_author_work(site_author)
+            mate_work = player_author_work(self.mate)
+        # Лесенка #5 has no author; Анна's releases and Десяточка rounds are not his.
+        by_game = {game.game_id: [item.number for item in game.items] for game in work.daily}
+        self.assertEqual(by_game['ladder'], [5])
+        self.assertNotIn('walls', by_game)
+        # Display only: the release keeps no recorded author.
+        self.assertFalse(GameTaskGroup.objects.get(game=self.ladder, number='5').task_group.authors.exists())
+        self.assertEqual(mate_work.daily, [])

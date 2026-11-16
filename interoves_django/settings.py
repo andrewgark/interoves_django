@@ -980,6 +980,10 @@ def _load_telegram_api_id() -> int:
         return 0
 
 
+# Daily-game releases without a recorded author are shown on this user's
+# page as theirs (display only; see games.community.authorship).
+DAILY_DEFAULT_AUTHOR_USER_ID = 1
+
 SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
 TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_BOT_USERNAME = (os.environ.get('TELEGRAM_BOT_USERNAME') or 'interoves_bot').strip().lstrip('@')

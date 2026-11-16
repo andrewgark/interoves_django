@@ -9,17 +9,22 @@ Two kinds of authorship exist:
 
 Only what players can already open is listed: daily releases in their
 public number order up to today's, Десяточки that are ready and started.
+
+A daily-game release with no recorded author is shown as written by the
+site's author (``settings.DAILY_DEFAULT_AUTHOR_USER_ID``). This is display only:
+tables and author credit still use the recorded authors.
 """
 
 from dataclasses import dataclass, field
 from datetime import date
 
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
 from games.club.access.archive import DESYATOCHKA_ID_RE
 from games.daily.page.section import DAILY_TIMING_GAME_IDS, MOSCOW, schedule_for
-from games.models import Game, GameAuthor
+from games.models import Game, GameAuthor, TaskGroup
 
 
 @dataclass
@@ -82,24 +87,36 @@ def _author_work(actor, desyatka_grants, *, now=None):
 def daily_releases(actor, *, now=None):
     """Published daily releases ``actor`` (a ``game_month.Actor``) wrote, by game."""
     now = now or timezone.now()
-    from games.community.game_month import authored_group_ids
+    from games.community.game_month import authored_group_ids, month_games
     from games.results.standings.aggregate_leaderboard import _numbered_links
     from games.task_group.navigation import play_url_for_task_group
 
     authored = authored_group_ids(actor)
-    if not authored:
-        return []
-    game_ids = set(
-        Game.objects.filter(
-            pk__in=DAILY_TIMING_GAME_IDS,
-            task_group_links__task_group_id__in=authored,
-        ).values_list('pk', flat=True)
+    # Weekly and Десяточка-round sections reuse other authors' rounds:
+    # only the daily games proper default to the site's author.
+    default_game_ids = (
+        set(month_games())
+        if not actor.is_team and actor.obj.pk == settings.DAILY_DEFAULT_AUTHOR_USER_ID else set()
     )
+    game_ids = set(default_game_ids)
+    if authored:
+        game_ids |= set(
+            Game.objects.filter(
+                pk__in=DAILY_TIMING_GAME_IDS,
+                task_group_links__task_group_id__in=authored,
+            ).values_list('pk', flat=True)
+        )
+    if not game_ids:
+        return []
+    unauthored = TaskGroup.objects.filter(authors__isnull=True).values('pk')
     out = []
     for game in Game.objects.filter(pk__in=game_ids):
+        mine = Q(task_group_id__in=authored)
+        if game.pk in default_game_ids:
+            mine |= Q(task_group_id__in=unauthored)
         # The same "published" rule as the monthly tables and "как автор".
         links = sorted(
-            _numbered_links(game, now).filter(task_group_id__in=authored),
+            _numbered_links(game, now).filter(mine),
             key=lambda link: link._release_number, reverse=True,
         )
         if not links:
