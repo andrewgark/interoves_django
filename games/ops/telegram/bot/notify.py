@@ -517,6 +517,83 @@ def notify_admin_club_subscription(
         return False
 
 
+def _admin_user_label(user) -> str:
+    if user is None:
+        return '—'
+    profile = getattr(user, 'profile', None)
+    name = ' '.join(filter(None, (
+        getattr(profile, 'first_name', ''), getattr(profile, 'last_name', ''),
+    ))) if profile else ''
+    label = '<b>{}</b>'.format(_escape(user.get_username()))
+    if name:
+        label += ' ({})'.format(_escape(name))
+    username = getattr(profile, 'telegram_username', '') if profile else ''
+    if username:
+        label += ' · @{}'.format(_escape(username))
+    return label
+
+
+def notify_admin_subscription_gift(gift_id: int, alert_type: str, *, delivery: str = 'direct') -> bool:
+    """Notify the admin chat that a Club gift was paid for or claimed."""
+    try:
+        from games.club.billing.gifts.offers import gift_duration_label
+        from games.club.billing.tribute.config import ClubTributeProduct
+        from games.models import ClubEntitlement, SubscriptionGift, SubscriptionGiftPayment
+
+        gift = SubscriptionGift.objects.select_related(
+            'purchaser__profile', 'created_by__profile', 'claimed_by__profile',
+        ).get(pk=gift_id)
+        payment = SubscriptionGiftPayment.objects.filter(gift=gift).first()
+        from_label = _admin_user_label(gift.purchaser) if gift.purchaser_id else (
+            '{} (выдан вручную)'.format(_admin_user_label(gift.created_by))
+        )
+        lines = []
+        if alert_type == 'paid':
+            lines.extend([
+                '🎁 <b>Куплен подарок клубной подписки</b>',
+                '',
+                'Покупатель: {}'.format(from_label),
+                'Срок: {}'.format(_escape(gift_duration_label(gift))),
+            ])
+            if payment is not None:
+                lines.append('Сумма: {} {} · {}'.format(
+                    _escape(ClubTributeProduct.format_amount(payment.expected_amount)),
+                    _escape(payment.currency),
+                    _escape(payment.provider),
+                ))
+            if gift.recipient_telegram_username:
+                lines.append('Получатель: @{}'.format(_escape(gift.recipient_telegram_username)))
+        elif alert_type == 'claimed':
+            entitlement = ClubEntitlement.objects.filter(
+                gift=gift, kind=ClubEntitlement.KIND_GIFT,
+            ).order_by('-pk').first()
+            if entitlement is None or entitlement.ends_at is None:
+                access = 'навсегда'
+            else:
+                access = 'до {}'.format(entitlement.ends_at.strftime('%d.%m.%Y %H:%M UTC'))
+            lines.extend([
+                '🎉 <b>Подарок клубной подписки активирован</b>',
+                '',
+                'Активировал: {}'.format(_admin_user_label(gift.claimed_by)),
+                'От: {}'.format(from_label),
+                'Срок: {}'.format(_escape(gift_duration_label(gift))),
+                'Доступ: {}'.format(_escape(access)),
+            ])
+        else:
+            logger.warning('Unknown subscription gift admin alert %s', alert_type)
+            return False
+        lines.append('Подарок #{}'.format(gift.pk))
+        return _deliver_admin_text(
+            _join_lines(lines),
+            alert='subscription_gift',
+            delivery=delivery,
+            dedupe_key='telegram.admin_alert:subscription_gift:{}:{}'.format(gift.pk, alert_type),
+        )
+    except Exception:
+        logger.exception('Failed to notify admin about subscription gift %s', gift_id)
+        return False
+
+
 def notify_club_subscription_user(subscription_id: int) -> bool:
     """Tell the subscriber, with the club invite in Telegram, after their first payment."""
     try:

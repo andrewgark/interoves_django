@@ -156,6 +156,13 @@ def start_yookassa_gift(*, user, months: int, return_url: str) -> GiftCheckoutRe
     return GiftCheckoutResult(True, payment_url=confirmation_url, payment=payment)
 
 
+def _record_gift_paid(gift) -> None:
+    from games.models import SubscriptionGiftAdminAlertOutbox
+    from games.ops.workers.billing_outbox import enqueue_subscription_gift_admin_alert
+
+    enqueue_subscription_gift_admin_alert(gift, SubscriptionGiftAdminAlertOutbox.ALERT_PAID)
+
+
 @transaction.atomic
 def process_yookassa_gift_event(
     event_name: str, payment_data: dict, *, allow_manual_review: bool = False,
@@ -230,6 +237,7 @@ def process_yookassa_gift_event(
     payment.gift.status = SubscriptionGift.STATUS_PAID
     payment.gift.paid_at = now
     payment.gift.save(update_fields=['status', 'paid_at'])
+    _record_gift_paid(payment.gift)
     return True
 
 
@@ -358,6 +366,7 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
         gift.status = SubscriptionGift.STATUS_PAID
         gift.paid_at = now
         gift.save(update_fields=['status', 'paid_at'])
+        _record_gift_paid(gift)
         logger.info(
             'subscription_gift_tribute_direct_purchase payment_id=%s purchase_id=%s user_id=%s',
             payment.pk, data['purchase_id'], profile.user_id,
@@ -394,6 +403,7 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
     gift.status = SubscriptionGift.STATUS_PAID
     gift.paid_at = now
     gift.save(update_fields=['status', 'paid_at'])
+    _record_gift_paid(gift)
     return True
 
 
@@ -473,6 +483,7 @@ def manually_resolve_subscription_gift_payment(payment_id: int, *, succeeded: bo
         payment.gift.status = SubscriptionGift.STATUS_PAID
         payment.gift.paid_at = payment.gift.paid_at or now
         payment.gift.save(update_fields=['status', 'paid_at'])
+        _record_gift_paid(payment.gift)
     else:
         payment.status = SubscriptionGiftPayment.STATUS_CANCELED
         payment.raw_event_excerpt = dict(payment.raw_event_excerpt or {}, manual_resolution='canceled')

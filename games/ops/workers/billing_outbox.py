@@ -1,4 +1,4 @@
-"""Retryable dispatch for transactional Club payment admin alerts."""
+"""Retryable dispatch for transactional Club payment and gift admin alerts."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from games.models import ClubPaymentAdminAlertOutbox
+from games.models import ClubPaymentAdminAlertOutbox, SubscriptionGiftAdminAlertOutbox
 
 logger = logging.getLogger('application')
 CLAIM_TIMEOUT = timedelta(minutes=2)
@@ -33,24 +33,37 @@ def enqueue_club_payment_admin_alert(payment, alert_type, *, reason=''):
     return row
 
 
-def _claim(*, limit, now):
+def enqueue_subscription_gift_admin_alert(gift, alert_type):
+    """Persist a gift admin-alert intent in the caller's transaction."""
+    row, created = SubscriptionGiftAdminAlertOutbox.objects.get_or_create(
+        gift=gift, alert_type=alert_type,
+    )
+    logger.info(
+        'subscription_gift_admin_alert_outbox_recorded outbox_id=%s gift_id=%s '
+        'alert=%s created=%s',
+        row.pk, gift.pk, alert_type, created,
+    )
+    return row
+
+
+def _claim(model, *, limit, now):
     claimed = []
     with transaction.atomic():
         eligible = (
-            Q(status=ClubPaymentAdminAlertOutbox.STATUS_PENDING)
+            Q(status=model.STATUS_PENDING)
             & (Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
         ) | (
-            Q(status=ClubPaymentAdminAlertOutbox.STATUS_SENDING)
+            Q(status=model.STATUS_SENDING)
             & (Q(claimed_until__isnull=True) | Q(claimed_until__lte=now))
         )
-        rows = ClubPaymentAdminAlertOutbox.objects.filter(eligible).order_by('id')
+        rows = model.objects.filter(eligible).order_by('id')
         if connection.features.has_select_for_update:
             rows = rows.select_for_update(
                 skip_locked=connection.features.has_select_for_update_skip_locked,
             )
         for row in rows[:limit]:
             token = uuid.uuid4()
-            row.status = ClubPaymentAdminAlertOutbox.STATUS_SENDING
+            row.status = model.STATUS_SENDING
             row.claim_token = token
             row.claimed_until = now + CLAIM_TIMEOUT
             row.attempts += 1
@@ -62,7 +75,7 @@ def _claim(*, limit, now):
     return claimed
 
 
-def _publish(row):
+def _publish_payment_alert(row):
     payment = row.payment
     if row.alert_type == ClubPaymentAdminAlertOutbox.ALERT_SUCCEEDED:
         from games.ops.telegram.bot.notify import notify_admin_club_subscription
@@ -88,13 +101,20 @@ def _publish(row):
     )
 
 
+def _publish_gift_alert(row):
+    from games.ops.telegram.bot.notify import notify_admin_subscription_gift
+
+    return notify_admin_subscription_gift(row.gift_id, row.alert_type, delivery='queue')
+
+
 def _mark_sent(row, *, now):
-    return ClubPaymentAdminAlertOutbox.objects.filter(
+    model = type(row)
+    return model.objects.filter(
         pk=row.pk,
-        status=ClubPaymentAdminAlertOutbox.STATUS_SENDING,
+        status=model.STATUS_SENDING,
         claim_token=row.claim_token,
     ).update(
-        status=ClubPaymentAdminAlertOutbox.STATUS_SENT,
+        status=model.STATUS_SENT,
         sent_at=now,
         claimed_until=None,
         claim_token=None,
@@ -104,13 +124,14 @@ def _mark_sent(row, *, now):
 
 
 def _mark_failed(row, *, now, error):
+    model = type(row)
     delay = min(MAX_RETRY_SECONDS, RETRY_BASE_SECONDS * 2 ** max(0, row.attempts - 1))
-    return ClubPaymentAdminAlertOutbox.objects.filter(
+    return model.objects.filter(
         pk=row.pk,
-        status=ClubPaymentAdminAlertOutbox.STATUS_SENDING,
+        status=model.STATUS_SENDING,
         claim_token=row.claim_token,
     ).update(
-        status=ClubPaymentAdminAlertOutbox.STATUS_PENDING,
+        status=model.STATUS_PENDING,
         next_attempt_at=now + timedelta(seconds=delay),
         claimed_until=None,
         claim_token=None,
@@ -119,18 +140,16 @@ def _mark_failed(row, *, now, error):
     )
 
 
-def dispatch_club_payment_admin_alert_outbox(*, limit=10, now=None):
-    """Queue due admin alerts, retrying failures with bounded backoff."""
-    now = now or timezone.now()
-    rows = _claim(limit=max(1, min(int(limit), 100)), now=now)
+def _dispatch(model, publish, *, limit, now, label):
+    rows = _claim(model, limit=max(1, min(int(limit), 100)), now=now)
     sent = failed = 0
     for row in rows:
         try:
-            queued = _publish(row)
+            queued = publish(row)
         except Exception as exc:
             queued = False
             error = '{}: {}'.format(exc.__class__.__name__, exc)
-            logger.exception('club_payment_admin_alert_dispatch_error outbox_id=%s', row.pk)
+            logger.exception('%s_dispatch_error outbox_id=%s', label, row.pk)
         else:
             error = 'enqueue_returned_false'
         finished_at = timezone.now()
@@ -140,7 +159,21 @@ def dispatch_club_payment_admin_alert_outbox(*, limit=10, now=None):
             failed += 1
     if rows:
         logger.info(
-            'club_payment_admin_alert_outbox_dispatch claimed=%s sent=%s failed=%s',
-            len(rows), sent, failed,
+            '%s_dispatch claimed=%s sent=%s failed=%s',
+            label, len(rows), sent, failed,
         )
     return {'claimed': len(rows), 'sent': sent, 'failed': failed}
+
+
+def dispatch_club_payment_admin_alert_outbox(*, limit=10, now=None):
+    """Queue due payment and gift admin alerts, retrying failures with bounded backoff."""
+    now = now or timezone.now()
+    payments = _dispatch(
+        ClubPaymentAdminAlertOutbox, _publish_payment_alert, limit=limit, now=now,
+        label='club_payment_admin_alert_outbox',
+    )
+    gifts = _dispatch(
+        SubscriptionGiftAdminAlertOutbox, _publish_gift_alert, limit=limit, now=now,
+        label='subscription_gift_admin_alert_outbox',
+    )
+    return {key: payments[key] + gifts[key] for key in payments}

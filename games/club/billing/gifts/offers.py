@@ -204,6 +204,10 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     gift.claimed_by = user
     gift.claimed_at = now
     gift.save(update_fields=['status', 'claimed_by', 'claimed_at'])
+    from games.models import SubscriptionGiftAdminAlertOutbox
+    from games.ops.workers.billing_outbox import enqueue_subscription_gift_admin_alert
+
+    enqueue_subscription_gift_admin_alert(gift, SubscriptionGiftAdminAlertOutbox.ALERT_CLAIMED)
     return gift, entitlement
 
 

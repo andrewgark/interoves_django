@@ -220,6 +220,51 @@ class ClubPaymentAdminAlertOutbox(models.Model):
         ]
 
 
+
+class SubscriptionGiftAdminAlertOutbox(models.Model):
+    """Transactional intent to queue one admin alert about a Club gift."""
+
+    ALERT_PAID = 'paid'
+    ALERT_CLAIMED = 'claimed'
+    ALERT_CHOICES = (
+        (ALERT_PAID, 'Подарок оплачен'),
+        (ALERT_CLAIMED, 'Подарок активирован'),
+    )
+    STATUS_PENDING = 'pending'
+    STATUS_SENDING = 'sending'
+    STATUS_SENT = 'sent'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает отправки'),
+        (STATUS_SENDING, 'Отправляется'),
+        (STATUS_SENT, 'Отправлено в очередь'),
+    )
+
+    gift = models.ForeignKey(
+        'SubscriptionGift', related_name='admin_alert_outbox',
+        on_delete=models.CASCADE,
+    )
+    alert_type = models.CharField(max_length=16, choices=ALERT_CHOICES)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    attempts = models.PositiveIntegerField(default=0)
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    last_error = models.TextField(blank=True, default='')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['gift', 'alert_type'], name='games_gift_alert_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at'], name='games_gfa_due_idx'),
+            models.Index(fields=['status', 'claimed_until'], name='games_gfa_claim_idx'),
+        ]
+
 class AccountMerge(models.Model):
     """Audit record for one completed user-to-user account merge."""
 
