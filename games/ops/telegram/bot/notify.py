@@ -301,6 +301,7 @@ def notify_admin_club_renewal_failed(
 ) -> bool:
     """Notify the admin chat when a recurring Club charge needs attention."""
     try:
+        from games.club.billing.tribute.config import ClubTributeProduct
         from games.models import ClubSubscription, ClubYooKassaPayment
 
         subscription = ClubSubscription.objects.select_related('user', 'user__profile').get(
@@ -323,7 +324,11 @@ def notify_admin_club_renewal_failed(
             'Telegram: {}'.format(telegram_label),
             'Провайдер: {}'.format(_escape(subscription.provider)),
             'Сумма: {} {}'.format(
-                _escape(subscription.amount or ''), _escape(subscription.currency or ''),
+                _escape(
+                    ClubTributeProduct.format_amount(subscription.amount)
+                    if subscription.amount is not None else '—'
+                ),
+                _escape(subscription.currency or ''),
             ),
         ]
         if payment is not None:

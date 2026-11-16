@@ -373,6 +373,18 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertTrue(detach_yookassa_payment_method(self.user).ok)
         self.assertFalse(resume_yookassa_subscription(self.user).ok)
 
+    def test_renewal_failed_alert_shows_amount_in_rubles_not_kopecks(self):
+        from games.ops.telegram.bot import notify
+
+        self.sub.amount = 42000
+        self.sub.currency = 'RUB'
+        self.sub.save(update_fields=['amount', 'currency'])
+        with patch.object(notify, '_deliver_admin_text', return_value=True) as deliver:
+            self.assertTrue(notify.notify_admin_club_renewal_failed(self.sub.pk, reason='insufficient_funds'))
+        text = deliver.call_args.args[0]
+        self.assertIn('Сумма: 420 RUB', text)
+        self.assertNotIn('42000', text)
+
     def test_detach_rolls_back_token_erasure_if_subscription_update_fails(self):
         with patch.object(ClubSubscription, 'save', side_effect=RuntimeError('database failure')):
             with self.assertRaises(RuntimeError):
