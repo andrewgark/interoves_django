@@ -61,6 +61,20 @@ Resources:
                   - secretsmanager:DescribeSecret
                   - secretsmanager:GetSecretValue
                 Resource: !Ref ConfigSecretArns
+        # Inline (not AWS::IAM::Policy): the ECS deployer may PutRolePolicy
+        # but lacks iam:GetRolePolicy, which standalone policy creation needs.
+        - !If
+          - IsBackground
+          - PolicyName: PublishBackgroundAdminAlerts
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Sid: PublishClubPaymentAdminAlerts
+                  Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                  Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:interoves-integrations
+          - !Ref AWS::NoValue
       Tags:
         - Key: Service
           Value: interoves-workers
@@ -118,22 +132,6 @@ Resources:
               - sqs:SendMessage
             Resource: !Ref QueueArn
           - Sid: PublishIdentityAdminAlerts
-            Effect: Allow
-            Action:
-              - sqs:SendMessage
-            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:interoves-integrations
-
-  PublishBackgroundAdminAlertsPolicy:
-    Type: AWS::IAM::Policy
-    Condition: IsBackground
-    Properties:
-      PolicyName: PublishBackgroundAdminAlerts
-      Roles:
-        - !Ref TaskRole
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: PublishClubPaymentAdminAlerts
             Effect: Allow
             Action:
               - sqs:SendMessage
