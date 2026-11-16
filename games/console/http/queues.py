@@ -139,6 +139,7 @@ def dashboard_context():
         ('telegram_game_announcements', 'Telegram: анонсы'),
         ('telegram_admin_report', 'Telegram: admin report'),
         ('instagram_refresh_token', 'Instagram: refresh token'),
+        ('threads_refresh_token', 'Threads: refresh token'),
         ('anonymous_merge', 'Мердж гостевых профилей'),
         ('word_salad_recheck', 'Салатики: recheck'),
     )
@@ -156,6 +157,7 @@ def dashboard_context():
             'daily_difficulty_health_check': 2 * 60 * 60,
             'daily_result_projection_reconcile': 30 * 60,
             'instagram_refresh_token': 2 * 24 * 60 * 60,
+            'threads_refresh_token': 2 * 24 * 60 * 60,
         }.get(name, 10 * 60)
         health = 'unknown' if row is None else (
             'error' if row.status == QueueWorkerHeartbeat.STATUS_FAILED else

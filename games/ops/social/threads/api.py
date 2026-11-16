@@ -2,22 +2,59 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 import requests
 from django.conf import settings
 
+logger = logging.getLogger('application')
+
 GRAPH_BASE = 'https://graph.threads.net'
 _HTTP_TIMEOUT = 30
 
 
+def settings_access_token() -> str:
+    return (getattr(settings, 'THREADS_ACCESS_TOKEN', '') or '').strip()
+
+
+def current_access_token() -> str:
+    """The live token: DB row (rotated by the refresh job) with settings fallback."""
+    try:
+        from games.ops.social.threads.models import ThreadsToken
+
+        row = ThreadsToken.get()
+        if row and row.access_token:
+            return row.access_token
+    except Exception:
+        logger.debug('ThreadsToken lookup failed; using settings token', exc_info=True)
+    return settings_access_token()
+
+
 def threads_configured() -> bool:
-    return bool((getattr(settings, 'THREADS_ACCESS_TOKEN', '') or '').strip())
+    return bool(current_access_token())
+
+
+def refresh_access_token(token: str) -> dict[str, Any]:
+    """Exchange a valid long-lived token (>24h old) for a new 60-day one."""
+    response = requests.get(
+        GRAPH_BASE + '/refresh_access_token',
+        params={'grant_type': 'th_refresh_token', 'access_token': token},
+        timeout=_HTTP_TIMEOUT,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f'Threads token refresh failed: {response.status_code} {response.text[:500]}'
+        )
+    payload = response.json()
+    if not payload.get('access_token'):
+        raise RuntimeError('Threads refresh response missing access_token')
+    return payload
 
 
 def _request(method: str, path: str, **kwargs) -> dict[str, Any]:
-    token = (getattr(settings, 'THREADS_ACCESS_TOKEN', '') or '').strip()
+    token = current_access_token()
     params = dict(kwargs.pop('params', {}) or {})
     params['access_token'] = token
     response = requests.request(

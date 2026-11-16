@@ -1,7 +1,7 @@
 """Private EB Worker endpoint for integration jobs.
 
 Telegram types send for real. ``instagram.token_refresh`` runs the daily
-token check. ``social.publish`` publishes the social queue and does not
+token check for Instagram and Threads. ``social.publish`` publishes the social queue and does not
 run inside the announcement tick. ``social.regenerate_image`` re-renders a
 social post's Playwright image for the support console (Chromium does not fit
 in the web memory cgroup).
@@ -19,6 +19,7 @@ from django.views.decorators.http import require_POST
 from games.ops.cron.runtime import RUNTIME_ROLE_INTEGRATION, runtime_role
 from games.ops.social.instagram.refresh import run_instagram_token_refresh
 from games.ops.social.publish import run_social_publish_live
+from games.ops.social.threads.refresh import run_threads_token_refresh
 from games.ops.telegram.bot.shadow import (
     run_admin_alert_live,
     run_admin_report_live,
@@ -105,9 +106,13 @@ def integrations_worker(request):
             # retried: a retry would only repeat the same answer.
             result = run_user_notice_live(payload=message['payload'])
         elif message['type'] == INSTAGRAM_TOKEN_REFRESH:
-            result = run_instagram_token_refresh(
-                worker='integration:{}'.format(message_id or 'unknown'),
-            )
+            worker = 'integration:{}'.format(message_id or 'unknown')
+            # Threads rides the same daily schedule; its failure must not
+            # make SQS redeliver an Instagram refresh that already succeeded.
+            threads_result = _run_threads_refresh(worker=worker)
+            result = run_instagram_token_refresh(worker=worker)
+            if isinstance(result, dict):
+                result = {**result, 'threads': threads_result}
         elif message['type'] == SOCIAL_REGENERATE_IMAGE:
             from games.console.feed.social import run_regenerate_image_job
 
@@ -134,6 +139,17 @@ def integrations_worker(request):
         (time.perf_counter() - started) * 1000,
     )
     return JsonResponse({'status': outcome, 'result': _jsonable(result)}, status=200)
+
+
+def _run_threads_refresh(*, worker):
+    try:
+        result = run_threads_token_refresh(worker=worker)
+    except Exception:
+        logger.exception('integration worker threads token refresh failed')
+        return {'action': 'failed'}
+    if result is None:
+        return {'action': 'skipped_locked'}
+    return result
 
 
 def _is_stale(message, *, now):

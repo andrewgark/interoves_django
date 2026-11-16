@@ -17,6 +17,7 @@ class GamesConfig(AppConfig):
         import games.ops.analytics.identity  # noqa: F401 — logout rotation receiver
         import games.ops.social.instagram.models  # noqa: F401
         import games.ops.social.models  # noqa: F401
+        import games.ops.social.threads.models  # noqa: F401
         import games.ops.telegram.models  # noqa: F401
         import games.ops.telegram.signals
         import games.puzzles.core.norm_matcher

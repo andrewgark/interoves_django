@@ -23,6 +23,15 @@ def _body(**overrides):
 
 @override_settings(ROOT_URLCONF='interoves_django.urls')
 class IntegrationsWorkerTests(SimpleTestCase):
+    def setUp(self):
+        # The daily token job also refreshes Threads, which needs the DB.
+        threads = patch(
+            'games.ops.workers.handlers.integrations.run_threads_token_refresh',
+            return_value={'action': 'skipped'},
+        )
+        threads.start()
+        self.addCleanup(threads.stop)
+
     def _post(self, body, *, role='integration-worker', sqsd=True):
         headers = {}
         if sqsd:
@@ -216,6 +225,32 @@ class IntegrationsWorkerTests(SimpleTestCase):
         self.assertEqual(response.json()['result']['action'], 'skipped')
         self.assertNotIn('access_token', response.json()['result'])
         refresh.assert_called_once()
+
+    def test_token_refresh_also_refreshes_threads(self):
+        with patch(
+            'games.ops.workers.handlers.integrations.run_instagram_token_refresh',
+            return_value={'action': 'skipped', 'age_days': 4, 'max_age_days': 30},
+        ), patch(
+            'games.ops.workers.handlers.integrations.run_threads_token_refresh',
+            return_value={'action': 'refreshed', 'expires_days': 60},
+        ) as threads:
+            response = self._post(_body(type='instagram.token_refresh'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['result']['threads']['action'], 'refreshed')
+        threads.assert_called_once()
+
+    def test_threads_failure_does_not_fail_instagram_refresh(self):
+        with patch(
+            'games.ops.workers.handlers.integrations.run_instagram_token_refresh',
+            return_value={'action': 'refreshed', 'expires_days': 60},
+        ), patch(
+            'games.ops.workers.handlers.integrations.run_threads_token_refresh',
+            side_effect=RuntimeError('boom'),
+        ):
+            response = self._post(_body(type='instagram.token_refresh'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        self.assertEqual(response.json()['result']['threads']['action'], 'failed')
 
     def test_instagram_lock_is_acked(self):
         with patch(
