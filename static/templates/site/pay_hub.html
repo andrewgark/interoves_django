@@ -6,7 +6,6 @@
 <div class="new-pay-checkout new-pay-hub">
   <header class="new-pay-checkout__header">
     <h1 class="new-heading new-heading--page">Оплата и поддержка</h1>
-    <p class="new-pay-checkout__lead">Всё, за что можно заплатить на Inter&nbsp;Oves, в одном месте. Деньги идут на новые игры и на то, чтобы сайт работал.</p>
   </header>
 
   {% if team or club.active %}
@@ -31,7 +30,7 @@
     <a class="new-pay-hub__card" href="{% url 'new_subscription' %}">
       <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-star"></i></span>
       <span class="new-pay-hub__title">Клубная подписка</span>
-      <span class="new-pay-hub__text">Доступ к архиву ежедневных игр и регулярная поддержка проекта.</span>
+      <span class="new-pay-hub__text">Весь архив ежедневных игр, случайные Цензурки и Алфавитки, больше времени на решение выпуска для <i class="ph ph-fire new-pay-hub__inline-icon" aria-hidden="true"></i>&nbsp;серии, корона в таблице результатов и чат клуба.</span>
       <span class="new-pay-hub__cta">{% if club.active %}Управлять подпиской{% else %}Оформить{% endif %} <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
     </a>
 
@@ -61,7 +60,7 @@
     <a class="new-pay-hub__card new-pay-hub__card--wide new-pay-hub__card--quiet" href="{% url 'order_game_landing' %}">
       <span class="new-pay-hub__icon" aria-hidden="true"><i class="ph ph-buildings"></i></span>
       <span class="new-pay-hub__title">Игра для компании</span>
-      <span class="new-pay-hub__text">Корпоративная онлайн-игра для ваших сотрудников.</span>
+      <span class="new-pay-hub__text">Под ваш бренд и расписание.</span>
       <span class="new-pay-hub__cta">Заказать <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
     </a>
   </div>
