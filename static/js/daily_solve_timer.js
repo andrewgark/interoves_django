@@ -36,6 +36,11 @@
   // A request on a silently dead connection can hang for half a minute and
   // hold the whole queue; give up early so a retry can use a fresh one.
   var REQUEST_TIMEOUT_MS = 10000;
+  // After timeouts in a row the connection is slow rather than dead: Yandex
+  // on Android (2026-11-15, /replacements/167/) had a start reach the server
+  // 27 s after it was sent, long after the client gave up on it at 10 s, and
+  // twelve starts failed that way. Each timeout extends the next deadline.
+  var REQUEST_TIMEOUT_MAX_MS = 30000;
   // Past the timeout plus this, the stopped-clock check gives up on a request
   // whose abort signal never fired.
   var REQUEST_EXPIRE_GRACE_MS = 2000;
@@ -250,6 +255,7 @@
     var lastFailure = null;
     var reportsSent = {};
     var watchdogTimer = null;
+    var watchdogDueAt = 0;
     var stoppedSince = null;
     var lastHealAt = 0;
     var stoppedCheckTimer = null;
@@ -261,6 +267,8 @@
     var lastVisibleAt = null;
     // A return a fallback noticed, awaiting the browser's own announcement.
     var unannouncedReturnAt = null;
+    // When the browser last froze this page (Page Lifecycle 'freeze').
+    var lastFrozenAt = null;
     var startAttempts = 0;
     // Unlike startAttempts, automatic recovery does not reset this: it counts
     // every failed start since the clock last started, for the report.
@@ -306,6 +314,12 @@
     var lostNetwork = false;
     // The event request awaiting an answer: {startedAt, expire}.
     var requestInFlight = null;
+    // Requests that timed out in a row; any answer resets it.
+    var requestTimeouts = 0;
+
+    function requestTimeoutMs() {
+      return Math.min(REQUEST_TIMEOUT_MAX_MS, REQUEST_TIMEOUT_MS * (1 + requestTimeouts));
+    }
 
     function advanceStateRevision() {
       stateRevision += 1;
@@ -538,9 +552,10 @@
         keepalive: !!keepalive,
         headers: headers,
       };
+      var timeoutMs = requestTimeoutMs();
       try {
         if (root.AbortSignal && typeof root.AbortSignal.timeout === 'function') {
-          init.signal = root.AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+          init.signal = root.AbortSignal.timeout(timeoutMs);
         }
       } catch (e) {}
       // AbortSignal.timeout alone is no deadline: Firefox on iOS
@@ -551,6 +566,7 @@
       var expired = new Promise(function (resolve) {
         requestInFlight = {
           startedAt: Date.now(),
+          timeoutMs: timeoutMs,
           expire: function () {
             lostNetwork = true;
             resolve({ data: null, status: 0, retryable: true, networkError: true, errorName: 'TimeoutError' });
@@ -612,13 +628,15 @@
       });
       return Promise.race([answered, expired]).then(function (result) {
         if (requestInFlight === inFlight) requestInFlight = null;
+        if (result.errorName === 'TimeoutError') requestTimeouts += 1;
+        else if (!result.networkError) requestTimeouts = 0;
         return result;
       });
     }
 
     function expireOverdueRequest() {
       var inFlight = requestInFlight;
-      if (!inFlight || Date.now() - inFlight.startedAt < REQUEST_TIMEOUT_MS + REQUEST_EXPIRE_GRACE_MS) return;
+      if (!inFlight || Date.now() - inFlight.startedAt < inFlight.timeoutMs + REQUEST_EXPIRE_GRACE_MS) return;
       requestInFlight = null;
       inFlight.expire();
     }
@@ -1118,6 +1136,7 @@
         last_error_name: lastFailure ? lastFailure.errorName : null,
         last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
         start_failures: startFailures,
+        request_timeout_s: Math.round(requestTimeoutMs() / 1000),
         failed_start_rounds: failedStartRounds,
         stopped_for_s: stoppedSince == null ? null : Math.round((Date.now() - stoppedSince) / 1000),
         session_id: sessionId,
@@ -1127,6 +1146,7 @@
         hidden_age_s: lastHiddenAt == null ? null : Math.round((Date.now() - lastHiddenAt) / 1000),
         visible_via: lastVisibleVia,
         visible_age_s: lastVisibleAt == null ? null : Math.round((Date.now() - lastVisibleAt) / 1000),
+        frozen_age_s: lastFrozenAt == null ? null : Math.round((Date.now() - lastFrozenAt) / 1000),
       };
       Object.keys(extra || {}).forEach(function (key) { details[key] = extra[key]; });
       var headers = {
@@ -1151,11 +1171,30 @@
     // the browser): a page visible for a while whose clock never ran.
     function scheduleWatchdog(delay) {
       if (!reportProblems || destroyed || watchdogTimer || !root.setTimeout) return;
+      delay = delay || WATCHDOG_MS;
+      watchdogDueAt = Date.now() + delay;
       watchdogTimer = root.setTimeout(function () {
         watchdogTimer = null;
         if (destroyed || completed || everRunning || reloadRequired || Object.keys(reportsSent).length) return;
+        // Chrome on Windows (2026-11-15, /salad/79/): a page still 'visible'
+        // had its timers held for ~90 s without any lifecycle event, and this
+        // fired the moment they thawed, before the stopped-clock check could
+        // give up on the start that hung meanwhile. A timer this late means
+        // the page was not running: count visible time from now.
+        var late = Date.now() - watchdogDueAt;
+        if (late >= WATCHDOG_MS) {
+          if (visibleSince != null) visibleSince = Date.now();
+          scheduleWatchdog();
+          return;
+        }
+        // A start awaiting its answer is handled by the start policy, which
+        // reports for itself if it fails. Give up on an overdue one now.
+        expireOverdueRequest();
         // Failing starts report for themselves once recovery fails as well.
-        if (manuallyPaused || resumeRequired || idlePaused || visibleSince == null || startFailures) {
+        if (
+          manuallyPaused || resumeRequired || idlePaused || visibleSince == null || startFailures
+          || awaitingServer || startRetryTimer || eventQueue.length
+        ) {
           scheduleWatchdog();
           return;
         }
@@ -1165,7 +1204,7 @@
           return;
         }
         reportProblem('never_started');
-      }, delay || WATCHDOG_MS);
+      }, delay);
     }
 
     function onVisible(via) {
@@ -1302,7 +1341,12 @@
       // Further hints that a hidden page is back; each only acts after a hide
       // that no visibilitychange/pageshow has answered yet.
       root.addEventListener && root.addEventListener('focus', function () { noticeUnannouncedReturn('focus'); });
-      doc.addEventListener('resume', function () { noticeUnannouncedReturn('resume'); });
+      doc.addEventListener('freeze', function () { lastFrozenAt = Date.now(); });
+      doc.addEventListener('resume', function () {
+        // A request that hung while the page was frozen is long overdue.
+        expireOverdueRequest();
+        noticeUnannouncedReturn('resume');
+      });
       doc.addEventListener('submit', function (event) {
         var form = event && event.target;
         if (form && form.closest && form.closest('form[data-replay-submit]') && doc.documentElement) {

@@ -2276,6 +2276,88 @@ asyncTest(async function testWatchdogReportsVisiblePageWhoseClockNeverRan() {
   }
 });
 
+asyncTest(async function testWatchdogThatFiresLongAfterItsDueTimeDoesNotReport() {
+  // Chrome on Windows, 2026-11-15 (/salad/79/): a 'visible' page had its
+  // timers held for ~90 s and reported never_started the moment they thawed.
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 5100000;
+  var watchdogs = [];
+  var reports = [];
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    if (delay >= 30000) watchdogs.push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      return new Promise(function () {});
+    }, { listenDocument: false });
+    ctrl.boot();
+    now += 121000;
+    watchdogs.shift()();
+    await flush();
+    assert.deepStrictEqual(reports, []);
+    assert.strictEqual(watchdogs.length, 1, 'the watchdog starts counting again');
+    // Still no clock 30 s after the thaw: that is a real problem.
+    now += 31000;
+    watchdogs.shift()();
+    await flush();
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].reason, 'never_started');
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+    Date.now = oldNow;
+  }
+});
+
+asyncTest(async function testWatchdogLeavesAHangingStartToTheStartPolicy() {
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 5200000;
+  var watchdogs = [];
+  var retries = [];
+  var reports = [];
+  var starts = 0;
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    if (delay >= 30000) watchdogs.push(callback);
+    else if (delay < timer.HEARTBEAT_MS && delay !== 10000) retries.push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (body.action === 'start') starts += 1;
+      return new Promise(function () {});
+    }, { listenDocument: false });
+    ctrl.boot();
+    ctrl.startIfAllowed();
+    await flush();
+    assert.strictEqual(starts, 1);
+    now += 31000;
+    watchdogs.shift()();
+    await flush();
+    assert.deepStrictEqual(reports, [], 'a start in progress is not reported as never started');
+    assert.strictEqual(watchdogs.length, 1);
+    assert.ok(retries.length >= 1, 'the overdue start was given up and a retry scheduled');
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+    Date.now = oldNow;
+  }
+});
+
 asyncTest(async function testHangingSnapshotGetDoesNotKeepTheStartFromBeingSent() {
   // Chrome on Android, 2026-11-03: the boot GET never reached the server,
   // the start was never tried and the watchdog reported never_started.
@@ -2418,6 +2500,63 @@ asyncTest(async function testStartWhoseAbortNeverFiresIsRetried() {
     // The hung request answering after all changes nothing.
     answerLate({ status: 200, json: function () {
       return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+    } });
+    await flush();
+    assert.strictEqual(ctrl.state().status, 'running');
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setInterval = oldSetInterval;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
+asyncTest(async function testTimedOutStartGivesTheRetryALongerDeadline() {
+  // Yandex on Android, 2026-11-15 (/replacements/167/): starts reached the
+  // server up to 27 s after they were sent; at a fixed 10 s every one failed.
+  var oldNow = Date.now;
+  var oldSetInterval = global.setInterval;
+  var oldSetTimeout = global.setTimeout;
+  var now = 9600000;
+  var checks = [];
+  var retries = [];
+  var answers = [];
+  Date.now = function () { return now; };
+  global.setInterval = function (fn) { checks.push(fn); return checks.length; };
+  global.setTimeout = function (fn, delay) {
+    if (delay < timer.HEARTBEAT_MS && delay !== 10000) retries.push(fn);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (!init || init.method !== 'POST') {
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+        } });
+      }
+      return new Promise(function (resolve) { answers.push(resolve); });
+    }, { bootstrap: { status: 'auto_paused', exists: true } });
+    ctrl.boot();
+    await flush();
+    assert.strictEqual(answers.length, 1);
+    now += 13000;
+    checks[0]();
+    await flush();
+    assert.strictEqual(retries.length, 1, 'the first start times out at 10 s');
+    retries.shift()();
+    await flush();
+    assert.strictEqual(answers.length, 2);
+
+    now += 13000;
+    checks[0]();
+    await flush();
+    assert.strictEqual(retries.length, 0, 'the retry waits longer than the first attempt');
+    answers[1]({ status: 200, json: function () {
+      return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
     } });
     await flush();
     assert.strictEqual(ctrl.state().status, 'running');
