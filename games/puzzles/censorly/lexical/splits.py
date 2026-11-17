@@ -8061,6 +8061,10 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_retail', ('розница', 'розничный')),
     # Orphans batch F7: приближённо is «approximately».
     ('sense:approximate', ('приближенно',)),
+    # Batch B6: the bird (индейка, индюк) is not the people (индеец, индейский).
+    ('sense:review_turkey_bird', (
+        'индейка', 'индюк', 'индюшка', 'индюшечий', 'индюшачий', 'индюшонок',
+    )),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas

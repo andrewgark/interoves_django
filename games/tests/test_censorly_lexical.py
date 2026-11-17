@@ -937,6 +937,24 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_batch_b6_wiktionary_relatives(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('индейский', 'индеец'), ('локализация', 'локальный'), ('позвоночник', 'позвонок'),
+            ('хаотичный', 'хаос'), ('абстракция', 'абстрактный'), ('криминалист', 'криминальный'),
+            ('логистический', 'логистика'), ('глобализация', 'глобальный'), ('бармен', 'бар'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('индейка', 'индеец'), ('звонок', 'позвоночник'), ('протектор', 'протекторат'),
+            ('резидент', 'резиденция'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_orphan_batch_f7_second_readings(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
