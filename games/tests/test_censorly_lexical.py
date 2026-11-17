@@ -920,6 +920,23 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_osob_individual_being_is_apart_from_peculiarity(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('особенность', 'особи'), ('особый', 'особь'), ('особь', 'особенный'),
+            ('обособленный', 'особа'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('особь', 'особи'), ('особа', 'особь'), ('особый', 'особенность'),
+            ('обособить', 'особый'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_orphan_batch_f5_words_open_their_relatives(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
