@@ -937,6 +937,17 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_latin_lookalikes_inside_a_cyrillic_word_fold_to_cyrillic(self):
+        from games.puzzles.censorly.lexical.core import fold
+
+        # Player report 2026-11-14: «Счëт» typed with Latin ë did not open «счётом».
+        self.assertEqual(fold('Счëт'), 'счет')
+        self.assertEqual(fold('Cтол'), 'стол')
+        self.assertEqual(fold('pH-метр'), 'ph-метр')
+        self.assertEqual(fold('IT-компания'), 'it-компания')
+        self.assertEqual(fold('iPhone'), 'iphone')
+        self.assertTrue(matching_lemmas(tokenize_text('счётом'), 'Счëт'))
+
     def test_batch_b7_wiktionary_only_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
