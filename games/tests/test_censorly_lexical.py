@@ -97,6 +97,20 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         ):
             self.assertFalse(MATCHER.relation(ANALYZER.target(left), ANALYZER.target(right)), f'{left}/{right}')
 
+    def test_sense_review_queue_is_current(self):
+        from games.puzzles.censorly.lexical.senses import unsensed_split_family_lemmas
+
+        queue = (
+            Path(__file__).resolve().parents[1]
+            / 'puzzles' / 'censorly' / 'lexical' / 'data' / 'sense_review_queue.tsv'
+        )
+        with queue.open(encoding='utf-8', newline='') as stream:
+            listed = {(row['family'], row['lemma']) for row in csv.DictReader(stream, delimiter='\t')}
+        found = unsensed_split_family_lemmas()
+        rerun = 'rerun games.puzzles.censorly.offline.tools.sense_review_queue'
+        self.assertFalse(sorted(found - listed)[:20], f'unreviewed lemmas of split families; {rerun}')
+        self.assertFalse(sorted(listed - found)[:20], f'resolved lemmas still queued; {rerun}')
+
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
         from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
         from games.puzzles.censorly.lexical.splits import CLUSTERS
