@@ -15,6 +15,11 @@ lemma	senses	note
 нежить	-	нежить is the verb «to pamper» (нежный) as well as «the undead»; it keeps its bare roots.
 воротный	-	воротный belongs with ворота, not with вращение.
 прихожая	-	прихожая (entrance hall) is not the parish (прихожанин).
+треба	-	треба, требник (rite, missal) and отребье, непотребный keep no sense; they are not требовать.
+требник	-	
+отребье	-	
+непотребный	-	
+непотребство	-	
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -717,7 +722,6 @@ lemma	senses	note
 начальница	sense:authority	
 начальнический	sense:authority	
 начальничий	sense:authority	
-начальный	sense:authority	
 начальственность	sense:authority	
 начальственный	sense:authority	
 начальство	sense:authority	
@@ -1150,6 +1154,7 @@ lemma	senses	note
 починковый	sense:begin_start	
 починок	sense:begin_start	
 учать	sense:begin_start	
+начальный	sense:begin_start	начальный (initial) is начало, not начальник.
 поведение	sense:behavior	
 поведенческий	sense:behavior	
 безверие	sense:believe	
@@ -3963,7 +3968,6 @@ lemma	senses	note
 доносчик	sense:denunciation	
 доносчица	sense:denunciation	
 отдел	sense:department	
-отделение	sense:department	
 отделенный	sense:department	
 отделенский	sense:department	
 отделенческий	sense:department	
@@ -3971,7 +3975,8 @@ lemma	senses	note
 подраздел	sense:department	
 подразделение	sense:department	
 раздел	sense:department	
-разделение	sense:department	
+разделение	sense:department|sense:divide	
+отделение	sense:department|sense:divide	
 задаток	sense:deposit	
 задаточный	sense:deposit	
 задатчик	sense:deposit	
@@ -4868,10 +4873,10 @@ lemma	senses	note
 отечность	sense:edema	
 отечный	sense:edema	
 отечь	sense:edema	
-образование	sense:education	
 образованность	sense:education	
 образованный	sense:education	
 образовательный	sense:education	
+образование	sense:education|sense:formation	образование is schooling and also forming (образование звезд).
 ток	sense:electric_current	
 электризация	sense:electricity	Electricity, the adjective and the adverb are one sense, apart from the electron particle and electronics.
 электризовать	sense:electricity	
@@ -8211,7 +8216,7 @@ lemma	senses	note
 соложеный	sense:malt	
 солощий	sense:malt	
 манный	sense:manna	
-образ	sense:manner	
+образ	sense:manner	A confirmed report: изображались must not open «образом» (таким образом), so образ stays manner only.
 особняк	sense:mansion	
 особнячок	sense:mansion	
 занаваживать	sense:manure	
@@ -11224,6 +11229,12 @@ lemma	senses	note
 пустынный	sense:review_desert	
 пустынь	sense:review_desert	
 пустыня	sense:review_desert	
+назвать	sense:review_designation	назвать is the perfective of называть: naming, not calling (звать, вызвать).
+назваться	sense:review_designation	
+прозвать	sense:review_designation	
+прозваться	sense:review_designation	
+прозывать	sense:review_designation	
+прозываться	sense:review_designation	
 прибор	sense:review_device	
 приборный	sense:review_device	
 приборостроение	sense:review_device	
@@ -12405,7 +12416,6 @@ lemma	senses	note
 выселок	sense:review_village	
 новоселка	sense:review_village	
 поселковый	sense:review_village	
-поселок	sense:review_village	
 поселочный	sense:review_village	
 посельский	sense:review_village	
 поселянин	sense:review_village	
@@ -12428,6 +12438,7 @@ lemma	senses	note
 староста	sense:review_village_head	
 старостин	sense:review_village_head	
 старостиха	sense:review_village_head	
+поселок	sense:review_village|sense:settlement	поселок is a village (село) and a settlement (поселение, поселиться).
 проходимец	sense:review_villain	
 навестить	sense:review_visit	
 навещать	sense:review_visit	

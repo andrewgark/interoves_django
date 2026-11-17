@@ -379,11 +379,11 @@ family	pattern	sense	note
 крест|крещ	(?:крестин|крестиль|крещ|крестить|крестник|крестниц).*	sense:review_baptism	
 крест|крещ	(?:крестовин|крестовик|крестовк|крестов).*	sense:review_crosspiece	
 крест|крещ	.*	sense:review_cross	
-тереб|треб	тереб.*	sense:review_tug	
+тереб|треб	.*тереб.*	sense:review_tug	теребить and its prefixed forms (натеребить, вытеребить) are tugging, not требовать.
 тереб|треб	(?:истреб|неистреб).*	sense:review_destroy	
 тереб|треб	(?:потреб|потребл).*	sense:review_need_consumption	
 тереб|треб	употреб.*	sense:usage	употреблять (use) is not требовать.
-тереб|треб	.*	sense:review_demand	
+тереб|треб	.*	sense:demand	The rest of the family is demanding (требовать, требоваться, востребовать, требовательность).
 страст²|страх|страш|стращ	(?:страст|пристраст).*	sense:review_passion	
 страст²|страх|страш|стращ	(?:застращ|страш).*	sense:review_frighten	
 страст²|страх|страш|стращ	.*	sense:review_fear_insurance	
