@@ -80,7 +80,7 @@ lemma	root_structure	note
 латынь	root:латин	Reviewed allomorph link from латынь to латинский and лат.
 мостовый	fam:мащ²|мост|мощ²	Transparent adjective from мост with the existing complete alternant structure.
 родный	fam:род|рож²|рожд	Existing complete род/рож/рожд alternation is direct lexical evidence.
-спиновый	fam:спин	Transparent adjective from спин; unique existing fam:спин.
+спиновый	root:spin_physics	Reviewed-row audit R1 (2026-11-18): the physics spin, not спина (fam:спин is the back).
 степенной	fam:степен	Transparent adjective from степень; existing fam:степен.
 хожение	fam:хаж|ход|хож|хожд	Nominal formation from ходить with the existing complete хаж/ход/хож/хожд structure.
 шахматист	root:шахмат	Reviewed chess family: шахматист shares the compound stem шахмат.
@@ -3241,3 +3241,4 @@ lemma	root_structure	note
 драконовский	root:draconian	Opaque audit O1 (2026-11-17): драконовские законы are Draco the lawgiver, not дракон.
 драконовски	root:draconian	Opaque audit O1 (2026-11-17): драконовские законы are Draco the lawgiver, not дракон.
 ничья	root:draw_game	Nest-anchor audit N1 (2026-11-18): ничья (a draw) is not ничто or ничтожный.
+спин	root:spin_physics	Reviewed-row audit R1 (2026-11-18): the physics spin, not спина.

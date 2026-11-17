@@ -954,6 +954,15 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_reviewed_row_audit_r1_spin_is_not_the_back(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        # «спина» itself is also the genitive of спин; «спиной» is only the back.
+        self.assertFalse(gameplay_opens('спиновый', 'спиной'))
+        self.assertTrue(gameplay_opens('спин', 'спиновый'))
+        self.assertTrue(gameplay_opens('спина', 'спинной'))
+
     def test_nest_anchor_audit_n1_false_openings(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
