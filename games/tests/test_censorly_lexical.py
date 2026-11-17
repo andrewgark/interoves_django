@@ -954,6 +954,24 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_nest_anchor_audit_n1_false_openings(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('яростный', 'ярко'), ('непрерывный', 'взрыв'), ('подрывать', 'непрерывный'),
+            ('беспутство', 'путешествие'), ('ничтожный', 'ничья'), ('легко', 'льгота'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('ярость', 'яростный'), ('прервать', 'непрерывный'), ('перерыв', 'прерывать'),
+            ('взрыв', 'взрывной'), ('распутство', 'беспутный'), ('ничто', 'ничтожный'),
+            ('льгота', 'льготный'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_opaque_audit_o1_draconian_is_not_dragon(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

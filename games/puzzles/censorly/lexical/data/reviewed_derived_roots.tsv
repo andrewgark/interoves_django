@@ -3240,3 +3240,4 @@ lemma	root_structure	note
 костерить	root:scolding	Fallback audit E3 (2026-11-17): костерить (scold) is not костёр.
 драконовский	root:draconian	Opaque audit O1 (2026-11-17): драконовские законы are Draco the lawgiver, not дракон.
 драконовски	root:draconian	Opaque audit O1 (2026-11-17): драконовские законы are Draco the lawgiver, not дракон.
+ничья	root:draw_game	Nest-anchor audit N1 (2026-11-18): ничья (a draw) is not ничто or ничтожный.

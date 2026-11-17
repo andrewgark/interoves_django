@@ -83,7 +83,7 @@ guess	target	relation	group	word_group	label	note
 послесловие	слово	root	nest_anchor	common	OK	
 нетипичный	тип	root	nest_anchor	common	OK	
 расширение	широко	root	nest_anchor	common	OK	
-подрывать	непрерывный	root	nest_anchor	common	OK	
+подрывать	непрерывный	root	nest_anchor	common	BAD	relabeled 2026-11-18 (N1): непрерывный is «без перерыва», not рвать/взрыв
 исторически	история	root	nest_anchor	common	OK	
 контрразведка	разведывательный	root	nest_anchor	common	OK	
 путевый	путешествие	root	nest_anchor	common	OK	
