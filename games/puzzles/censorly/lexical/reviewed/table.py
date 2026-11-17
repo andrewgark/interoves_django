@@ -216,3 +216,41 @@ class GroupTable(ReviewedTable):
                 self.fail(f'group needs two words: {row[self.key]!r}')
             groups.append(words)
         return tuple(groups)
+
+
+class SenseRuleTable(ReviewedTable):
+    """Ordered ``(family, pattern, sense)`` rules for whole dictionary families.
+
+    Rows of one Kuznetsova family form an ordered list; the first pattern
+    that ``re.fullmatch``-es the lemma decides its sense (``-``: none). The
+    last rule of every family is ``.*`` so each family lemma gets a decision.
+    """
+
+    SENSE_RE = re.compile(r'^sense:\S+$')
+
+    def _build(self, rows) -> dict[str, tuple[tuple[re.Pattern, str | None], ...]]:
+        rules: dict[str, list[tuple[re.Pattern, str | None]]] = {}
+        for row in rows:
+            family, pattern, sense = row['family'], row['pattern'], row['sense']
+            if not family or not pattern:
+                self.fail(f'invalid row: {row}')
+            if sense != '-' and not self.SENSE_RE.fullmatch(sense):
+                self.fail(f'invalid sense {sense!r} for {family}')
+            try:
+                compiled = re.compile(pattern)
+            except re.error as error:
+                self.fail(f'invalid pattern {pattern!r} for {family}: {error}')
+            family_rules = rules.setdefault(family, [])
+            if family_rules and family_rules[-1][0].pattern == '.*':
+                self.fail(f'unreachable rule after .* in {family}: {pattern}')
+            family_rules.append((compiled, None if sense == '-' else sense))
+        for family, family_rules in rules.items():
+            if family_rules[-1][0].pattern != '.*':
+                self.fail(f'family {family} does not end with a .* rule')
+        return {family: tuple(family_rules) for family, family_rules in rules.items()}
+
+    def classify(self, family: str, lemma: str) -> str | None:
+        for pattern, sense in self.data[family]:
+            if pattern.fullmatch(lemma):
+                return sense
+        raise AssertionError('unreachable: every family ends with .*')
