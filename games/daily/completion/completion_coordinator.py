@@ -243,6 +243,42 @@ def _complete_logical_game_once(
     }
 
 
+# A completion that reaches the server this long after the page last spoke
+# to the timer was queued on the page (offline play, a frozen tab, the salad
+# outbox sent on the next visit): the timer had nothing it could credit, which
+# is not a timer fault worth an admin alert.
+LATE_DELIVERY_GAP_SECONDS = 30 * 60
+
+
+def _completion_delivered_late(actor, game, task_group, now=None) -> bool:
+    from games.daily.timing.session import ACTION_COMPLETE
+    from games.models.daily import DailyTimingEvent
+
+    values = _actor_values(actor) or {}
+    events = DailyTimingEvent.objects.filter(
+        game=game, task_group=task_group, replay_slot__isnull=True,
+    ).exclude(action=ACTION_COMPLETE)
+    if values.get('team') is not None:
+        events = events.filter(team=values['team'])
+    elif values.get('user') is not None:
+        events = events.filter(user=values['user'])
+    elif values.get('anon_key'):
+        events = events.filter(anon_key=values['anon_key'])
+    else:
+        return False
+    last_contact = events.order_by('-occurred_at').values_list('occurred_at', flat=True).first()
+    if last_contact is None:
+        return False
+    gap = ((now or timezone.now()) - last_contact).total_seconds()
+    if gap < LATE_DELIVERY_GAP_SECONDS:
+        return False
+    logger.info(
+        'zero_duration_completion_late_delivery game=%s task_group=%s gap_s=%d',
+        getattr(game, 'pk', game), getattr(task_group, 'pk', task_group), int(gap),
+    )
+    return True
+
+
 def complete_logical_game(
     *,
     actor,
@@ -290,6 +326,7 @@ def complete_logical_game(
                     # Draft offers have no placement: an author previewing
                     # their own draft is not a player's broken timer.
                     and GameTaskGroup.objects.filter(game=game, task_group=task_group).exists()
+                    and not _completion_delivered_late(actor, game, task_group, now)
                 ):
                     from games.ops.telegram.bot.notify import notify_admin_zero_duration_completion
 

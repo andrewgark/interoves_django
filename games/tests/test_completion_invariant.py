@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -16,6 +16,7 @@ from games.models import (
     ChainTaskState,
     CheckerType,
     DailySolveTiming,
+    DailyTimingEvent,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -247,6 +248,31 @@ class CompletionInvariantTests(TestCase):
     def test_zero_timer_on_placed_group_alerts_admin(self):
         game = self._game('ladder')
         group, tasks = self._group(game, [('0', 'raddle')])
+
+        self._complete_with_zero_timer(game, group, tasks[0]).assert_called_once()
+
+    def _timing_start_event(self, game, group, ago):
+        event = DailyTimingEvent.objects.create(
+            game=game, task_group=group, user=self.user,
+            session_id=str(uuid4()), event_id=str(uuid4()),
+            actor_key='user:{}'.format(self.user.pk), action=ACTION_START, seq=1,
+        )
+        DailyTimingEvent.objects.filter(pk=event.pk).update(
+            occurred_at=datetime.now(timezone.utc) - ago,
+        )
+
+    def test_zero_timer_long_after_last_timer_contact_does_not_alert(self):
+        # The salad outbox sent the words found offline on the next visit.
+        game = self._game('salad')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        self._timing_start_event(game, group, timedelta(hours=16))
+
+        self._complete_with_zero_timer(game, group, tasks[0]).assert_not_called()
+
+    def test_zero_timer_soon_after_timer_start_still_alerts(self):
+        game = self._game('salad')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        self._timing_start_event(game, group, timedelta(minutes=5))
 
         self._complete_with_zero_timer(game, group, tasks[0]).assert_called_once()
 
