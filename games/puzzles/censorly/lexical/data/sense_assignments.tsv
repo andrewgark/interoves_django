@@ -225,6 +225,7 @@ lemma	senses	note
 убавление	sense:add	
 убавлять	sense:add	
 убавляться	sense:add	
+добавиться	sense:add	
 присадка	sense:additive	
 присадочный	sense:additive	
 обратить	sense:address_conversion	
@@ -1438,6 +1439,7 @@ lemma	senses	note
 смигиваться	sense:blink	
 смигнуть	sense:blink	
 смигнуться	sense:blink	
+миг	sense:blink	
 метелистый	sense:blizzard	
 метелица	sense:blizzard	
 метелка	sense:blizzard	
@@ -4055,6 +4057,7 @@ lemma	senses	note
 предопределиться	sense:determine	
 предопределять	sense:determine	
 предопределяться	sense:determine	
+развитый	sense:development	
 понос	sense:diarrhea	
 поноситель	sense:diarrhea	
 поносительный	sense:diarrhea	
@@ -4423,6 +4426,7 @@ lemma	senses	note
 распределяться	sense:divide	
 уделить	sense:divide	
 уделять	sense:divide	
+распределенный	sense:divide	
 богослужебный	sense:divine_service	Religious service is a narrow lexicalized subfamily. Keep only the exact богослуж- pair here: священнослужитель and церковнослужитель have different full compound structures and must not be merged by this sense.
 богослужение	sense:divine_service	
 разведенец	sense:divorce	
@@ -4756,6 +4760,7 @@ lemma	senses	note
 спивать	sense:drunk	
 спиваться	sense:drunk	
 спиться	sense:drunk	
+пьянство	sense:drunk	
 уточка	sense:duck	
 поединок	sense:duel	
 помет	sense:dung_mark	
@@ -5881,6 +5886,7 @@ lemma	senses	note
 смерзнуться	sense:frost	
 смораживаться	sense:frost	
 сморозить	sense:frost	
+заморозка	sense:frost	
 дозаправка	sense:fuel	
 заправка	sense:fuel	
 заправочный	sense:fuel	
@@ -6600,6 +6606,7 @@ lemma	senses	note
 утяжелиться	sense:heavy	
 утяжелять	sense:heavy	
 утяжеляться	sense:heavy	
+тяжело	sense:heavy	
 беспомощность	sense:helplessness	
 беспомощный	sense:helplessness	
 подол	sense:hem	
@@ -6980,6 +6987,7 @@ lemma	senses	note
 часом	sense:hour	
 часочек	sense:hour	
 часы	sense:hour	
+часами	sense:hour	
 однако	sense:however	
 присмирелый	sense:humble	
 присмиреть	sense:humble	
@@ -7260,6 +7268,7 @@ lemma	senses	note
 учительша	sense:instruct	
 учить	sense:instruct	
 учиться	sense:instruct	
+обученный	sense:instruct	
 поношение	sense:insult	
 вознамериваться	sense:intent	
 вознамериться	sense:intent	
@@ -8456,6 +8465,7 @@ lemma	senses	note
 расплавленный	sense:melt	
 расплавлять	sense:melt	
 расплавляться	sense:melt	
+расплав	sense:melt	
 членский	sense:membership	
 членство	sense:membership	
 член	sense:membership|sense:body_part|sense:formal_term	
@@ -8916,6 +8926,7 @@ lemma	senses	note
 содвигаться	sense:move	
 содвинуть	sense:move	
 содвинуться	sense:move	
+сдвиг	sense:move	
 взмутить	sense:muddy	
 взмутиться	sense:muddy	
 взмучивать	sense:muddy	
@@ -9083,6 +9094,7 @@ lemma	senses	note
 провозвестить	sense:news	
 провозвещать	sense:news	
 провозвещаться	sense:news	
+известие	sense:news	
 знатность	sense:nobility	«Знатный» describes status, not cognition. Only the homograph «знать» (verb / collective noun) retains both readings in MULTI_READINGS.
 знатный	sense:nobility	
 вздор	sense:nonsense	
@@ -9314,6 +9326,7 @@ lemma	senses	note
 устройство	sense:organize_device	
 устройщик	sense:organize_device	
 устроять	sense:organize_device	
+устроенный	sense:organize_device	
 другой	sense:other	
 остальной	sense:other	
 по-другому	sense:other	
@@ -10369,6 +10382,8 @@ lemma	senses	note
 утягиваться	sense:pull	
 утяжка	sense:pull	
 утянуть	sense:pull	
+вытянутый	sense:pull	
+втянутый	sense:pull	
 расправа	sense:punish	
 безукоризненность	sense:punish_kar	
 безукоризненный	sense:punish_kar	
@@ -10979,6 +10994,7 @@ lemma	senses	note
 заливчик	sense:review_bay	
 пролив	sense:review_bay	
 завзятый	sense:review_bias	
+синий	sense:review_blue_color	
 разорвать	sense:review_break	
 разрыв	sense:review_break	
 разрывать	sense:review_break	
@@ -11076,6 +11092,8 @@ lemma	senses	note
 вследствие	sense:review_consequence	
 последствие	sense:review_consequence	
 следовательно	sense:review_consequence	
+предусматриваться	sense:review_consideration	
+предусмотренный	sense:review_consideration	
 заговор	sense:review_conspiracy	заговор (conspiracy) and приговор (verdict) are not говорить.
 заговорный	sense:review_conspiracy	
 заговорщик	sense:review_conspiracy	
@@ -11102,6 +11120,7 @@ lemma	senses	note
 сходень	sense:review_convergence	
 сходни	sense:review_convergence	
 схождение	sense:review_convergence	
+сходимость	sense:review_convergence	
 сойтись	sense:review_convergence|sense:review_walking	
 несметный	sense:review_countless	несметный (countless) is not смета or метить.
 бессметный	sense:review_countless	
@@ -11302,6 +11321,7 @@ lemma	senses	note
 разодеться	sense:review_dress	
 сдевать	sense:review_dress	
 сдеть	sense:review_dress	
+одетый	sense:review_dress	
 старший	sense:review_elder	
 старшина	sense:review_elder	
 старшинство	sense:review_elder	
@@ -11337,6 +11357,7 @@ lemma	senses	note
 выходец	sense:review_entry_exit	
 выходящий	sense:review_entry_exit	
 выхождение	sense:review_entry_exit	
+входной	sense:review_entry_exit	
 выйти	sense:review_entry_exit|sense:review_walking	A prefixed -йти verb reads the senses of its -ходить partner, and semantic_roots.tsv gives it both the и and the ход root, so выйти opens выходить and выход.
 войти	sense:review_entry_exit|sense:review_walking	
 дооборудовать	sense:review_equipment	
@@ -11579,9 +11600,11 @@ lemma	senses	note
 произойти	sense:review_happening|sense:review_outcome_origin	«произойти» is both «случиться» and «вести род» (произошёл от обезьяны), the second shared with происходить and происхождение.
 возыметь	sense:review_have	
 поиметь	sense:review_have	
+выше	sense:review_height	
 эллинистический	sense:review_hellene	
 эллинский	sense:review_hellene	
 сопка	sense:review_hill	сопка (hill) is not сыпать/насыпь.
+праздноваться	sense:review_holiday_idleness	
 отечественный	sense:review_homeland	
 отечество	sense:review_homeland	
 соотечественник	sense:review_homeland	
@@ -11648,6 +11671,7 @@ lemma	senses	note
 запричитать	sense:review_lament	
 причитывать	sense:review_lament	
 выложить	sense:review_lay_out	
+прилагаться	sense:review_laying	
 сложение	sense:review_laying|sense:lag_sum	
 сложить	sense:review_laying|sense:lag_sum	
 сложиться	sense:review_laying|sense:lag_sum	
@@ -12005,6 +12029,11 @@ lemma	senses	note
 наличные	sense:review_presence	
 наличный	sense:review_presence	
 поличное	sense:review_presence	
+явиться	sense:review_presence_reality	
+являть	sense:review_presence_reality	
+явный	sense:review_presence_reality	
+явно	sense:review_presence_reality	
+неявный	sense:review_presence_reality	
 нажать	sense:review_press	нажать, выжать, отжать, дожать, прожать, пережать are pressing only, though both жать families list them.
 выжать	sense:review_press	
 отжать	sense:review_press	
@@ -12112,6 +12141,8 @@ lemma	senses	note
 воскрешение	sense:review_resurrection	
 розница	sense:review_retail	Retail (розница) is not разный.
 розничный	sense:review_retail	
+появиться	sense:review_revelation	Words outside the root dictionary (participles, reflexives, adverbs reached by spelling fallback) take the sense of their base, or they stay on the bare root and open none of it.
+выявить	sense:review_revelation	
 спетость	sense:review_ripening	
 восход	sense:review_rise	
 восходитель	sense:review_rise	
@@ -12119,6 +12150,7 @@ lemma	senses	note
 восходящий	sense:review_rise	
 восхождение	sense:review_rise	
 всходы	sense:review_rise	
+всход	sense:review_rise	
 дорога	sense:review_road	
 дороженька	sense:review_road	
 дорожка	sense:review_road	
@@ -12375,11 +12407,13 @@ lemma	senses	note
 сбытчик	sense:review_trade	
 сбыть	sense:review_trade	
 сбыться	sense:review_trade	
+перечисленный	sense:review_transfer_or_listing	
 переход	sense:review_transition	
 переходность	sense:review_transition	
 переходный	sense:review_transition	
 переходчивый	sense:review_transition	
 переходящий	sense:review_transition	
+переходной	sense:review_transition	
 перейти	sense:review_transition|sense:review_walking	
 путь	sense:review_travel_path	
 поездить	sense:review_trip	
@@ -12440,6 +12474,7 @@ lemma	senses	note
 старостиха	sense:review_village_head	
 поселок	sense:review_village|sense:settlement	поселок is a village (село) and a settlement (поселение, поселиться).
 проходимец	sense:review_villain	
+невидимый	sense:review_visibility	
 навестить	sense:review_visit	
 навещать	sense:review_visit	
 навещаться	sense:review_visit	
@@ -13435,6 +13470,7 @@ lemma	senses	note
 научный	sense:science	
 ученость	sense:science	
 ученый	sense:science	
+научно	sense:science	
 распекание	sense:scold	
 распеканция	sense:scold	
 распекательский	sense:scold	
@@ -14205,6 +14241,7 @@ lemma	senses	note
 упрощенство	sense:simple	
 упрощенческий	sense:simple	
 упрощенчество	sense:simple	
+простота	sense:simple	
 восседать	sense:sit	
 воссесть	sense:sit	
 вприсядку	sense:sit	
@@ -14282,6 +14319,7 @@ lemma	senses	note
 усесться	sense:sit	
 усидеть	sense:sit	
 усиживать	sense:sit	
+сидя	sense:sit	
 сиделка	sense:sitter	
 сидельчиха	sense:sitter	
 крупнеть	sense:size	
@@ -14509,6 +14547,7 @@ lemma	senses	note
 сговариваться	sense:speak	
 уговаривать	sense:speak	
 уговариваться	sense:speak	
+безоговорочный	sense:speak	
 данный	sense:specified	The adjectival «данный» means specified / in question, not a transfer.
 мара	sense:specter	
 беспорочный	sense:speech	
@@ -14887,6 +14926,7 @@ lemma	senses	note
 устаиваться	sense:stand	
 устоять	sense:stand	
 устояться	sense:stand	
+стоя	sense:stand	
 паровой	sense:steam	Steam-related «паровой» is a homonym of «пара» meaning a pair.
 крутизна	sense:steep	
 крутой	sense:steep	
@@ -15343,6 +15383,7 @@ lemma	senses	note
 упорный	sense:support	
 упорство	sense:support	
 упорствовать	sense:support	
+поддерживаться	sense:support	
 выживание	sense:survival	
 выживать	sense:survival	
 выжить	sense:survival	
@@ -17701,6 +17742,7 @@ lemma	senses	note
 убеленный	sense:white	
 убелить	sense:white	
 убелять	sense:white	
+бел	sense:white	
 бесцельность	sense:whole	
 бесцельный	sense:whole	
 нацело	sense:whole	
