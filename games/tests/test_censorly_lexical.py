@@ -763,11 +763,13 @@ class LexicalResolverTests(SimpleTestCase):
             ('законодательство', 'законодательный'), ('экология', 'экологический'),
             ('телевидение', 'телевизор'), ('фотография', 'фотограф'),
             ('автобиография', 'биография'), ('бомба', 'бомбардировщик'),
+            # A reviewed compound head opens the compound (test_reviewed_compound_heads_open_the_compound).
+            ('угол', 'треугольник'),
         ):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
         for guess, target in (
-            ('лет', 'самолет'), ('лето', 'столетие'), ('угол', 'треугольник'),
+            ('лет', 'самолет'), ('лето', 'столетие'),
             ('прямоугольный', 'треугольник'), ('страна', 'иностранный'),
             ('действие', 'взаимодействие'), ('закон', 'законодательство'),
             ('логика', 'экология'), ('телевидение', 'телефон'), ('граф', 'фотография'),
@@ -785,12 +787,14 @@ class LexicalResolverTests(SimpleTestCase):
             ('космос', 'космонавт'), ('телеграф', 'телеграмма'), ('самоубийство', 'самоубийца'),
             ('основоположник', 'основополагающий'), ('демократия', 'демократизация'),
             ('археолог', 'археология'), ('статуя', 'статуэтка'),
+            # A reviewed compound head opens the compound (test_reviewed_compound_heads_open_the_compound).
+            ('год', 'ежегодный'), ('театр', 'кинотеатр'), ('убийство', 'самоубийство'),
         ):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
         for guess, target in (
-            ('год', 'ежегодный'), ('ежегодный', 'ежедневный'), ('связь', 'взаимосвязь'),
-            ('кино', 'кинотеатр'), ('театр', 'кинотеатр'), ('убийство', 'самоубийство'),
+            ('ежегодный', 'ежедневный'), ('связь', 'взаимосвязь'),
+            ('кино', 'кинотеатр'),
             ('вода', 'водопровод'), ('трубопровод', 'водотрубный'), ('правосудие', 'суд'),
         ):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
@@ -932,6 +936,31 @@ class LexicalResolverTests(SimpleTestCase):
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
+
+    def test_reviewed_compound_heads_open_the_compound(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('сериал', 'телесериал'), ('мир', 'всемирный'), ('станция', 'радиостанция'),
+            ('фестиваль', 'кинофестиваль'), ('театр', 'кинотеатр'), ('убийство', 'самоубийство'),
+            ('время', 'одновременный'), ('этаж', 'двухэтажный'), ('система', 'экосистема'),
+            ('день', 'ежедневный'), ('год', 'ежегодный'), ('неделя', 'еженедельник'),
+            ('угол', 'треугольник'), ('измерение', 'трехмерный'), ('сторона', 'всесторонний'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            # Never the other way round.
+            ('телесериал', 'сериал'), ('кинотеатр', 'кино'), ('самоубийство', 'убийство'),
+            # The head's sense decides: годный is not год, дельный not неделя.
+            ('годиться', 'ежегодный'), ('дельный', 'еженедельник'), ('образок', 'общеобразовательный'),
+            ('часовня', 'многочасовой'), ('лето', 'многолетний'),
+            # Compounds of two full roots have no reviewed head.
+            ('земля', 'землетрясение'), ('лететь', 'самолет'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
 
     def test_orphan_batch_f6_words_open_their_relatives(self):
         def gameplay_opens(guess, target):

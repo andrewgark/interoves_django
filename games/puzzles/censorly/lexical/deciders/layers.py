@@ -18,6 +18,7 @@ from functools import cached_property
 from games.puzzles.censorly.lexical import reviewed
 from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.lexical.deciders.readings import READINGS
+from games.puzzles.censorly.lexical.deciders.rootbank import ROOT_BANK
 
 _ROMAN_DIGITS = (
     (90, 'XC'), (50, 'L'), (40, 'XL'),
@@ -292,19 +293,33 @@ class ReverseLexemeLayer(Layer):
         return tuple(word.lexemes)
 
 
+def compound_head_roots(word) -> frozenset[tuple]:
+    """Root structures of the reviewed head of an article compound."""
+    spellings = {word.fold} | {fold(lemma) for _para, lemma in word.lexemes if lemma}
+    heads = {reviewed.COMPOUND_HEADS.data.get(spelling) for spelling in spellings}
+    return frozenset(
+        structure for head in heads if head for structure in ROOT_BANK.structures_of(head)
+    )
+
+
 class RootLayer(Layer):
-    """Equal complete root structures (with their senses)."""
+    """Equal complete root structures (with their senses).
+
+    An article compound with a reviewed head (``compound_heads.tsv``) also
+    takes the head's structures as a target, never as a guess: сериал opens
+    телесериал, телесериал does not open сериал.
+    """
 
     name = 'root'
 
     def opens(self, guess, target) -> bool:
-        return bool(guess.roots & target.roots)
+        return bool(guess.roots & (target.roots | compound_head_roots(target)))
 
     def guess_keys(self, word):
         return tuple(word.roots)
 
     def target_keys(self, word):
-        return tuple(word.roots)
+        return tuple(word.roots | compound_head_roots(word))
 
 
 EXACT = ExactLayer()

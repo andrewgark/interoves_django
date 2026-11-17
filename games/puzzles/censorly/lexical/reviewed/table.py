@@ -145,6 +145,21 @@ class ComponentTable(ReviewedTable):
         return found
 
 
+class CompoundHeadTable(ReviewedTable):
+    """Compound lemma → the lemma of its meaningful part (телесериал → сериал)."""
+
+    def _build(self, rows) -> dict[str, str]:
+        found = {}
+        for row in rows:
+            compound, head = fold(row['compound']), fold(row['head'])
+            if not compound or not head or head == compound:
+                self.fail(f'invalid row: {row}')
+            if compound in found:
+                self.fail(f'duplicate compound: {compound}')
+            found[compound] = head
+        return found
+
+
 class AnchorTable(ReviewedTable):
     """lemma → anchor lemma whose root structures the lemma copies.
 

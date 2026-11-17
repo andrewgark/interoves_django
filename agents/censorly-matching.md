@@ -40,6 +40,7 @@
 | FALSE NEGATIVE, `source=ABSENT` или `UNRESOLVED` у наречия или производного, а однокоренное слово с корнем есть (обычно → обычный) | `data/reviewed_nest_anchors.tsv` (структура копируется с sense), очередь `wiktionary.nest_queue`, трек W4 |
 | FALSE NEGATIVE, `source=ABSENT` у базового слова | `data/reviewed_derived_roots.tsv`, трек B |
 | FALSE NEGATIVE, `UNRESOLVED` составного (`a+b`) | `reviewed_derived_roots.tsv` с полной структурой, трек C |
+| FALSE NEGATIVE, часть не открывает составное с префиксоидом (сериал → телесериал) | `data/compound_heads.tsv`: составное → голова в нужном смысле; только в эту сторону, голову не открывает |
 | FALSE NEGATIVE, `matches 2 game roots` | `data/reviewed_existing_root_assignments.tsv`, трек D |
 | FALSE NEGATIVE, имя собственное ↔ прилагательное | `lexical/match/proper_names.py`, трек P |
 | FALSE POSITIVE через общий корень семьи | sense-сплит в `lexical/splits.py`, скилл `censorly-root-family`, трек F |

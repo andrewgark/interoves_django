@@ -14,6 +14,7 @@ from __future__ import annotations
 from games.puzzles.censorly.lexical.reviewed.table import (
     AnchorTable,
     ComponentTable,
+    CompoundHeadTable,
     GroupTable,
     PairSet,
     ReviewedTable,
@@ -86,6 +87,9 @@ HALF_COMPOUNDS = AnchorTable(
 # тур, порт) are not aliases: they read as a language only in label
 # position (``labels.tsv``, kind language_label).
 ALIASES = ReviewedTable('aliases.tsv', ('full', 'short', 'note'))
+# compound → its meaningful part. A guess that opens the part by root opens
+# the article compound (сериал → телесериал, год → ежегодный); never back.
+COMPOUND_HEADS = CompoundHeadTable('compound_heads.tsv', ('compound', 'head', 'note'))
 # Suppletive and ordinal groups (два/второй, хороший/лучше).
 GRAMMAR_GROUPS = GroupTable('grammar_groups.tsv', ('words', 'note'), 'words')
 
@@ -93,6 +97,7 @@ __all__ = [
     'ADVERB_BASES',
     'ALIASES',
     'COMPOUND_COMPONENTS',
+    'COMPOUND_HEADS',
     'DERIVED_ROOTS',
     'DIGIT_CARDINALS',
     'EXISTING_ROOTS',
