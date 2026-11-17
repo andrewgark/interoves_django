@@ -8067,6 +8067,19 @@ _LATE_REVIEW_SPLITS = (
     )),
     # Batch B7: впечатлить is what впечатление comes from.
     ('sense:review_impression', ('впечатлить', 'впечатлиться', 'впечатленный')),
+    # Fallback audit E3 (2026-11-17): Kuznetsova families that join unrelated
+    # words, surfaced by spelling-fallback openings.
+    ('sense:review_frog', (
+        'лягушатник', 'лягушачий', 'лягушечий', 'лягушечник', 'лягушиный', 'лягушка',
+        'лягушник', 'лягушонок',
+    )),
+    ('sense:review_thigh', ('ляжка',)),
+    ('sense:review_gunpowder', ('порох', 'пороховница', 'пороховой')),
+    ('sense:review_crypt', ('склеп', 'склепный')),
+    ('sense:review_slander', ('поклеп', 'поклепщик')),
+    ('sense:review_tanker', ('метантанк', 'супертанкер', 'танкер', 'танкерный')),
+    ('sense:review_awn', ('безостый', 'остевой', 'остистый', 'ость')),
+    ('sense:review_osteitis', ('остеит', 'остит')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas

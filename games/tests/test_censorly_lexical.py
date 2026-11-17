@@ -937,6 +937,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_fallback_audit_e3_false_openings(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('остистый', 'ост'), ('ость', 'ост'), ('пластиковый', 'протопласт'),
+            ('костерить', 'костер'), ('подклепанный', 'поклеп'), ('склеп', 'клепать'),
+            ('запорошиться', 'порох'), ('танкер', 'танковый'), ('залягать', 'лягушка'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('ость', 'остистый'), ('клепать', 'заклепка'), ('порошок', 'пороша'),
+            ('порох', 'пороховой'), ('танкер', 'танкерный'), ('лягать', 'залягать'),
+            ('лягушка', 'лягушонок'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_latin_lookalikes_inside_a_cyrillic_word_fold_to_cyrillic(self):
         from games.puzzles.censorly.lexical.core import fold
 
