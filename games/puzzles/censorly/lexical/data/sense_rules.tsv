@@ -283,8 +283,7 @@ family	pattern	sense	note
 клик|клиц|клич	.*	sense:review_click	
 креп	(?:крепост|крепощ).*	sense:review_fortress_serfdom	
 креп	.*	sense:review_strength_fasten	
-твор²	(?:затвор|отвор|притвор|створ).*	sense:review_closing	
-твор²	.*	sense:review_create	
+твор²	.*	sense:review_closing	The твор² family is opening and closing (затворить, приотворить); creating is твор¹.
 черт¹|черч	(?!(?:черти|чертеж|чертеч))(?:черт|чёрт).*	sense:review_devil	
 черт¹|черч	.*	sense:review_drawing	
 хит|хич|хищ	(?:восхит|восхищ).*	sense:review_admiration	

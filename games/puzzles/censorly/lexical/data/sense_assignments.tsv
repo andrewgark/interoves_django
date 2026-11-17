@@ -11,6 +11,9 @@ lemma	senses	note
 цветить	-	Deliberately left on its dictionary family.
 честить	-	честить (to scold, call names) is not честь.
 бескровный	-	бескровный (bloodless) belongs to кровь, not to покрыть/покров.
+коник	-	коник (a little horse, a bench) is not конец; it stays on its конь root.
+нежить	-	нежить is the verb «to pamper» (нежный) as well as «the undead»; it keeps its bare roots.
+воротный	-	воротный belongs with ворота, not with вращение.
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -3236,6 +3239,8 @@ lemma	senses	note
 вычитывать	sense:count|root:read	
 вычитываться	sense:count|root:read	
 считывать	sense:count|root:read	
+считать	sense:count|sense:review_deem	
+посчитать	sense:count|sense:review_deem	
 четья	sense:couple	
 сопрягать	sense:coupling	
 сопрягаться	sense:coupling	
@@ -3298,7 +3303,6 @@ lemma	senses	note
 вытворить	sense:create	
 вытворять	sense:create	
 вытворяться	sense:create	
-затворить	sense:create	
 натворить	sense:create	
 подтворить	sense:create	
 потворство	sense:create	
@@ -7839,7 +7843,6 @@ lemma	senses	note
 нажитый	sense:live	
 нажить	sense:live	
 нажиться	sense:live	
-нежить	sense:live	
 обживать	sense:live	
 обживаться	sense:live	
 обжитой	sense:live	
@@ -11058,6 +11061,7 @@ lemma	senses	note
 чистить	sense:review_cleaning	
 четкий	sense:review_clear	четкий (clear, precise) is not читать/считать.
 четкость	sense:review_clear	
+затворить	sense:review_closing	
 соитие	sense:review_coitus	соитие is not сойтись/идти.
 наиболее	sense:review_comparative_more	Наиболее forms superlatives like более forms comparatives.
 доходчивость	sense:review_comprehensible	
@@ -11161,6 +11165,9 @@ lemma	senses	note
 убыточность	sense:review_decrease	
 убыточный	sense:review_decrease	
 убыть	sense:review_decrease	
+считаться	sense:review_deem	считаться and счесть mean «to be regarded, to deem», apart from counting (счет); считать and посчитать read both.
+счесть	sense:review_deem	
+счесться	sense:review_deem	
 поражать	sense:review_defeat	
 поражаться	sense:review_defeat	
 поражающий	sense:review_defeat	
@@ -12978,7 +12985,6 @@ lemma	senses	note
 воротила	sense:rotate	
 воротить	sense:rotate	
 воротиться	sense:rotate	
-воротный	sense:rotate	
 вороток	sense:rotate	
 ворочание	sense:rotate	
 ворочать	sense:rotate	
