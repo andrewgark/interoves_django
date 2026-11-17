@@ -937,6 +937,14 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_opaque_audit_o1_draconian_is_not_dragon(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        self.assertFalse(gameplay_opens('драконовский', 'дракон'))
+        self.assertFalse(gameplay_opens('дракон', 'драконовский'))
+        self.assertTrue(gameplay_opens('драконовски', 'драконовский'))
+
     def test_kuznetsova_audit_k1_doubt_is_opinion(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
