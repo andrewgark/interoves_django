@@ -10,6 +10,7 @@ lemma	senses	note
 цветистый	-	Deliberately left on its dictionary family.
 цветить	-	Deliberately left on its dictionary family.
 честить	-	честить (to scold, call names) is not честь.
+бескровный	-	бескровный (bloodless) belongs to кровь, not to покрыть/покров.
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -10926,6 +10927,7 @@ lemma	senses	note
 подходец	sense:review_approach	
 подходный	sense:review_approach	
 подходчик	sense:review_approach	
+подойти	sense:review_approach|sense:review_suitability|sense:review_walking	
 присваивание	sense:review_appropriation	
 присваивать	sense:review_appropriation	
 присваиваться	sense:review_appropriation	
@@ -10942,6 +10944,7 @@ lemma	senses	note
 приходный	sense:review_arrival	
 приходский	sense:review_arrival	
 приходящий	sense:review_arrival	
+прийти	sense:review_arrival|sense:review_walking	
 нападение	sense:review_attack	
 свойственность	sense:review_attribute	«Свойство» and its adjectival derivatives mean an attribute; the possessive «свой» stays separate from kinship, mastery and appropriation.
 свойственный	sense:review_attribute	
@@ -11048,6 +11051,8 @@ lemma	senses	note
 обходный	sense:review_circumvention	
 обходчик	sense:review_circumvention	
 обхождение	sense:review_circumvention	
+обойти	sense:review_circumvention|sense:review_walking	
+обойтись	sense:review_circumvention|sense:review_walking	
 убирать	sense:review_cleaning	
 убраться	sense:review_cleaning	
 чистить	sense:review_cleaning	
@@ -11086,6 +11091,7 @@ lemma	senses	note
 сходень	sense:review_convergence	
 сходни	sense:review_convergence	
 схождение	sense:review_convergence	
+сойтись	sense:review_convergence|sense:review_walking	
 несметный	sense:review_countless	несметный (countless) is not смета or метить.
 бессметный	sense:review_countless	
 ухажер	sense:review_courting	
@@ -11192,6 +11198,8 @@ lemma	senses	note
 уход	sense:review_departure	
 уходбище	sense:review_departure	
 уходиться	sense:review_departure	
+уйти	sense:review_departure|sense:review_walking	
+отойти	sense:review_departure|sense:review_walking	
 зависеть	sense:review_dependence	зависеть (depend) is not висеть.
 зависимость	sense:review_dependence	
 зависимый	sense:review_dependence	
@@ -11308,6 +11316,8 @@ lemma	senses	note
 выходец	sense:review_entry_exit	
 выходящий	sense:review_entry_exit	
 выхождение	sense:review_entry_exit	
+выйти	sense:review_entry_exit|sense:review_walking	A prefixed -йти verb reads the senses of its -ходить partner, and semantic_roots.tsv gives it both the и and the ход root, so выйти opens выходить and выход.
+войти	sense:review_entry_exit|sense:review_walking	
 дооборудовать	sense:review_equipment	
 дооборудоваться	sense:review_equipment	
 оборудование	sense:review_equipment	
@@ -11578,6 +11588,7 @@ lemma	senses	note
 зря	sense:review_in_vain	
 происшествие	sense:review_incident|sense:review_happening	
 приход	sense:review_income_expense|sense:review_arrival	
+расходиться	sense:review_income_expense|sense:review_walking	
 невнятица	sense:review_incomprehensible	
 неотъемлемость	sense:review_inseparable	
 неотъемлемый	sense:review_inseparable	
@@ -11815,6 +11826,7 @@ lemma	senses	note
 проходчица	sense:review_passage	
 проходящий	sense:review_passage	
 прохождение	sense:review_passage	
+пройти	sense:review_passage|sense:review_walking	
 проезжать	sense:review_passing	
 проезжий	sense:review_passing	
 проехать	sense:review_passing	
@@ -12338,6 +12350,7 @@ lemma	senses	note
 переходный	sense:review_transition	
 переходчивый	sense:review_transition	
 переходящий	sense:review_transition	
+перейти	sense:review_transition|sense:review_walking	
 поездить	sense:review_trip	
 поездка	sense:review_trip	
 поездочный	sense:review_trip	
@@ -12399,6 +12412,8 @@ lemma	senses	note
 навестить	sense:review_visit	
 навещать	sense:review_visit	
 навещаться	sense:review_visit	
+доходить	sense:review_walking	
+всходить	sense:review_walking	
 подходить	sense:review_walking|sense:review_approach|sense:review_suitability	
 приходить	sense:review_walking|sense:review_arrival	
 обходить	sense:review_walking|sense:review_circumvention	
