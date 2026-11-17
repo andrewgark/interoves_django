@@ -20,6 +20,36 @@ lemma	senses	note
 отребье	-	
 непотребный	-	
 непотребство	-	
+вид	-	Reviewed orphans that rightly stand apart from the senses of their family: вид (view, species) is not видеть; numerals, compounds, homonyms and loanwords keep their bare root.
+подвид	-	
+межвидовой	-	
+20	-	
+двадцать	-	
+двадцатый	-	
+11	-	
+одиннадцать	-	
+одиннадцатый	-	
+непосредственно	-	
+непосредственный	-	
+одноименный	-	
+хор	-	
+хоровой	-	
+хором	-	
+ост	-	
+пластика	-	
+пластиковый	-	
+пластический	-	
+пластичность	-	
+пластик	-	
+пластичный	-	
+гран	-	
+яванский	-	
+мнимый	-	
+делийский	-	
+лаг	-	
+всевышний	-	
+синильный	-	
+родный	-	родный keeps its reviewed derived root (родные «relatives»): a sense would bypass reviewed_derived_roots.tsv and leave it rootless.
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -1884,6 +1914,8 @@ lemma	senses	note
 невмоготу	sense:can_v	
 невмочь	sense:can_v	
 смочь	sense:can_v	
+возможно	sense:can_v	
+невозможно	sense:can_v	
 подсвечник	sense:candle	
 свеча	sense:candle	
 свеченька	sense:candle	
@@ -2474,6 +2506,7 @@ lemma	senses	note
 пригородный	sense:city	
 разгородить	sense:city	
 разгородиться	sense:city	
+междугородный	sense:city	
 взыск	sense:claim_suit	
 взыскание	sense:claim_suit	
 иск	sense:claim_suit	
@@ -2522,6 +2555,7 @@ lemma	senses	note
 хлопуша	sense:clap	
 хлопушка	sense:clap	
 хлопья	sense:clap	
+выхлопной	sense:clap	
 просветление	sense:clarity	
 просветленность	sense:clarity	
 просветленный	sense:clarity	
@@ -3125,6 +3159,7 @@ lemma	senses	note
 стройка	sense:construct	
 стройность	sense:construct	
 стройный	sense:construct	
+недостроенный	sense:construct	
 потребитель	sense:consumption	
 потребительский	sense:consumption	
 потребление	sense:consumption	
@@ -5104,6 +5139,7 @@ lemma	senses	note
 отличник	sense:excellent	
 отличница	sense:excellent	
 отличный	sense:excellent	
+отличиться	sense:excellent	
 исключительно	sense:exceptional	Исключительный is "exceptional / exclusive", not the act of excluding.
 исключительность	sense:exceptional	
 исключительный	sense:exceptional	
@@ -5348,6 +5384,7 @@ lemma	senses	note
 суженая	sense:fate	
 суженый	sense:fate	
 участь	sense:fate	
+суждено	sense:fate	
 приустать	sense:fatigue	
 уставание	sense:fatigue	
 уставать	sense:fatigue	
@@ -7383,6 +7420,7 @@ lemma	senses	note
 соединиться	sense:join	
 соединять	sense:join	
 соединяться	sense:join	
+неприсоединение	sense:join	
 отмычка	sense:join_link	
 отмычный	sense:join_link	
 перемычка	sense:join_link	
@@ -7784,6 +7822,7 @@ lemma	senses	note
 световой	sense:light	
 светящийся	sense:light	
 свечение	sense:light	
+сверхсветовой	sense:light	
 нравиться	sense:like	
 понравиться	sense:like	
 разонравиться	sense:like	
@@ -8927,6 +8966,7 @@ lemma	senses	note
 содвинуть	sense:move	
 содвинуться	sense:move	
 сдвиг	sense:move	
+движок	sense:move	
 взмутить	sense:muddy	
 взмутиться	sense:muddy	
 взмучивать	sense:muddy	
@@ -9327,6 +9367,8 @@ lemma	senses	note
 устройщик	sense:organize_device	
 устроять	sense:organize_device	
 устроенный	sense:organize_device	
+обустройство	sense:organize_device	
+обустроить	sense:organize_device	
 другой	sense:other	
 остальной	sense:other	
 по-другому	sense:other	
@@ -10032,6 +10074,7 @@ lemma	senses	note
 мощность	sense:power	
 мощный	sense:power	
 мощь	sense:power	
+всемогущий	sense:power	
 выпад	sense:precipitate	
 выпадание	sense:precipitate	
 выпадать	sense:precipitate	
@@ -10384,6 +10427,7 @@ lemma	senses	note
 утянуть	sense:pull	
 вытянутый	sense:pull	
 втянутый	sense:pull	
+тяговый	sense:pull	
 расправа	sense:punish	
 безукоризненность	sense:punish_kar	
 безукоризненный	sense:punish_kar	
@@ -10994,6 +11038,7 @@ lemma	senses	note
 заливчик	sense:review_bay	
 пролив	sense:review_bay	
 завзятый	sense:review_bias	
+послеродовой	sense:review_birth_origin	
 синий	sense:review_blue_color	
 разорвать	sense:review_break	
 разрыв	sense:review_break	
@@ -11010,11 +11055,13 @@ lemma	senses	note
 кадетка	sense:review_cadet	
 кадетский	sense:review_cadet	
 кадетство	sense:review_cadet	
+призываться	sense:review_calling	
 звание	sense:review_calling|sense:review_title	
 унимать	sense:review_calm	
 униматься	sense:review_calm	
 унять	sense:review_calm	
 уняться	sense:review_calm	
+покоящийся	sense:review_calm	
 нестоличный	sense:review_capital	Correctness sample s3 borderline pairs, closed by user decision (2026-11-10): a shared school root, but no link a player would see. столица (capital) is not стол/столяр (user decision 2026-11-10).
 столица	sense:review_capital	
 столичник	sense:review_capital	
@@ -11071,6 +11118,7 @@ lemma	senses	note
 болтание	sense:review_chatter|sense:review_mixing|sense:review_sway	
 болтать	sense:review_chatter|sense:review_mixing|sense:review_sway	
 приемыш	sense:review_child_adoption	
+переизбираться	sense:review_choice	
 прихожанин	sense:review_church	
 прихожанка	sense:review_church	
 обход	sense:review_circumvention	
@@ -11378,6 +11426,7 @@ lemma	senses	note
 восклицание	sense:review_exclamation	
 восклицательный	sense:review_exclamation	
 восклицать	sense:review_exclamation	
+невыполнимый	sense:review_execution	
 избывать	sense:review_exhaustion	
 избываться	sense:review_exhaustion	
 избыть	sense:review_exhaustion	
@@ -11597,6 +11646,7 @@ lemma	senses	note
 порох	sense:review_gunpowder	
 пороховница	sense:review_gunpowder	
 пороховой	sense:review_gunpowder	
+рукоять	sense:review_hand	
 произойти	sense:review_happening|sense:review_outcome_origin	«произойти» is both «случиться» and «вести род» (произошёл от обезьяны), the second shared with происходить and происхождение.
 возыметь	sense:review_have	
 поиметь	sense:review_have	
@@ -11665,11 +11715,14 @@ lemma	senses	note
 убивать	sense:review_killed	
 убитый	sense:review_killed	
 убить	sense:review_killed	
+трудоемкий	sense:review_labor	
 причитать	sense:review_lament	причитать (to lament) is not читать or причитаться (be due).
 причитание	sense:review_lament	
 причитальщица	sense:review_lament	
 запричитать	sense:review_lament	
 причитывать	sense:review_lament	
+приземный	sense:review_land	
+внеземной	sense:review_land	
 выложить	sense:review_lay_out	
 прилагаться	sense:review_laying	
 сложение	sense:review_laying|sense:lag_sum	
@@ -12115,6 +12168,7 @@ lemma	senses	note
 приять	sense:review_receiving	
 взаимность	sense:review_reciprocal	
 взаимный	sense:review_reciprocal	
+перезаписать	sense:review_record	
 выписать	sense:review_record|sense:review_writing	
 сослаться	sense:review_reference	
 ссылаться	sense:review_reference	
@@ -13876,6 +13930,7 @@ lemma	senses	note
 множество	sense:set_math	
 множимое	sense:set_math	
 множимый	sense:set_math	
+подмножество	sense:set_math	
 обстановка	sense:setting	
 обстановочный	sense:setting	
 оседлость	sense:settled_life	
@@ -15315,6 +15370,7 @@ lemma	senses	note
 вдруг	sense:suddenly	
 хватить	sense:suffice	
 хватиться	sense:suffice	
+нехватка	sense:suffice	
 сульфат	sense:sulfide	
 сульфид	sense:sulfide	
 сульфидин	sense:sulfide	
@@ -16568,6 +16624,7 @@ lemma	senses	note
 слежка	sense:track	
 уследить	sense:track	
 услеживать	sense:track	
+отслеживать	sense:track	
 беспересадочный	sense:transfer_trip	
 пересадочный	sense:transfer_trip	
 превратить	sense:transformation	
@@ -17107,6 +17164,7 @@ lemma	senses	note
 яд	sense:venom	
 ядовитик	sense:venom	
 ядовитый	sense:venom	
+ядовитость	sense:venom	
 выверить	sense:verify	Metrology and checking belong with the existing проверить/сверить cluster, not with вера. Поверить is ambiguous (believe/check), so it stays in the belief cluster until readings can be reviewed separately.
 выверка	sense:verify	
 выверщик	sense:verify	

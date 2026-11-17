@@ -129,7 +129,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('утверждение', 'утверждать'), ('сверстник', 'сверстница'),
             ('похороны', 'перезахоронить'), ('расход', 'израсходовать'),
             ('найти', 'нашли'), ('появление', 'появиться'), ('являться', 'явиться'),
-            ('синева', 'синий'), ('высокий', 'выше'), ('поддерживать', 'поддерживаться'),
+            ('синева', 'синий'), ('вооруженный', 'невооруженный'), ('хватить', 'нехватка'),
+            ('судьба', 'суждено'), ('покоиться', 'покоящийся'), ('строить', 'недостроенный'), ('высокий', 'выше'), ('поддерживать', 'поддерживаться'),
             ('распределение', 'распределенный'), ('развитие', 'развитый'), ('известить', 'известие'), ('назвать', 'называть'), ('назвать', 'название'), ('образовать', 'образование'),
             ('разделить', 'разделение'), ('требовать', 'требоваться'),
             ('поселение', 'поселок'), ('начало', 'начальный'),
@@ -208,6 +209,16 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             if len(components) > 1:
                 broken.append((key, {'+'.join(root): sorted(ls)[:3] for root, ls in components.items()}))
         self.assertFalse(sorted(broken)[:10])
+
+    def test_sense_orphan_queue_is_current(self):
+        from games.puzzles.censorly.offline.tools.sense_review_queue import ORPHAN_QUEUE, orphan_lemmas
+
+        with ORPHAN_QUEUE.open(encoding='utf-8', newline='') as stream:
+            listed = {(row['root'], row['lemma']) for row in csv.DictReader(stream, delimiter='\t')}
+        found = orphan_lemmas()
+        rerun = 'rerun games.puzzles.censorly.offline.tools.sense_review_queue'
+        self.assertFalse(sorted(found - listed)[:20], f'unreviewed orphans of fully sensed families; {rerun}')
+        self.assertFalse(sorted(listed - found)[:20], f'resolved orphans still queued; {rerun}')
 
     def test_reviewed_family_remainders_name_split_families(self):
         from games.puzzles.censorly.lexical.senses import reviewed_family_remainders, split_families

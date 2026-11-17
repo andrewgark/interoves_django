@@ -48,3 +48,4 @@ lemma	root_structure	note
 шестнадцатый	root:numeral_16	Reviewed ordinal: same root as шестнадцать (W4 batch 2).
 мягкий	fam:мяг|мяк	W4 batch 2: Tikhonov spells the root мягк; same family as смягчить, мягче, мягенький.
 мягкость	fam:мяг|мяк	W4 batch 2: Tikhonov spells the root мягк; same family as смягчить, мягче, мягенький.
+невооруженный	fam:руж	Negation of вооруженный (оружие, fam:руж); spelling fallback chose the оруд/оруж family.
