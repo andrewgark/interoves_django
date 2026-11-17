@@ -224,7 +224,7 @@ guess	target	relation	group	word_group	label	note
 получать	получить	root	kuznetsova	common	OK	
 география	географический	root	kuznetsova	common	OK	
 дать	придаваться	root	kuznetsova	common	OK	
-невольничий	позволять	root	kuznetsova	common	BAD	невольничий (slave) is not позволять
+невольничий	позволять	root	kuznetsova	common	OK	позволить is «дать волю»; consistent with s3 неволя → позволять OK
 смочь	мочь	root	kuznetsova	common	OK	
 виновный	невинный	root	kuznetsova	common	OK	
 поселить	поселение	root	kuznetsova	common	OK	

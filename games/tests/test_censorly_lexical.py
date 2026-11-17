@@ -937,6 +937,26 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_correctness_sample_s4_false_openings(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('арматура', 'армия'), ('август', 'августейший'), ('августинец', 'август'),
+            ('расплюснуться', 'плюс'), ('планеризм', 'план'), ('розничный', 'разный'),
+            ('подпушка', 'опухоль'), ('опушать', 'опушка'), ('уволить', 'неволя'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('армировать', 'арматура'), ('плюсовать', 'плюс'), ('планер', 'планеризм'),
+            ('запланировать', 'план'), ('розница', 'розничный'), ('неволя', 'невольничий'),
+            ('неволя', 'позволять'), ('опухнуть', 'опухоль'), ('пух', 'подпушка'),
+            ('опушать', 'пушистый'), ('уволить', 'увольнение'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_batch_b5_lone_roots_open_their_derivatives(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
