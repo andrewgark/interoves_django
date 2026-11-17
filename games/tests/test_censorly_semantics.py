@@ -954,22 +954,18 @@ class SemanticsTests(SimpleTestCase):
         )
 
     def test_semantic_structures_always_have_a_root_component(self):
-        from games.puzzles.censorly.lexical.match.rootbank import (
-            families_of,
-            structures_of,
-            tikhonov_roots_of,
-        )
-        from games.puzzles.censorly.lexical.splits import CLUSTERS
+        from games.puzzles.censorly.lexical.match.rootbank import structures_of
+        from games.puzzles.censorly.lexical.splits import ASSIGNMENTS
 
-        for _name, lemmas in CLUSTERS:
-            for lemma in lemmas:
-                if not families_of(lemma) and not tikhonov_roots_of(lemma):
-                    self.assertTrue(structures_of(lemma), lemma)
-                for structure in structures_of(lemma):
-                    self.assertTrue(
-                        any(not part.startswith('sense:') for part in structure),
-                        lemma,
-                    )
+        rootless = sorted(lemma for lemma in ASSIGNMENTS if not structures_of(lemma))
+        # A sense lemma without a structure can never be opened.
+        self.assertFalse(rootless[:20])
+        for lemma in ASSIGNMENTS:
+            for structure in structures_of(lemma):
+                self.assertTrue(
+                    any(not part.startswith('sense:') for part in structure),
+                    lemma,
+                )
 
     def test_audit_confirmed_semantic_root_assignments_restore_only_clear_cases(self):
         from games.puzzles.censorly.lexical.match.rootbank import assignment_of, structures_of

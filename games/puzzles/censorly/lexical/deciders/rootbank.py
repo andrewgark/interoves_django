@@ -11,7 +11,8 @@ Order of evidence for one lemma, first match wins:
 
 1. a sense assignment (``splits`` tables, ``proper_names.py``): the root side
    comes from ``sense_roots.tsv`` for that sense, else
-   ``SEMANTIC_ROOT_ASSIGNMENTS`` or the dictionaries;
+   ``SEMANTIC_ROOT_ASSIGNMENTS``, the dictionaries, or (when they give
+   nothing) ``reviewed_derived_roots.tsv``;
 2. ``reviewed_derived_roots.tsv``, 3. ``reviewed_existing_root_assignments.tsv``;
 4. a Tikhonov compound, each morph authorized separately; a morph that
    stays unauthorized may take its ``compound_components.tsv`` id;
@@ -293,6 +294,10 @@ class RootBank:
             roots, refused = tuple((item,) for item in ids), tuple(refused)
         else:
             roots, source, refused = (), 'UNRESOLVED_SEMANTIC_NO_ROOT', ()
+        if not roots and lemma in reviewed.DERIVED_ROOTS.data:
+            # The dictionaries give no root (a compound, a word outside
+            # them): the reviewed derived structure is the root side.
+            roots, source, refused = reviewed.DERIVED_ROOTS.data[lemma], 'REVIEWED_DERIVED_ROOT', ()
         sense_roots = reviewed.SENSE_ROOTS.data
         if any(name in sense_roots for name in senses):
             source = 'SEMANTIC_ROOT_ASSIGNMENT'
