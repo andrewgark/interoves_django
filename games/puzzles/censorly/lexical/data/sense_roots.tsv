@@ -1,0 +1,14 @@
+sense	root	note
+sense:count	root:count	The rootbank splits the ч family by spelling (чт → root:read, чет → root:чет, чес → root:чес), so one sense would fall apart (рассчитать/расчет). Every count sense of the family takes root:count; the sense keeps them apart.
+sense:review_calculate	root:count	
+sense:review_account	root:count	
+sense:review_countdown	root:count	
+sense:review_enumeration	root:count	
+sense:review_report	root:count	
+sense:review_subtract	root:count	
+sense:review_credit	root:count	
+sense:review_regarding	root:count	
+sense:honor	root:honor	честь, почет, чтить, причт (ч family) and честный, бесчестье (чест family) are one root whatever the spelling.
+sense:review_head	root:head	The rootbank gives глав root:chief and голов root:head; обезглавить belongs with голова.
+sense:review_titles_headings	root:chief	заголовок belongs with заглавие and оглавление.
+sense:small	fam:мал⁴|мел|мол¹	мелюзга has no dictionary root of its own; it shares the root of мелкий.

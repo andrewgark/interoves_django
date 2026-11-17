@@ -10,7 +10,8 @@ appended to a complete root structure and is never a root by itself.
 Order of evidence for one lemma, first match wins:
 
 1. a sense assignment (``splits`` tables, ``proper_names.py``): the root side
-   comes from ``SEMANTIC_ROOT_ASSIGNMENTS`` or the dictionaries;
+   comes from ``sense_roots.tsv`` for that sense, else
+   ``SEMANTIC_ROOT_ASSIGNMENTS`` or the dictionaries;
 2. ``reviewed_derived_roots.tsv``, 3. ``reviewed_existing_root_assignments.tsv``;
 4. a Tikhonov compound, each morph authorized separately; a morph that
    stays unauthorized may take its ``compound_components.tsv`` id;
@@ -292,6 +293,9 @@ class RootBank:
             roots, refused = tuple((item,) for item in ids), tuple(refused)
         else:
             roots, source, refused = (), 'UNRESOLVED_SEMANTIC_NO_ROOT', ()
+        sense_roots = reviewed.SENSE_ROOTS.data
+        if any(name in sense_roots for name in senses):
+            source = 'SEMANTIC_ROOT_ASSIGNMENT'
         rooted = []
         for name in senses:
             if name.startswith(('fam:', 'tikh:', 'root:')):
@@ -299,6 +303,10 @@ class RootBank:
                 continue
             if not name.startswith('sense:'):
                 raise RuntimeError(f'invalid semantic identity: {name}')
+            if name in sense_roots:
+                # The sense has one root whatever the lemma's spelling.
+                rooted.append((sense_roots[name], name))
+                continue
             rooted.extend(tuple(base) + (name,) for base in roots)
         if rooted:
             structures = tuple(sorted(set(rooted)))

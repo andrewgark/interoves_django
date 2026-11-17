@@ -136,6 +136,56 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         ):
             self.assertFalse(opens(left, right), f'{left}/{right}')
 
+    def test_sense_members_of_one_family_share_a_root(self):
+        """Within a sense, lemmas of one dictionary family must be linked by roots.
+
+        Lemmas open each other only when root and sense both match. The
+        rootbank splits some families by spelling (рассчитать root:read,
+        расчет root:чет), which silently breaks a sense apart; give such a
+        sense one root in ``data/sense_roots.tsv``.
+        """
+        from collections import defaultdict
+
+        from games.puzzles.censorly.lexical.core import fold
+        from games.puzzles.censorly.lexical.senses import SENSES
+        from games.puzzles.censorly.lexical.sources import KUZNETSOVA
+
+        families = defaultdict(set)
+        for lemma, _root, family in KUZNETSOVA.rows():
+            families[fold(lemma)].add(family)
+        groups = defaultdict(dict)
+        for lemma in SENSES:
+            by_sense = defaultdict(set)
+            for structure in structures_of(lemma):
+                root = tuple(part for part in structure if not part.startswith('sense:'))
+                for part in structure:
+                    if part.startswith('sense:'):
+                        by_sense[part].add(root)
+            for sense, roots in by_sense.items():
+                for family in families.get(lemma, ()):
+                    groups[sense, family][lemma] = roots
+
+        broken = []
+        for key, members in groups.items():
+            parent = {}
+
+            def find(item):
+                while parent.setdefault(item, item) != item:
+                    item = parent[item]
+                return item
+
+            for roots in members.values():
+                first, *rest = roots
+                for root in rest:
+                    parent[find(root)] = find(first)
+                find(first)
+            components = defaultdict(list)
+            for lemma, roots in members.items():
+                components[find(next(iter(roots)))].append(lemma)
+            if len(components) > 1:
+                broken.append((key, {'+'.join(root): sorted(ls)[:3] for root, ls in components.items()}))
+        self.assertFalse(sorted(broken)[:10])
+
     def test_reviewed_family_remainders_name_split_families(self):
         from games.puzzles.censorly.lexical.senses import reviewed_family_remainders, split_families
 

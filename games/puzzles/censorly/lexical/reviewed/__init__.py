@@ -18,6 +18,7 @@ from games.puzzles.censorly.lexical.reviewed.table import (
     PairSet,
     ReviewedTable,
     SenseAssignmentTable,
+    SenseRootTable,
     SenseRuleTable,
     SpellingSet,
     StructureTable,
@@ -56,6 +57,9 @@ SENSE_RULES = SenseRuleTable('sense_rules.tsv', ('family', 'pattern', 'sense', '
 SENSE_ASSIGNMENTS = SenseAssignmentTable('sense_assignments.tsv', ('lemma', 'senses', 'note'))
 # lemma → root structures of a sense lemma the dictionaries cannot resolve.
 SEMANTIC_ROOTS = StructureTable('semantic_roots.tsv', alternatives=True)
+# sense → the root of all its readings, whatever the lemma's own roots
+# (families the rootbank splits by spelling: ч, глав/голов).
+SENSE_ROOTS = SenseRootTable('sense_roots.tsv', ('sense', 'root', 'note'))
 # Tikhonov morph spellings that become their own root (tikh:<morph>).
 OPAQUE_ROOTS = SpellingSet('reviewed_opaque_roots.tsv', ('root_spelling', 'note'), 'root_spelling')
 # lemma → complete structures written by hand; several rows are alternatives.
@@ -121,6 +125,7 @@ __all__ = [
     'REJECTED_READINGS',
     'SEMANTIC_ROOTS',
     'SENSE_ASSIGNMENTS',
+    'SENSE_ROOTS',
     'SENSE_RULES',
     'TARGET_READINGS',
     'VISIBILITY',

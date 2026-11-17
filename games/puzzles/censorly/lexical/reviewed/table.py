@@ -256,6 +256,21 @@ class SenseRuleTable(ReviewedTable):
         raise AssertionError('unreachable: every family ends with .*')
 
 
+class SenseRootTable(ReviewedTable):
+    """sense → the one root every reading of that sense is built on."""
+
+    def _build(self, rows) -> dict[str, str]:
+        found: dict[str, str] = {}
+        for row in rows:
+            sense, root = row['sense'], row['root']
+            if not sense.startswith('sense:') or not ROOT_ID_RE.fullmatch(root) or root.startswith('sense:'):
+                self.fail(f'invalid row: {row}')
+            if sense in found:
+                self.fail(f'duplicate sense: {sense}')
+            found[sense] = root
+        return found
+
+
 class SenseAssignmentTable(ReviewedTable):
     """lemma → its sense readings, overriding ``SenseRuleTable``.
 

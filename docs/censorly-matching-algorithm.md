@@ -97,7 +97,9 @@ Wiktionary (`dictionaries/wiktionary_*`) читают только офлайн-
 Смыслы лемм — таблицы `sense_rules.tsv` (упорядоченные правила-регэкспы на
 всю семью Кузнецовой) и `sense_assignments.tsv` (лемма → смыслы, перекрывает
 правила); `splits.py` только загружает их. Корни таких лемм —
-`semantic_roots.tsv`. Ещё код: имена собственные в `match/proper_names.py`
+`sense_roots.tsv` (один корень на смысл, для семей, которые rootbank
+делит по написанию: ч, глав/голов), иначе `semantic_roots.tsv`, иначе
+словари. Ещё код: имена собственные в `match/proper_names.py`
 (план, Ш9). `lexical/senses.py` собирает всё в один словарь `SENSES`.
 
 ### 2C. Контекст статьи — `lexical/context.py`, класс `TokenContext`
