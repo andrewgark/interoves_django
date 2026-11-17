@@ -937,6 +937,21 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_orphan_batch_f7_second_readings(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('следствие', 'последствие'), ('последствие', 'следствие'), ('расследование', 'следствие'),
+            ('казаться', 'показаться'), ('показать', 'показаться'), ('произойти', 'происшествие'),
+            ('приблизительно', 'приближенно'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (('суд', 'судный'), ('шествие', 'происшествие')):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_correctness_sample_s4_false_openings(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

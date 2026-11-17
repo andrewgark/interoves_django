@@ -8059,6 +8059,8 @@ _LATE_REVIEW_SPLITS = (
     )),
     # Retail (розница) is not разный.
     ('sense:review_retail', ('розница', 'розничный')),
+    # Orphans batch F7: приближённо is «approximately».
+    ('sense:approximate', ('приближенно',)),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
@@ -8899,5 +8901,13 @@ SEMANTIC_ROOT_ASSIGNMENTS.update({
 # the second shared with происходить and происхождение.
 MULTI_READINGS = MULTI_READINGS + (
     ('произойти', ('sense:review_happening', 'sense:review_outcome_origin')),
+    # Orphans batch F7: следствие is also «последствие», показаться also
+    # «казаться» (мне показалось), происшествие is what произошло.
+    ('следствие', ('sense:investigate', 'sense:review_consequence')),
+    ('показаться', ('sense:display', 'sense:review_seem')),
+    ('происшествие', ('sense:review_incident', 'sense:review_happening')),
 )
+SEMANTIC_ROOT_ASSIGNMENTS.update({
+    'происшествие': (('fam:ш|ше²|шед',), ('fam:хаж|ход|хож|хожд',)),
+})
 SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
