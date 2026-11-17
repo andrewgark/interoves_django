@@ -481,6 +481,10 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         offer.accepted_at = timezone.now()
         offer.save(update_fields=['status', 'accepted_at', 'updated_at'])
         return offer
+    # The profile "Автор" section and public results (which exclude the
+    # submitter) both read TaskGroup.authors, not the textual author tag.
+    if getattr(offer.user, 'profile', None) is not None:
+        offer.task_group.authors.add(offer.user.profile)
     if offer.accepted_link_id:
         offer.status = WordSaladOffer.STATUS_ACCEPTED
         offer.accepted_at = timezone.now()
@@ -494,11 +498,6 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         raise WordSaladOfferError(str(exc)) from exc
     apply_author_tag(task, offer.author)
     task.save(update_fields=['tags'])
-    # Keep the structured author relation in sync with the textual author
-    # metadata.  Public results use this relation to exclude the submitter;
-    # without it, even a zero-point partial attempt can create a visible row.
-    if getattr(offer.user, 'profile', None) is not None:
-        offer.task_group.authors.add(offer.user.profile)
     ensure_word_salad_game()
     rows = list_word_salad_rows()
     max_num = max((r.number for r in rows), default=0)

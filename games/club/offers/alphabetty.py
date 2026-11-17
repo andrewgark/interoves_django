@@ -285,6 +285,10 @@ def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> Alp
     word = normalize_word((task.answer or '').strip())
     if word in scheduled_words():
         raise AlphabettyOfferError(f'Слово уже занято другим днём: {word}')
+    # The profile "Автор" section and public results (which exclude the
+    # submitter) both read TaskGroup.authors.
+    if getattr(offer.user, 'profile', None) is not None:
+        offer.task_group.authors.add(offer.user.profile)
     if offer.accepted_link_id:
         offer.status = AlphabettyOffer.STATUS_ACCEPTED
         offer.accepted_at = timezone.now()

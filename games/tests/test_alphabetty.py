@@ -892,6 +892,10 @@ class AlphabettyPlayApiTests(TestCase):
         offer = AlphabettyOffer.objects.get(pk=offer_id)
         accept_alphabetty_offer(offer)
         offer.refresh_from_db()
+        self.assertEqual(
+            list(offer.task_group.authors.values_list('user_id', flat=True)),
+            [user.pk],
+        )
         from games.console.games.alphabetty import get_alphabetty_detail, list_alphabetty_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_alphabetty_rows() if item.link_id == offer.accepted_link_id)
