@@ -2669,7 +2669,7 @@ class CensorlyRandomGameTests(TestCase):
             r'C&{\mbox{при}}\ H\leq E.\end{cases}}}'
         )
         cleaned = clean_wiki_extract(raw)
-        self.assertIn('H₂O − e^(−) → H⁺ + O˙H', cleaned)
+        self.assertIn('H₂O − e⁻ → H⁺ + O˙H', cleaned)
         self.assertIn('4O˙H → O₂ + 2H₂O', cleaned)
         self.assertIn('0 при H < E; C при H ≤ E.', cleaned)
         self.assertNotIn('\\ce', cleaned)
@@ -2684,7 +2684,7 @@ class CensorlyRandomGameTests(TestCase):
         self.assertTrue(all(token['kind'] == 'stop' for token in arrow_tokens))
 
         photosynthesis = clean_wiki_extract(_load_censorly_testdata('pool/photosynthesis.txt'))
-        self.assertIn('H₂O − e^(−) → H⁺ + O˙H', photosynthesis)
+        self.assertIn('H₂O − e⁻ → H⁺ + O˙H', photosynthesis)
         self.assertNotIn('ce H2O', photosynthesis)
 
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
