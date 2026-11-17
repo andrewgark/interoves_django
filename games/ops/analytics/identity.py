@@ -54,6 +54,12 @@ def should_skip_anonymous_identity(request) -> bool:
         '/favicon.ico',
         '/robots.txt',
         '/meta/',
+        # Booklet files are identical for everyone; a Set-Cookie on them
+        # would keep Cloudflare from caching the 30 MB PDFs.
+        '/eurovision_booklet/2026/pdf/',
+        '/eurovision_booklet/2026asia/pdf/',
+        '/eurovision_booklet/assets/',
+        '/eurovision_booklet/editions/',
     ))
 
 

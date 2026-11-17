@@ -422,6 +422,8 @@ MIDDLEWARE = [
     # Keep request timing outermost so slow_request covers session/auth
     # middleware and response-side session persistence, not only the view.
     'games.site.http.middleware.request_timing.RequestTimingMiddleware',
+    # Outside every body-producing middleware: compresses the final response.
+    'games.site.http.middleware.compression.TextGZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
 
