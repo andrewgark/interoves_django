@@ -937,6 +937,24 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_batch_b5_lone_roots_open_their_derivatives(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('альбомный', 'альбом'), ('статусный', 'статус'), ('продюсерский', 'продюсер'),
+            ('коррупционный', 'коррупция'), ('приоритетный', 'приоритет'), ('офисный', 'офис'),
+            ('пародировать', 'пародия'), ('лотерейный', 'лотерея'), ('ренессансный', 'ренессанс'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('прессовый', 'пресса'), ('кардинальный', 'кардинал'), ('бюрократия', 'бюро'),
+            ('таймер', 'тайм'), ('видеоклип', 'видео'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_reviewed_compound_heads_open_the_compound(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
