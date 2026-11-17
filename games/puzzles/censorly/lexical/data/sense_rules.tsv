@@ -95,6 +95,7 @@ family	pattern	sense	note
 кол³	.*	sense:review_quantity	
 пит|пич¹|пищ²	(?:воспит|перевоспит).*	sense:review_education	
 пит|пич¹|пищ²	питом.*	sense:review_pet_nursery	
+пит|пич¹|пищ²	(?:впит|пропитыв|пропитк|напитыв|пропитать|пропитаться).*	sense:review_soak	впитывать, пропитать (soak) are not пища (food); пропитание stays with food.
 пит|пич¹|пищ²	.*	sense:review_nutrition	
 род|рож²|рожд	природ.*	sense:review_nature	The historical family conflates people, birth, Christmas, harvest, and several unrelated modern derivatives; keep those game senses apart.
 род|рож²|рожд	порода|(?!(?:породнить|породниться)$)(?:беспород|породист|породн).*	sense:review_breed	«породный» belongs to the breed; only «породнить(ся)» is kinship.
@@ -213,6 +214,7 @@ family	pattern	sense	note
 вед¹|веж|вежд¹|вест|вещ¹	(?:вест|извест|оповест|повест|предвест|предвещ|уведом|возвест|возвещ|навещ|навест).*	sense:news	
 вед¹|веж|вежд¹|вест|вещ¹	(?:ведомств|ведомост|завед|подведом).*	sense:administration	
 вед¹|веж|вежд¹|вест|вещ¹	.*	sense:know	
+да¹|даж	удал(?:ь|ой|ость|ец)	sense:review_daring	удаль, удалой (daring) are not давать.
 да¹|даж	(?:зада|незада|озада).*	sense:task	
 да¹|даж	(?:прода|продаж).*	sense:sell	
 да¹|даж	(?:дар|одар|подар|задар|надар|обдар|отдар|передар).*	sense:gift	
@@ -262,9 +264,9 @@ family	pattern	sense	note
 кан|кон¹	.*	sense:review_end	
 хаж|ход|хож|хожд	(?:похож|подоб).*	sense:review_similar	
 хаж|ход|хож|хожд	(?:наход|нахожд).*	sense:review_finding	Orphans batch F5 (2026-11-11): one-word sense clusters left by earlier splits join the sense of the relatives a player links them with.
-хаж|ход|хож|хожд	(?:доход|расход|приход|оприход).*	sense:review_income_expense	
+хаж|ход|хож|хожд	(?:доход|расход|приход|оприход|израсход|перерасход|недорасход|подоход|бездоход).*	sense:review_income_expense	
 хаж|ход|хож|хожд	.*	sense:review_walking	
-бер|бир|бор¹|бр¹	(?:выбор|выбира|избир|избран|отбор|подбор).*	sense:review_choice	
+бер|бир|бор¹|бр¹	(?!(?:выбраться|выбираться)$)(?:выбор|выбира|выбр|избир|избр|переизбр|предвыбор|отбор|подбор).*	sense:review_choice	
 бер|бир|бор¹|бр¹	убор|убранство	sense:review_adornment	убор (headwear, attire) and убранство (decoration) are not уборка.
 бер|бир|бор¹|бр¹	(?:убор|убран).*	sense:review_cleaning	
 бер|бир|бор¹|бр¹	(?:собор|соборность|соборный|соборование|соборовать|собороваться|соборянин)	sense:review_church	
@@ -292,6 +294,7 @@ family	pattern	sense	note
 черт¹|черч	.*	sense:review_drawing	
 хит|хич|хищ	(?:восхит|восхищ).*	sense:review_admiration	
 хит|хич|хищ	(?:похит|похищ|расхит|хищ).*	sense:review_theft	
+хит|хич|хищ	предвосхи[тщ].*	sense:review_anticipation	предвосхитить (anticipate) is not расхищать.
 хит|хич|хищ	.*	sense:review_cunning	
 вид|вист	(?:завид|позавид|завист|ненавид|возненавид|ненавист|навид).*	sense:review_envy_hatred	
 вид|вист	(?:освидетел|переосвидетел).*	sense:review_examination	
@@ -348,6 +351,7 @@ family	pattern	sense	note
 зем	зазем.*	sense:review_grounding	
 зем	(?:землян|земляник).*	sense:review_earth_plant	
 зем	.*	sense:review_land	
+грем|гром	огромн.*	sense:review_huge	огромный (huge) is not гром.
 грем|гром	(?:погром|разгром|громил|громить).*	sense:review_destruction	
 грем|гром	.*	sense:review_thunder_sound	
 лаз|лез¹|лес²	(?:лестниц|лесен).*	sense:review_stairs	
@@ -370,13 +374,15 @@ family	pattern	sense	note
 торг²|торж²	торжествен.*|торжество	sense:review_torg_celebration	
 торг²|торж²	(?:восторг|восторжен).*	sense:review_torg_rapture	
 торг²|торж²	.*	sense:review_torg_trade	
+крест|крещ	окрест.*	sense:review_vicinity	окрестность (vicinity) is not крест.
 крест|крещ	(?:крестец|крестц).*	sense:review_sacrum	
 крест|крещ	(?:крестин|крестиль|крещ|крестить|крестник|крестниц).*	sense:review_baptism	
 крест|крещ	(?:крестовин|крестовик|крестовк|крестов).*	sense:review_crosspiece	
 крест|крещ	.*	sense:review_cross	
 тереб|треб	тереб.*	sense:review_tug	
-тереб|треб	истреб.*	sense:review_destroy	
+тереб|треб	(?:истреб|неистреб).*	sense:review_destroy	
 тереб|треб	(?:потреб|потребл).*	sense:review_need_consumption	
+тереб|треб	употреб.*	sense:usage	употреблять (use) is not требовать.
 тереб|треб	.*	sense:review_demand	
 страст²|страх|страш|стращ	(?:страст|пристраст).*	sense:review_passion	
 страст²|страх|страш|стращ	(?:застращ|страш).*	sense:review_frighten	
@@ -396,13 +402,15 @@ family	pattern	sense	note
 трус³|трух²|труш	.*	sense:review_shaking	
 ник|ниц|нич|нк|ноч¹	изнанк.*	sense:review_reverse_side	
 ник|ниц|нич|нк|ноч¹	никн.*	sense:review_sinking	
+ник|ниц|нич|нк|ноч¹	возник.*	sense:review_emergence	возникнуть (arise) is not проникнуть (penetrate).
 ник|ниц|нич|нк|ноч¹	.*	sense:review_penetration	
 пласт	(?:пластин|пластов|пластун).*	sense:review_layer_object	
 пласт	.*	sense:review_cut_spread	
 крад|краж|крас²	(?:краст|крад|краж|вкрад|украд).*	sense:review_stealth_theft	
 крад|краж|крас²	крас.*	sense:beauty	
 крад|краж|крас²	.*	sense:review_stealth_theft	
-страд|страст¹	(?:страст|пристраст).*	sense:review_passion	
+страд|страст¹	(?:пристраст|беспристраст).*	sense:review_partiality	беспристрастный (impartial) goes with пристрастие, not with страдать.
+страд|страст¹	(?:страст|бесстраст).*	sense:review_passion	
 страд|страст¹	.*	sense:review_suffering	
 пуст²|пущ¹	пуща.*	sense:review_wilderness	
 пуст²|пущ¹	(?:упущ|пущен|пустить).*	sense:review_release_omission	
@@ -412,11 +420,13 @@ family	pattern	sense	note
 сов²|су	(?:совок|совоч).*	sense:review_scoop	
 сов²|су	засов.*	sense:review_lock_bolt	
 сов²|су	.*	sense:review_insertion	
+пят²|пяч	опять	sense:review_again	опять (again) is not пятка.
+пят²|пяч	запят(?:ая|ой)	sense:review_comma	запятая (comma) is not пятка.
 пят²|пяч	(?:выпят|впяч|напяч|отпяч|подпяч|пропяч|спяч).*	sense:review_protrusion	
 пят²|пяч	(?:пятит|пятить|попят|отпят|вспят).*	sense:review_retreat	
 пят²|пяч	.*	sense:review_five_heel	
 спе	(?:спеш|наспех|поспеш|заспеш).*	sense:review_haste	
-спе	(?:успеш|успев|успеть|преусп).*	sense:review_success	
+спе	(?:успеш|успев|успеть|преусп|успех|безуспеш).*	sense:review_success	
 спе	доспех.*	sense:review_armor	
 спе	.*	sense:review_ripening	
 кащ|кост|кощ	кощ.*	sense:review_koschei	
@@ -425,6 +435,7 @@ family	pattern	sense	note
 молач|молот|молоч¹	.*	sense:review_threshing	
 рух|руш²	(?:рухл|порух).*	sense:review_decay_failure	
 рух|руш²	.*	sense:review_destruction	
+хот|хоч	хоть|хотя	sense:review_although	хоть, хотя (although) are conjunctions, not хотеть.
 хот|хоч	(?:охотка|охотно)	sense:review_desire	Охотно / охотка are willingness, not hunting.
 хот|хоч	охот.*	sense:review_hunting	
 хот|хоч	похот.*	sense:review_lust	
@@ -437,9 +448,10 @@ family	pattern	sense	note
 чу	.*	sense:review_feeling	
 желт|желч	желч.*	sense:review_bile	
 желт|желч	.*	sense:review_yellow	
+прыс|прыск|прыщ	отпрыск	sense:review_offspring	отпрыск (offspring) is not прыскать.
 прыс|прыск|прыщ	(?:прыщ|опрыщ).*	sense:review_pimple	
 прыс|прыск|прыщ	.*	sense:review_spraying	
-хоран|хорон|хран	(?:хорон|ухорон|похорон|захорон|перехорон|схорон).*	sense:review_burial	
+хоран|хорон|хран	(?:хорон|ухорон|похорон|захорон|перехорон|перезахорон|схорон).*	sense:review_burial	
 хоран|хорон|хран	.*	sense:review_storage_protection	
 пыл²	(?:опыл|переопыл).*	sense:review_pollination	
 пыл²	.*	sense:review_dust	
@@ -487,7 +499,7 @@ family	pattern	sense	note
 балт|болт¹	(?:болтаться|болтанка|болтаный|болтнуться|разболтан).*	sense:review_sway	
 балт|болт¹	(?:балты|взбал|взболт|разбал|сбал|перебал|подбал).*	sense:review_mixing	
 балт|болт¹	.*	sense:review_chatter	
-гран	(?:границ|гранич|безгранич|огранич).*	sense:review_boundary	
+гран	(?:.*границ|.*гранич).*	sense:review_boundary	
 гран	.*	sense:review_faceting	
 хлест	(?:захлест|перехлест|схлест|нахлест).*	sense:review_overflow_overlap	
 хлест	.*	sense:review_lashing	
@@ -504,12 +516,12 @@ family	pattern	sense	note
 пока¹|поко(j)	.*	sense:review_calm	
 с|соп²|сп|сып²	усоп.*	sense:review_deceased	
 с|соп²|сп|сып²	.*	sense:review_sleep	
-верст²|верст	сверстник.*	sense:review_peer	
+верст²|верст	сверстни.*	sense:review_peer	
 верст²|верст	верста|верстов.*	sense:review_measure	
 верст²|верст	.*	sense:review_typesetting	
 страч|строк|строч	строк.*	sense:review_line	
 страч|строк|строч	.*	sense:review_stitching	
-тверд|тверж|твержд	(?:твердить|подтверд|утверд|подтвержд|утвердит).*	sense:review_assertion	
+тверд|тверж|твержд	(?:твердить|подтверд|утверд|подтвержд|утвержд|затверж|вытверж|вытверд).*	sense:review_assertion	
 тверд|тверж|твержд	.*	sense:review_hardness	
 яв	(?:заяв|объяв|предъяв|изъяв).*	sense:review_statement	
 яв	(?:выяв|прояв|появ).*	sense:review_revelation	
@@ -523,6 +535,7 @@ family	pattern	sense	note
 лес¹|леш	леш.*	sense:review_leshy	
 лес¹|леш	.*	sense:review_forest	
 гал|гол	прогалин.*	sense:review_clearing	
+гал|гол	(?:голен|наголен|паголен).*	sense:review_shin	голень (shin) is not голый.
 гал|гол	.*	sense:review_nakedness	
 син	синяк.*	sense:review_bruise	
 син	синиц.*	sense:review_tit_bird	
@@ -546,9 +559,11 @@ family	pattern	sense	note
 сук³|суч³	.*	sense:review_twisting	
 дабр|добр	удобр.*	sense:review_fertilizer	
 дабр|добр	(?:сдабр|сдоб).*	sense:review_food_enrichment	
+дабр|добр	одобр.*	sense:review_approval	одобрить (approve) is not добрый.
 дабр|добр	.*	sense:review_kindness	
 стерег|стереж|стереч|стораж|сторож|страж	(?:остерег|остереч|предостерег|предостереч).*	sense:review_warning	
 стерег|стереж|стереч|стораж|сторож|страж	подстерег.*	sense:review_ambush	
+стерег|стереж|стереч|стораж|сторож|страж	(?:осторож|предосторож|насторож|неосторож).*	sense:review_caution	осторожный (careful) is not сторож.
 стерег|стереж|стереч|стораж|сторож|страж	.*	sense:review_guard	
 лест|лещ²|льст|льщ	прелест.*	sense:review_charm_beauty	
 лест|лещ²|льст|льщ	.*	sense:review_flattery_seduction	
