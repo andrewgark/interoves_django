@@ -448,3 +448,22 @@ assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41
 })();
 
 console.log('new_word_salad.test.js: ok');
+
+(function testQueuedSaladVerdict() {
+  var verdict = Path.queuedSaladVerdict;
+  var answer = { kind: undefined };
+  var rare = { kind: 'rare' };
+  assert.strictEqual(verdict(answer, { status: 'ok', word_salad_correct: true }), 'credited');
+  assert.strictEqual(verdict(rare, { status: 'ok', word_salad_rare: 'КИНО' }), 'credited');
+  // Another send of the same word won the race: the page was right, only late.
+  assert.strictEqual(verdict(answer, {
+    status: 'ok', word_salad_correct: false, word_salad_comment: 'Слово уже открыто'
+  }), 'known');
+  assert.strictEqual(verdict(rare, { status: 'ok', word_salad_comment: 'Слово уже открыто' }), 'known');
+  assert.strictEqual(verdict(answer, {
+    status: 'ok', word_salad_correct: false, word_salad_comment: 'Буквы не соседние'
+  }), 'diverged');
+  assert.strictEqual(verdict(answer, { status: 'ok', word_salad_correct: false }), 'diverged');
+  assert.strictEqual(verdict(answer, { status: 'duplicate' }), 'diverged');
+  assert.strictEqual(verdict(answer, null), 'diverged');
+})();

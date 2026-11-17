@@ -680,15 +680,31 @@
         if (data.replay_available && typeof global.revealReplayControl === 'function') {
           global.revealReplayControl();
         }
-        // A rare find leaves the board as it is: the server only confirms it.
-        if (entry.kind === 'rare' ? (data.status === 'ok' && data.word_salad_rare)
-          : (data.status === 'ok' && data.word_salad_correct)) {
-          if (data.update_task_html_new) saladServerCards[taskId] = data.update_task_html_new;
-          return 'sent';
+        var verdict = queuedSaladVerdict(entry, data);
+        if (verdict === 'credited' && data.update_task_html_new) {
+          saladServerCards[taskId] = data.update_task_html_new;
         }
-        return divergedSaladPath(taskId);
+        return verdict === 'diverged' ? divergedSaladPath(taskId) : 'sent';
       });
     });
+  }
+
+  // WordSaladChecker's comment for a word this actor already has
+  // (games/puzzles/salad/submission.py).
+  var SALAD_ALREADY_FOUND_COMMENT = 'Слово уже открыто';
+
+  // 'credited' — this send counted the word; 'known' — the server already had
+  // it from another send of the same word under another client_event_id (two
+  // sends racing): the page was right, only late, so its board stays;
+  // 'diverged' — the server disagrees and the page reloads. A 'duplicate'
+  // stays diverged: the earlier attempt with that path may not have been the
+  // word the page counted.
+  // A rare find leaves the board as it is: the server only confirms it.
+  function queuedSaladVerdict(entry, data) {
+    if (!data || data.status !== 'ok') return 'diverged';
+    if (entry && entry.kind === 'rare' ? data.word_salad_rare : data.word_salad_correct) return 'credited';
+    if (data.word_salad_comment === SALAD_ALREADY_FOUND_COMMENT) return 'known';
+    return 'diverged';
   }
 
   function divergedSaladPath(taskId) {
@@ -2160,6 +2176,7 @@
     stampOfferShare: stampOfferShare,
     feedbackForResult: feedbackForResult,
     boardIsFresh: boardIsFresh,
+    queuedSaladVerdict: queuedSaladVerdict,
     isHistoryNavigation: isHistoryNavigation,
     INSTANT_BOARD_MAX_AGE_MS: INSTANT_BOARD_MAX_AGE_MS,
     flushAnalyticsEvents: flushAnalyticsEvents,
