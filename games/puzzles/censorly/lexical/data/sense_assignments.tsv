@@ -9,7 +9,7 @@ lemma	senses	note
 цветистость	-	Deliberately left on its dictionary family.
 цветистый	-	Deliberately left on its dictionary family.
 цветить	-	Deliberately left on its dictionary family.
-почесть	-	почесть stays on its bare чест root: почтенный is also its participle, and that root links почтенный with честный.
+честить	-	честить (to scold, call names) is not честь.
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -3226,97 +3226,9 @@ lemma	senses	note
 хлопчатник	sense:cotton	
 хлопчатниковый	sense:cotton	
 хлопчатый	sense:cotton	
-высчитать	sense:count	считать and its prefixed verbs are counting; reading off is считывать.
-высчитывание	sense:count	
-высчитывать	sense:count	
-высчитываться	sense:count	
-досчитать	sense:count	
-досчитаться	sense:count	
-досчитывать	sense:count	
-досчитываться	sense:count	
-засчитать	sense:count	
-засчитывать	sense:count	
-засчитываться	sense:count	
-насчитать	sense:count	
-насчитаться	sense:count	
-насчитывать	sense:count	
-насчитываться	sense:count	
 недосчитаться	sense:count	
 недосчитывать	sense:count	
 недосчитываться	sense:count	
-обсчитать	sense:count	
-обсчитаться	sense:count	
-обсчитывать	sense:count	
-обсчитываться	sense:count	
-отсчитать	sense:count	
-отсчитывать	sense:count	
-отсчитываться	sense:count	
-пересчитать	sense:count	
-пересчитывать	sense:count	
-пересчитываться	sense:count	
-подсчитать	sense:count	
-подсчитывать	sense:count	
-подсчитываться	sense:count	
-посчитать	sense:count	
-посчитаться	sense:count	
-посчитывать	sense:count	
-присчитать	sense:count	
-присчитывать	sense:count	
-присчитываться	sense:count	
-просчитать	sense:count	
-просчитаться	sense:count	
-просчитывать	sense:count	
-просчитываться	sense:count	
-сосчитать	sense:count	
-сосчитаться	sense:count	
-сосчитывать	sense:count	
-сосчитываться	sense:count	
-усчитать	sense:count	
-усчитывать	sense:count	
-усчитываться	sense:count	
-учитывать	sense:count	
-учитываться	sense:count	
-учесть	sense:count	
-недоучесть	sense:count	
-недоучет	sense:count	
-переучесть	sense:count	
-переучет	sense:count	
-переучетный	sense:count	
-переучитывать	sense:count	
-переучитываться	sense:count	
-отсчет	sense:count	
-счесть	sense:count	
-счесться	sense:count	
-просчет	sense:count	
-прочет	sense:count	
-перечень	sense:count	
-перечневый	sense:count	
-перечет	sense:count	
-наперечет	sense:count	
-подотчет	sense:count	
-подотчетный	sense:count	
-подотчетность	sense:count	
-отчитаться	sense:count	
-отчитываться	sense:count	
-безотчетный	sense:count	
-безотчетность	sense:count	
-вычесть	sense:count	
-зачесть	sense:count	
-зачесться	sense:count	
-зачтение	sense:count	
-обчесть	sense:count	
-обчесться	sense:count	
-расчесть	sense:count	
-расчесться	sense:count	
-причесть	sense:count	
-сопричесть	sense:count	
-начесть	sense:count	
-начет	sense:count	
-безрасчетный	sense:count	
-безрасчетливый	sense:count	
-перерасчет	sense:count	
-перерасчетный	sense:count	
-причитаться	sense:count	
 страна	sense:country	
 поветовый	sense:county	
 вычитать	sense:count|root:read	
@@ -7001,6 +6913,27 @@ lemma	senses	note
 причет	sense:honor	
 причетник	sense:honor	
 причетнический	sense:honor	
+честной	sense:honor	
+почесть	sense:honor	почести are honors; почтенный is also its participle.
+честность	sense:honor	
+честный	sense:honor	честный, честность and бесчестье share честь: honor and honesty, root:honor.
+обесчестить	sense:honor	
+нечестивый	sense:honor	
+чествовать	sense:honor	
+чествование	sense:honor	
+бесчестить	sense:honor	
+бесчестный	sense:honor	
+нечестивец	sense:honor	
+нечестие	sense:honor	
+бесчеститься	sense:honor	
+бесчестность	sense:honor	
+бесчестье	sense:honor	
+нечестивица	sense:honor	
+обесчеститься	sense:honor	
+обесчещивание	sense:honor	
+обесчещивать	sense:honor	
+обесчещиваться	sense:honor	
+чествоваться	sense:honor	
 почитать	sense:honor|root:read	
 почитаться	sense:honor|root:read	
 обруч	sense:hoop	
@@ -10759,11 +10692,6 @@ lemma	senses	note
 размещать	sense:relocation	
 размещаться	sense:relocation	
 размещение	sense:relocation	
-сместить	sense:relocation	
-смещение	sense:relocation	
-смещаться	sense:relocation	
-сместиться	sense:relocation	
-смещать	sense:relocation	
 оставаться	sense:remain_leave	The broad сто-/ста- bucket contains the act/state of leaving and the residue/remnant meaning. Keep those as separate semantic subfamilies.
 оставить	sense:remain_leave	
 оставление	sense:remain_leave	
@@ -11288,6 +11216,11 @@ lemma	senses	note
 увольнительный	sense:review_dismissal	
 увольнять	sense:review_dismissal	
 увольняться	sense:review_dismissal	
+смещение	sense:review_displacement	смещение/сместить (shift, offset, removal from a post) is not перемещение/разместить (moving, placing).
+сместить	sense:review_displacement	
+смещать	sense:review_displacement	
+смещаться	sense:review_displacement	
+сместиться	sense:review_displacement	
 располагать	sense:review_dispose	
 далее	sense:review_distance	
 удаление	sense:review_distance|sense:review_removal	Удаление can be an act of moving something away or removing it; удалённый likewise means either remote or deleted.

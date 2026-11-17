@@ -556,7 +556,16 @@ family	pattern	sense	note
 де(j)|де	.*	sense:review_deed	
 ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
 ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
-ч³|чес²|чет|чит|чт	(?!вычитк)(?:счит|счет|вычт|вычет|вычит|вычисл|подсчет|расчет|рассчит|учет|отчет|зачет|недосчет|недочет|обсчет|насчет|досчет|пересчет|смет).*	sense:count	
+ч³|чес²|чет|чит|чт	(?:отчетлив|отчетист).*	sense:review_clear	отчетливый (distinct, clear) goes with четкий, not with отчет.
+ч³|чес²|чет|чит|чт	(?:рассчит|расчет|расчест|перерасчет|безрасчет|просчит|просчет|вычисл).*|причитаться	sense:review_calculate	Counting is split by meaning; every count sense shares root:count, so a verb opens its noun (рассчитать/расчет) while the senses stay apart. Calculation: рассчитать, расчет, расчетливый, просчет, вычислить.
+ч³|чес²|чет|чит|чт	(?:учит|учет|учесть|недоуч|переуч).*	sense:review_account	Taking into account and record keeping: учесть, учитывать, учет, переучет.
+ч³|чес²|чет|чит|чт	(?:отсчит|отсчет).*	sense:review_countdown	Counting off, a countdown or reference point: отсчет, отсчитывать.
+ч³|чес²|чет|чит|чт	(?:перечень|перечнев|перечет|наперечет).*	sense:review_enumeration	Enumeration: перечень, наперечет.
+ч³|чес²|чет|чит|чт	(?!(?:отчитать|отчитывать)$)(?:отчет|отчит|подотчет|безотчет).*	sense:review_report	Reporting and accountability: отчет, отчитаться, подотчетный, безотчетный. отчитать (to scold) stays with reading.
+ч³|чес²|чет|чит|чт	(?!вычитк|вычитыв)(?:вычт|вычет|вычесть|вычит).*	sense:review_subtract	Subtraction: вычесть, вычет, вычитание. вычитка and вычитывание (proofreading) stay with reading.
+ч³|чес²|чет|чит|чт	(?:зачет|зачест|засчит|зачтен|зачесть).*	sense:review_credit	Credit and a pass: зачет, зачесть, засчитать.
+ч³|чес²|чет|чит|чт	насчет	sense:review_regarding	насчет (regarding) is a preposition, not counting.
+ч³|чес²|чет|чит|чт	(?:.*счит|.*счет|смет|счест|обчест|начест|причест|сопричест|прочет|недочет).*|начет	sense:count	Counting, the score and «to consider»: считать, счет, подсчет, пересчет, счетчик.
 ч³|чес²|чет|чит|чт	.*	-	Ordinary reading forms keep their explicit assignment.
 каш¹|кос¹|кош¹	.*	sense:scythe	The кос family has three ordinary modern senses: cutting with a scythe, an oblique direction, and hair braided into a коса. A spelling in two of these families reads both.
 каш³|кос²|кош³	.*	sense:oblique	
