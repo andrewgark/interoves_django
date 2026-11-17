@@ -2598,6 +2598,16 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertFalse(opens('данный', 'передачи'))
         self.assertTrue(opens('передать', 'передача'))
 
+    def test_intentional_is_not_the_participle_of_measure_out(self):
+        for guess, target in (
+            ('измерение', 'намеренного'), ('мера', 'намеренные'), ('измерить', 'намерен'),
+        ):
+            self.assertEqual(explain(guess, target), '', (guess, target))
+        for guess, target in (
+            ('намерение', 'намеренного'), ('намереваться', 'намеренная'),
+        ):
+            self.assertEqual(explain(guess, target), 'root', (guess, target))
+
     def test_evgeniy_does_not_open_zhenu(self):
         self.assertFalse(opens('евгений', 'жену'))
         self.assertFalse(opens('жену', 'евгений'))
