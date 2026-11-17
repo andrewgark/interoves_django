@@ -8080,6 +8080,11 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_tanker', ('метантанк', 'супертанкер', 'танкер', 'танкерный')),
     ('sense:review_awn', ('безостый', 'остевой', 'остистый', 'ость')),
     ('sense:review_osteitis', ('остеит', 'остит')),
+    # Kuznetsova audit K1 (2026-11-17): doubt (сомневаться) is сомнение and
+    # мнение, not remembering (упоминать).
+    ('sense:opinion', (
+        'несомнительный', 'сомневаться', 'сомнительность', 'сомнительный', 'усомниться',
+    )),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas

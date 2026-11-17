@@ -937,6 +937,15 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_kuznetsova_audit_k1_doubt_is_opinion(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        self.assertFalse(gameplay_opens('сомневаться', 'упоминаться'))
+        self.assertTrue(gameplay_opens('сомнение', 'сомневаться'))
+        self.assertTrue(gameplay_opens('мнение', 'сомнительный'))
+        self.assertTrue(gameplay_opens('помнить', 'упоминание'))
+
     def test_fallback_audit_e3_false_openings(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
