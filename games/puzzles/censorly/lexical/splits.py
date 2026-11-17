@@ -8065,6 +8065,8 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_turkey_bird', (
         'индейка', 'индюк', 'индюшка', 'индюшечий', 'индюшачий', 'индюшонок',
     )),
+    # Batch B7: впечатлить is what впечатление comes from.
+    ('sense:review_impression', ('впечатлить', 'впечатлиться', 'впечатленный')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
@@ -8913,5 +8915,10 @@ MULTI_READINGS = MULTI_READINGS + (
 )
 SEMANTIC_ROOT_ASSIGNMENTS.update({
     'происшествие': (('fam:ш|ше²|шед',), ('fam:хаж|ход|хож|хожд',)),
+})
+SEMANTIC_ROOT_ASSIGNMENTS.update({
+    'впечатлить': (('fam:печат',),),
+    'впечатлиться': (('fam:печат',),),
+    'впечатленный': (('fam:печат',),),
 })
 SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
