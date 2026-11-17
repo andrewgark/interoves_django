@@ -111,6 +111,28 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertFalse(sorted(found - listed)[:20], f'unreviewed lemmas of split families; {rerun}')
         self.assertFalse(sorted(listed - found)[:20], f'resolved lemmas still queued; {rerun}')
 
+    def test_sense_review_queue_decisions(self):
+        for left, right in (
+            ('перемещение', 'смещение'), ('учитывать', 'считать'), ('отсчет', 'счет'),
+            ('столько', 'настолько'), ('трус', 'трусость'), ('близкий', 'поблизости'),
+            ('отечество', 'соотечественник'), ('отец', 'отчим'), ('жалость', 'сожаление'),
+            ('честный', 'почтенным'),
+        ):
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+        for left, right in (
+            ('близкий', 'близнец'), ('только', 'столько'), ('заметить', 'смета'),
+            ('сметливый', 'заметить'), ('пол', 'подполье'), ('сыпать', 'сыпь'),
+            ('поместить', 'помещик'), ('петь', 'петушиться'), ('четкий', 'читать'),
+            ('пожалуйста', 'жалость'), ('предыдущий', 'идти'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+
+    def test_reviewed_family_remainders_name_split_families(self):
+        from games.puzzles.censorly.lexical.senses import reviewed_family_remainders, split_families
+
+        stale = set(reviewed_family_remainders()) - split_families()
+        self.assertFalse(sorted(stale), 'sense_family_remainders.tsv names a family that is not split')
+
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
         from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
         from games.puzzles.censorly.lexical.splits import CLUSTERS

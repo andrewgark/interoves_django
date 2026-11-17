@@ -4,10 +4,10 @@ A Kuznetsova family split into senses (``sense_rules.tsv``,
 ``sense_assignments.tsv``) can still hold lemmas with no sense. They keep the
 bare family root and open one another but no split sense: an implicit
 default cluster that may join unrelated meanings. The queue lists them,
-most frequent in the article corpus first. Resolve a row by giving the
-lemma a sense (a rule or an assignment row), or ``-`` in
-``sense_assignments.tsv`` when it belongs to the default cluster, then
-rerun::
+most frequent in the article corpus first. Resolve a family by listing it
+in ``sense_family_remainders.tsv`` once its remainder is one meaning (after
+moving the lemmas that are not into their senses), or a single lemma with a
+sense or ``-`` in ``sense_assignments.tsv``, then rerun::
 
     ../venv/interoves_django/bin/python -m \
         games.puzzles.censorly.offline.tools.sense_review_queue

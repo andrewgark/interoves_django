@@ -9,6 +9,7 @@ lemma	senses	note
 цветистость	-	Deliberately left on its dictionary family.
 цветистый	-	Deliberately left on its dictionary family.
 цветить	-	Deliberately left on its dictionary family.
+почесть	-	почесть stays on its bare чест root: почтенный is also its participle, and that root links почтенный with честный.
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -244,6 +245,7 @@ lemma	senses	note
 превосходство	sense:advantage	
 превосходствовать	sense:advantage	
 превосходящий	sense:advantage	
+непревзойденный	sense:advantage	
 похождение	sense:adventure	
 приключать	sense:adventure	
 приключаться	sense:adventure	
@@ -451,9 +453,12 @@ lemma	senses	note
 переназначить	sense:appointment	
 назначение	sense:appointment|sense:purpose	Назначение на должность / назначение прибора: the noun also names a purpose, so it opens предназначенный as well as назначить.
 невместно	sense:appropriateness	
+уместный	sense:appropriateness	
+уместность	sense:appropriateness	
 приближенно	sense:approximate	Orphans batch F7: приближённо is «approximately».
 приблизительно	sense:approximate	
 приблизительный	sense:approximate	
+приблизительность	sense:approximate	
 кстати	sense:apropos	
 остатний	sense:archaic_remainder	
 устаток	sense:archaic_remainder	
@@ -1396,6 +1401,8 @@ lemma	senses	note
 прогорклость	sense:bitter_taste	
 прогорклый	sense:bitter_taste	
 прогоркнуть	sense:bitter_taste	
+горклый	sense:bitter_taste	
+горкнуть	sense:bitter_taste	
 замигать	sense:blink	
 мгновение	sense:blink	
 мгновенный	sense:blink	
@@ -1779,6 +1786,7 @@ lemma	senses	note
 сгоряча	sense:burn	
 угар	sense:burn	
 угарный	sense:burn	
+пригорать	sense:burn	
 воспаление	sense:burn_fire	
 воспаленный	sense:burn_fire	
 воспалительный	sense:burn_fire	
@@ -2774,6 +2782,11 @@ lemma	senses	note
 жалобщик	sense:complaint	
 жалобщица	sense:complaint	
 жаловаться	sense:complaint	
+пожаловаться	sense:complaint	
+нажаловаться	sense:complaint	
+обжаловать	sense:complaint	
+обжалование	sense:complaint	
+обжаловаться	sense:complaint	
 блюсти	sense:comply	
 блюстись	sense:comply	
 блюститель	sense:comply	
@@ -3119,6 +3132,13 @@ lemma	senses	note
 вмещать	sense:containment	
 вмещаться	sense:containment	
 вмещение	sense:containment	
+уместить	sense:containment	
+уместиться	sense:containment	
+умещаться	sense:containment	
+умещать	sense:containment	
+умещение	sense:containment	
+поместительность	sense:containment	
+поместительный	sense:containment	
 контрабанда	sense:contraband	
 контрабандист	sense:contraband	
 подрядить	sense:contract	
@@ -3254,6 +3274,49 @@ lemma	senses	note
 усчитать	sense:count	
 усчитывать	sense:count	
 усчитываться	sense:count	
+учитывать	sense:count	
+учитываться	sense:count	
+учесть	sense:count	
+недоучесть	sense:count	
+недоучет	sense:count	
+переучесть	sense:count	
+переучет	sense:count	
+переучетный	sense:count	
+переучитывать	sense:count	
+переучитываться	sense:count	
+отсчет	sense:count	
+счесть	sense:count	
+счесться	sense:count	
+просчет	sense:count	
+прочет	sense:count	
+перечень	sense:count	
+перечневый	sense:count	
+перечет	sense:count	
+наперечет	sense:count	
+подотчет	sense:count	
+подотчетный	sense:count	
+подотчетность	sense:count	
+отчитаться	sense:count	
+отчитываться	sense:count	
+безотчетный	sense:count	
+безотчетность	sense:count	
+вычесть	sense:count	
+зачесть	sense:count	
+зачесться	sense:count	
+зачтение	sense:count	
+обчесть	sense:count	
+обчесться	sense:count	
+расчесть	sense:count	
+расчесться	sense:count	
+причесть	sense:count	
+сопричесть	sense:count	
+начесть	sense:count	
+начет	sense:count	
+безрасчетный	sense:count	
+безрасчетливый	sense:count	
+перерасчет	sense:count	
+перерасчетный	sense:count	
+причитаться	sense:count	
 страна	sense:country	
 поветовый	sense:county	
 вычитать	sense:count|root:read	
@@ -3270,6 +3333,7 @@ lemma	senses	note
 отважиться	sense:courage	
 отважность	sense:courage	
 отважный	sense:courage	
+отваживаться	sense:courage	
 бессудный	sense:court	
 высудить	sense:court	
 высуживать	sense:court	
@@ -4003,6 +4067,10 @@ lemma	senses	note
 заместитель	sense:deputy	
 заместительница	sense:deputy	
 заместительство	sense:deputy	
+наместник	sense:deputy	
+наместничество	sense:deputy	
+наместнический	sense:deputy	
+наместничий	sense:deputy	
 выводка	sense:derive	
 доведение	sense:derive	
 довести	sense:derive	
@@ -5079,6 +5147,8 @@ lemma	senses	note
 ровнять	sense:even	
 ровняться	sense:even	
 четный	sense:even	
+чет	sense:even	
+нечет	sense:even	
 событие	sense:event	
 событийность	sense:event	
 событийный	sense:event	
@@ -6924,9 +6994,13 @@ lemma	senses	note
 святошество	sense:holy	
 святцы	sense:holy	
 священный	sense:holy	
+святыня	sense:holy	
 причт	sense:honor	
 причтовый	sense:honor	
 чтица	sense:honor	
+причет	sense:honor	
+причетник	sense:honor	
+причетнический	sense:honor	
 почитать	sense:honor|root:read	
 почитаться	sense:honor|root:read	
 обруч	sense:hoop	
@@ -6959,6 +7033,7 @@ lemma	senses	note
 часок	sense:hour	
 часом	sense:hour	
 часочек	sense:hour	
+часы	sense:hour	
 однако	sense:however	
 присмирелый	sense:humble	
 присмиреть	sense:humble	
@@ -7919,6 +7994,10 @@ lemma	senses	note
 предместник	sense:location	
 предместница	sense:location	
 предместье	sense:location	
+местечковый	sense:location	
+местнический	sense:location	
+местничать	sense:location	
+местничество	sense:location	
 замкнутость	sense:lock	
 замкнутый	sense:lock	
 замкнуть	sense:lock	
@@ -9013,6 +9092,12 @@ lemma	senses	note
 близлежащий	sense:near	
 близость	sense:near	
 неблизкий	sense:near	
+ближний	sense:near	
+поблизости	sense:near	
+вблизи	sense:near	
+близ	sense:near	
+близехонько	sense:near	
+близешенько	sense:near	
 необходимость	sense:necessity	
 необходимый	sense:necessity	
 запущенность	sense:neglect	
@@ -9629,6 +9714,19 @@ lemma	senses	note
 жалость	sense:pity	
 жаль	sense:pity	
 пожалеть	sense:pity	
+сожаление	sense:pity	
+сожалеть	sense:pity	
+жалкий	sense:pity	
+жалковато	sense:pity	
+безжалостный	sense:pity	
+безжалостность	sense:pity	
+сжалиться	sense:pity	
+пожалиться	sense:pity	
+жалостливый	sense:pity	
+жалостливость	sense:pity	
+разжалобить	sense:pity	
+разжалобиться	sense:pity	
+сжалобиться	sense:pity	
 поместить	sense:placement	
 поместиться	sense:placement	
 помещать	sense:placement	
@@ -10662,6 +10760,10 @@ lemma	senses	note
 размещаться	sense:relocation	
 размещение	sense:relocation	
 сместить	sense:relocation	
+смещение	sense:relocation	
+смещаться	sense:relocation	
+сместиться	sense:relocation	
+смещать	sense:relocation	
 оставаться	sense:remain_leave	The broad сто-/ста- bucket contains the act/state of leaving and the residue/remnant meaning. Keep those as separate semantic subfamilies.
 оставить	sense:remain_leave	
 оставление	sense:remain_leave	
@@ -11021,6 +11123,9 @@ lemma	senses	note
 убирать	sense:review_cleaning	
 убраться	sense:review_cleaning	
 чистить	sense:review_cleaning	
+четкий	sense:review_clear	четкий (clear, precise) is not читать/считать.
+четкость	sense:review_clear	
+соитие	sense:review_coitus	соитие is not сойтись/идти.
 наиболее	sense:review_comparative_more	Наиболее forms superlatives like более forms comparatives.
 доходчивость	sense:review_comprehensible	
 доходчивый	sense:review_comprehensible	
@@ -11053,6 +11158,8 @@ lemma	senses	note
 сходень	sense:review_convergence	
 сходни	sense:review_convergence	
 схождение	sense:review_convergence	
+несметный	sense:review_countless	несметный (countless) is not смета or метить.
+бессметный	sense:review_countless	
 ухажер	sense:review_courting	
 ухажерский	sense:review_courting	
 ухажерство	sense:review_courting	
@@ -11061,6 +11168,20 @@ lemma	senses	note
 ухаживать	sense:review_courting	
 обложение	sense:review_cover|sense:review_tax	
 обложить	sense:review_cover|sense:review_tax	
+трусость	sense:review_cowardice	Cowardice (трус¹), apart from the shaking трус²/трус³ families.
+трусик	sense:review_cowardice	
+трусливость	sense:review_cowardice	
+трусливый	sense:review_cowardice	
+вструхнуть	sense:review_cowardice	
+перетрусить	sense:review_cowardice	
+перетрухнуть	sense:review_cowardice	
+струсить	sense:review_cowardice	
+струхнуть	sense:review_cowardice	
+трусиха	sense:review_cowardice	
+трусишка	sense:review_cowardice	
+трусоватый	sense:review_cowardice	
+трус	sense:review_cowardice|sense:review_shaking	трус is a coward and, archaically, an earthquake; трусить is to be afraid and to shake or trot.
+трусить	sense:review_cowardice|sense:review_shaking	
 сливки	sense:review_cream	
 сливкоотделитель	sense:review_cream	
 сливочки	sense:review_cream	
@@ -11097,6 +11218,8 @@ lemma	senses	note
 приличествовать	sense:review_decency	
 приличие	sense:review_decency	
 приличный	sense:review_decency	
+прилик	sense:review_decency	
+прилика	sense:review_decency	
 убывание	sense:review_decrease	
 убывать	sense:review_decrease	
 убыль	sense:review_decrease	
@@ -11262,6 +11385,10 @@ lemma	senses	note
 переоборудоваться	sense:review_equipment	
 вотчина	sense:review_estate	
 вотчинный	sense:review_estate	
+отчина	sense:review_estate	
+смета	sense:review_estimate	смета (cost estimate) is not метить/заметить; the мет family lists it by spelling.
+сметный	sense:review_estimate	
+сметчик	sense:review_estimate	
 воскликнуть	sense:review_exclamation	Exclamation and clicking share the modern клик/клиц/клич root family, but are distinct semantic subclusters.
 восклицание	sense:review_exclamation	
 восклицательный	sense:review_exclamation	
@@ -11389,6 +11516,8 @@ lemma	senses	note
 перелицовщик	sense:review_face	
 перелицовывать	sense:review_face	
 перелицовываться	sense:review_face	
+наличник	sense:review_face	
+заподлицо	sense:review_face	
 безвестность	sense:review_fame	
 безвестный	sense:review_fame	
 безызвестность	sense:review_fame	
@@ -11402,6 +11531,16 @@ lemma	senses	note
 отцовский	sense:review_father	
 отцовство	sense:review_father	
 отчий	sense:review_father	
+отчим	sense:review_father	
+вотчим	sense:review_father	
+отчество	sense:review_father	
+праотец	sense:review_father	
+праотцовский	sense:review_father	
+отеческий	sense:review_father	
+отческий	sense:review_father	
+отецкий	sense:review_father	
+отцов	sense:review_father	
+безотцовщина	sense:review_father	
 путина	sense:review_fishing_season	
 примеривать	sense:review_fitting	
 примериваться	sense:review_fitting	
@@ -11481,6 +11620,11 @@ lemma	senses	note
 сопка	sense:review_hill	сопка (hill) is not сыпать/насыпь.
 отечественный	sense:review_homeland	
 отечество	sense:review_homeland	
+соотечественник	sense:review_homeland	
+соотечественница	sense:review_homeland	
+соотечественный	sense:review_homeland	
+соотчич	sense:review_homeland	
+отчизна	sense:review_homeland	
 обиход	sense:review_household	
 обиходность	sense:review_household	
 обиходный	sense:review_household	
@@ -11504,6 +11648,7 @@ lemma	senses	note
 невнятица	sense:review_incomprehensible	
 неотъемлемость	sense:review_inseparable	
 неотъемлемый	sense:review_inseparable	
+наитие	sense:review_inspiration	наитие (inspiration) is not найти/идти.
 орудие	sense:review_instrument	
 орудийный	sense:review_instrument	
 орудовать	sense:review_instrument	
@@ -11528,9 +11673,15 @@ lemma	senses	note
 безрассудность	sense:review_irrationality	
 безрассудный	sense:review_irrationality	
 безрассудство	sense:review_irrationality	
+только	sense:review_just	только (only, just) is not столько/толика.
 убивать	sense:review_killed	
 убитый	sense:review_killed	
 убить	sense:review_killed	
+причитать	sense:review_lament	причитать (to lament) is not читать or причитаться (be due).
+причитание	sense:review_lament	
+причитальщица	sense:review_lament	
+запричитать	sense:review_lament	
+причитывать	sense:review_lament	
 выложить	sense:review_lay_out	
 сложение	sense:review_laying|sense:lag_sum	
 сложить	sense:review_laying|sense:lag_sum	
@@ -11607,6 +11758,13 @@ lemma	senses	note
 мужлан	sense:review_manhood_narrow	
 мужской	sense:review_manhood_narrow	
 мужчина	sense:review_manhood_narrow	
+поместье	sense:review_manor	поместье/помещик (landed estate, landowner) are not помещение/поместить.
+помещик	sense:review_manor	
+поместный	sense:review_manor	
+помещичий	sense:review_manor	
+беспоместный	sense:review_manor	
+поместьице	sense:review_manor	
+помещица	sense:review_manor	
 ходкий	sense:review_marketability	
 ходкость	sense:review_marketability	
 муж	sense:review_marriage	
@@ -11860,6 +12018,9 @@ lemma	senses	note
 хориный	sense:review_polecat	
 хорь	sense:review_polecat	
 хорьковый	sense:review_polecat	
+пожалуй	sense:review_politeness	пожалуйста/пожалуй (please, perhaps) are not жалость or жалованье.
+пожалуйста	sense:review_politeness	
+пожалуйте	sense:review_politeness	
 располагаться	sense:review_position	
 положение	sense:review_position|sense:review_state|sense:review_document	
 выходка	sense:review_prank	
@@ -11875,6 +12036,7 @@ lemma	senses	note
 наличные	sense:review_presence	
 наличный	sense:review_presence	
 поличное	sense:review_presence	
+предыдущий	sense:review_previous	предыдущий (previous) is not идти/пройти.
 печать	sense:review_print|sense:seal	Печать is printing or a seal; распечатать prints out or unseals.
 распечатать	sense:review_print|sense:seal	
 распечататься	sense:review_print|sense:seal	
@@ -11924,6 +12086,12 @@ lemma	senses	note
 путин	sense:review_putin	
 уйма	sense:review_quantity	
 уймища	sense:review_quantity	
+сметливый	sense:review_quick_wit	сметливый (quick-witted, from смекать) is not метить/заметить.
+сметливость	sense:review_quick_wit	
+сыпь	sense:review_rash	сыпь (skin rash) and сыпной тиф are not сыпать (pour).
+сыпной	sense:review_rash	
+сыпняк	sense:review_rash	
+сыпуха	sense:review_rash	
 прием	sense:review_receive|sense:review_reception|sense:review_technique|sense:review_meal|sense:review_receiving	
 наприпринимать	sense:review_receiving	
 переприем	sense:review_receiving	
@@ -11969,6 +12137,7 @@ lemma	senses	note
 воскрешение	sense:review_resurrection	
 розница	sense:review_retail	Retail (розница) is not разный.
 розничный	sense:review_retail	
+спетость	sense:review_ripening	
 восход	sense:review_rise	
 восходитель	sense:review_rise	
 восходить	sense:review_rise	
@@ -11979,6 +12148,19 @@ lemma	senses	note
 дороженька	sense:review_road	
 дорожка	sense:review_road	
 дорожный	sense:review_road	
+подорожник	sense:review_road	
+подорожниковый	sense:review_road	
+придорожный	sense:review_road	
+придорожник	sense:review_road	
+бездорожье	sense:review_road	
+бездорожный	sense:review_road	
+подорожный	sense:review_road	
+подорожная	sense:review_road	
+дорожник	sense:review_road	
+дорожница	sense:review_road	
+пройдоха	sense:review_rogue	пройдоха (rogue) is not пройти.
+пройдошный	sense:review_rogue	
+пройдошничать	sense:review_rogue	
 роман	sense:review_roman	
 романтизм	sense:review_roman	
 романтик	sense:review_roman	
@@ -11987,6 +12169,14 @@ lemma	senses	note
 петух	sense:review_rooster	
 петушиный	sense:review_rooster	
 петушок	sense:review_rooster	
+петуший	sense:review_rooster	
+пеун	sense:review_rooster	
+петушиться	sense:review_rooster	
+вспетушиться	sense:review_rooster	
+запетушиться	sense:review_rooster	
+попетушиться	sense:review_rooster	
+распетушиться	sense:review_rooster	
+четки	sense:review_rosary	четки (rosary beads) is not читать/считать.
 гнить	sense:review_rot	The unprefixed and perfective -гнить verbs are absent from the root dictionary; spelling fallback put them under гнать (гниют/отгоняет). SEMANTIC_ROOT_ASSIGNMENTS gives them the гни root explicitly.
 гниющий	sense:review_rot	
 догнить	sense:review_rot	
@@ -12094,8 +12284,14 @@ lemma	senses	note
 поклеп	sense:review_slander	
 поклепщик	sense:review_slander	
 толика	sense:review_small_amount	
+толикий	sense:review_small_amount	
 малявка	sense:review_small_creature	
 столько	sense:review_so_many	
+столь	sense:review_so_many	
+настолько	sense:review_so_many	
+постольку	sense:review_so_many	
+столечко	sense:review_so_many	
+настоль	sense:review_so_many	
 розетка	sense:review_socket	розетка (socket, rosette) is not роза.
 иногда	sense:review_sometimes	
 досоветский	sense:review_soviet	
@@ -12221,8 +12417,14 @@ lemma	senses	note
 индюшечий	sense:review_turkey_bird	
 индюшка	sense:review_turkey_bird	
 индюшонок	sense:review_turkey_bird	
+близнец	sense:review_twin	близнец (twin) is not близкий/приближение.
+близнецовый	sense:review_twin	
 необъятность	sense:review_unbounded	
 необъятный	sense:review_unbounded	
+подполье	sense:review_underground	подполье/подпольщик (clandestine underground) is not пол (floor).
+подпольный	sense:review_underground	
+подпольщик	sense:review_underground	
+подпольщица	sense:review_underground	
 несбыточный	sense:review_unfulfillable	
 размеренность	sense:review_unhurried	
 размеренный	sense:review_unhurried	
@@ -13212,6 +13414,14 @@ lemma	senses	note
 жалование	sense:salary	The жал-/жалован- spelling covers several synchronically unrelated families: salary, pity, complaint, and stinging. Keep the split at family level so an inflected form inherits the same decision.
 жалованный	sense:salary	
 жалованье	sense:salary	
+жаловать	sense:salary	
+пожаловать	sense:salary	
+пожалование	sense:salary	
+пожалованный	sense:salary	
+разжаловать	sense:salary	
+разжалование	sense:salary	
+разжалованный	sense:salary	
+жалованьишко	sense:salary	
 одинаковость	sense:same	
 одинаковый	sense:same	
 здравость	sense:sane	
@@ -13789,6 +13999,8 @@ lemma	senses	note
 простынка	sense:sheet	
 простынный	sense:sheet	
 простыня	sense:sheet	
+полочка	sense:shelf	
+полочный	sense:shelf	
 оболочка	sense:shell	
 оболочковый	sense:shell	
 оболочник	sense:shell	
@@ -17095,6 +17307,10 @@ lemma	senses	note
 снашиваться	sense:wear	
 сношение	sense:wear	
 сношенный	sense:wear	
+перенашивать	sense:wear	
+перенашиваться	sense:wear	
+пронашивать	sense:wear	
+пронашиваться	sense:wear	
 поноситься	sense:wear|sense:diarrhea	
 поносить	sense:wear|sense:diarrhea|sense:insult	
 вплести	sense:weave	

@@ -37,31 +37,57 @@ SENSES = _collect()
 __all__ = ['SEMANTIC_ROOT_ASSIGNMENTS', 'SENSES']
 
 
-def unsensed_split_family_lemmas() -> set[tuple[str, str]]:
-    """(family, lemma) pairs left without a sense in a family split by sense.
 
-    A Kuznetsova family is split when its lemmas carry two or more sense
-    names. Its lemmas with no sense keep the bare family root and open each
-    other (друг/дружба), but none of the split senses: an implicit default
-    cluster nobody reviewed. Until a lemma gets a sense or an explicit ``-``
-    row in ``sense_assignments.tsv`` (reviewed: it belongs to that default
-    cluster), it is listed in ``data/sense_review_queue.tsv``.
-    """
+def _family_members() -> dict[str, set[str]]:
     from collections import defaultdict
 
-    from games.puzzles.censorly.lexical.reviewed import SENSE_ASSIGNMENTS
     from games.puzzles.censorly.lexical.sources import KUZNETSOVA
 
     members: dict[str, set[str]] = defaultdict(set)
     for lemma, _root, family in KUZNETSOVA.rows():
         members[family].add(fold(lemma))
+    return members
+
+
+def split_families() -> set[str]:
+    """Kuznetsova families whose lemmas carry two or more sense names."""
+    return {
+        family for family, lemmas in _family_members().items()
+        if len({name for lemma in lemmas for name in SENSES.get(lemma, ())}) >= 2
+    }
+
+
+def reviewed_family_remainders() -> dict[str, str]:
+    """family → note from ``data/sense_family_remainders.tsv``."""
+    import csv
+
+    from games.puzzles.censorly.lexical.reviewed.table import DATA_DIR
+
+    with (DATA_DIR / 'sense_family_remainders.tsv').open(encoding='utf-8', newline='') as stream:
+        return {row['family']: row['note'] for row in csv.DictReader(stream, delimiter='\t')}
+
+
+def unsensed_split_family_lemmas() -> set[tuple[str, str]]:
+    """(family, lemma) pairs left without a sense in a family split by sense.
+
+    A split family's lemmas with no sense keep the bare family root and open
+    each other (друг/дружба), but none of the split senses: an implicit
+    default cluster. So do lemmas outside Kuznetsova that reach the family
+    root another way (нерешительный, степенной), which is why the remainder
+    is not given a sense name of its own. A family whose remainder was
+    reviewed as one meaning is listed in ``sense_family_remainders.tsv``; a
+    single lemma is settled with a sense or a ``-`` row in
+    ``sense_assignments.tsv``. Everything else is queued in
+    ``data/sense_review_queue.tsv``.
+    """
+    from games.puzzles.censorly.lexical.reviewed import SENSE_ASSIGNMENTS
+
+    members = _family_members()
+    reviewed = reviewed_family_remainders()
     explicit_none = {lemma for lemma, names in SENSE_ASSIGNMENTS.data.items() if not names}
-    found = set()
-    for family, lemmas in members.items():
-        names = {name for lemma in lemmas for name in SENSES.get(lemma, ())}
-        if len(names) < 2:
-            continue
-        for lemma in lemmas:
-            if lemma not in SENSES and lemma not in explicit_none:
-                found.add((family, lemma))
-    return found
+    return {
+        (family, lemma)
+        for family in split_families() - set(reviewed)
+        for lemma in members[family]
+        if lemma not in SENSES and lemma not in explicit_none
+    }
