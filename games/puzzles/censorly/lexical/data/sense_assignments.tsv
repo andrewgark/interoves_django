@@ -14,6 +14,7 @@ lemma	senses	note
 коник	-	коник (a little horse, a bench) is not конец; it stays on its конь root.
 нежить	-	нежить is the verb «to pamper» (нежный) as well as «the undead»; it keeps its bare roots.
 воротный	-	воротный belongs with ворота, not with вращение.
+прихожая	-	прихожая (entrance hall) is not the parish (прихожанин).
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -638,6 +639,7 @@ lemma	senses	note
 припадать	sense:attack	
 припадок	sense:attack	
 припадочный	sense:attack	
+нападение	sense:attack	
 внимание	sense:attention	
 вниманьице	sense:attention	
 внимательность	sense:attention	
@@ -1149,6 +1151,7 @@ lemma	senses	note
 починок	sense:begin_start	
 учать	sense:begin_start	
 поведение	sense:behavior	
+поведенческий	sense:behavior	
 безверие	sense:believe	
 безверный	sense:believe	
 вера	sense:believe	
@@ -10948,7 +10951,6 @@ lemma	senses	note
 приходский	sense:review_arrival	
 приходящий	sense:review_arrival	
 прийти	sense:review_arrival|sense:review_walking	
-нападение	sense:review_attack	
 свойственность	sense:review_attribute	«Свойство» and its adjectival derivatives mean an attribute; the possessive «свой» stays separate from kinship, mastery and appropriation.
 свойственный	sense:review_attribute	
 свойство	sense:review_attribute	
@@ -10982,6 +10984,7 @@ lemma	senses	note
 взяточничать	sense:review_bribery	
 взяточнический	sense:review_bribery	
 взяточничество	sense:review_bribery	
+взятка	sense:review_bribery	
 кадет	sense:review_cadet	
 кадетка	sense:review_cadet	
 кадетский	sense:review_cadet	
@@ -11049,7 +11052,6 @@ lemma	senses	note
 приемыш	sense:review_child_adoption	
 прихожанин	sense:review_church	
 прихожанка	sense:review_church	
-прихожая	sense:review_church	
 обход	sense:review_circumvention	
 обходный	sense:review_circumvention	
 обходчик	sense:review_circumvention	
@@ -11134,6 +11136,7 @@ lemma	senses	note
 безрассветный	sense:review_dawn	
 посуточный	sense:review_day24	сутки (24 hours) is not точка/стык.
 сутки	sense:review_day24	
+суточный	sense:review_day24	
 выходной	sense:review_day_off	This 213-lemma historical family mixes movement with transitions, entrances, routes, work, and figurative meanings. Keep those nouns and adjectives in smaller modern-sense clusters; the verbs below retain multiple readings where the ordinary movement sense is still live.
 скончавшийся	sense:review_death	
 скончание	sense:review_death	
@@ -11672,6 +11675,7 @@ lemma	senses	note
 приподымать	sense:review_lifting	
 приподыматься	sense:review_lifting	
 конечность	sense:review_limb|sense:review_end	
+построчный	sense:review_line	
 взаем	sense:review_loan	
 взаймы	sense:review_loan	
 заимствование	sense:review_loan	
@@ -11719,6 +11723,8 @@ lemma	senses	note
 ходкий	sense:review_marketability	
 ходкость	sense:review_marketability	
 муж	sense:review_marriage	
+женатый	sense:review_marriage_action	
+неженатый	sense:review_marriage_action	
 осваивание	sense:review_mastery	
 осваивать	sense:review_mastery	
 осваиваться	sense:review_mastery	
@@ -11837,7 +11843,6 @@ lemma	senses	note
 проезжать	sense:review_passing	
 проезжий	sense:review_passing	
 проехать	sense:review_passing	
-путь	sense:review_path	
 безличие	sense:review_personal	
 безличность	sense:review_personal	
 безличный	sense:review_personal	
@@ -11988,6 +11993,12 @@ lemma	senses	note
 наличные	sense:review_presence	
 наличный	sense:review_presence	
 поличное	sense:review_presence	
+нажать	sense:review_press	нажать, выжать, отжать, дожать, прожать, пережать are pressing only, though both жать families list them.
+выжать	sense:review_press	
+отжать	sense:review_press	
+дожать	sense:review_press	
+прожать	sense:review_press	
+пережать	sense:review_press	
 предыдущий	sense:review_previous	предыдущий (previous) is not идти/пройти.
 печать	sense:review_print|sense:seal	Печать is printing or a seal; распечатать prints out or unseals.
 распечатать	sense:review_print|sense:seal	
@@ -12358,6 +12369,7 @@ lemma	senses	note
 переходчивый	sense:review_transition	
 переходящий	sense:review_transition	
 перейти	sense:review_transition|sense:review_walking	
+путь	sense:review_travel_path	
 поездить	sense:review_trip	
 поездка	sense:review_trip	
 поездочный	sense:review_trip	
@@ -12468,7 +12480,6 @@ lemma	senses	note
 писать	sense:review_writing|sense:urinate	
 писаться	sense:review_writing|sense:urinate	
 письмо	sense:review_written_text|sense:review_writing	The written message retains its dedicated reading, while also participating in the broader writing family.
-год	sense:review_year	
 восставать	sense:revolt	
 восставить	sense:revolt	
 восставлять	sense:revolt	
@@ -17389,9 +17400,9 @@ lemma	senses	note
 неделька	sense:week	
 недельный	sense:week	
 неделя	sense:week	
-понедельничный	sense:week	
 понедельный	sense:week	
 понедельник	sense:weekday	
+понедельничный	sense:weekday	
 весовщик	sense:weighing	
 весовщица	sense:weighing	
 весы	sense:weighing	

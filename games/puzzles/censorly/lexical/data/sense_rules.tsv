@@ -177,11 +177,14 @@ family	pattern	sense	note
 ем|им¹|йм|ним|ня|ым²|я¹|∅	(?:прием|приним|принят|прия).*	sense:review_receive	
 ем|им¹|йм|ним|ня|ым²|я¹|∅	.*	sense:review_taking	
 лет²|лет	.*	sense:review_flight	
-год|гож|гожд	(?:погод|непогод|невзгод).*	sense:review_weather	
+год|гож|гожд	(?:погод|непогод|невзгод|распогод).*|погожий	sense:review_weather	
 год|гож|гожд	(?:выгод|безвыгод).*	sense:review_benefit	
-год|гож|гожд	(?:годи|годн|пригод|негод).*	sense:review_suitability	
+год|гож|гожд	.*годичн.*	sense:review_year	годичный (yearly) is not годиться.
+год|гож|гожд	(?:негодова|негодующ|вознегод).*	sense:review_indignation	негодование (indignation) is not негодный.
+год|гож|гожд	(?:пригож|непригож).*	sense:review_pretty	пригожий (comely) is not пригодный.
+год|гож|гожд	(?:годи|годн|пригод|негод|негож|сгод).*	sense:review_suitability	
 год|гож|гожд	(?:угод|угожд).*	sense:review_please	
-год|гож|гожд	.*	sense:review_year_time	
+год|гож|гожд	.*	sense:review_year	The rest of the family is the year (год, годовой, годовщина, загодя).
 мат¹|мач¹	(?:наматы|обмачив).*	sense:review_winding_soaking	
 мат¹|мач¹	(?:безматер|материть|материться|матерн|матерщ|матерка).*	sense:review_profanity	
 мат¹|мач¹	(?:безматок|безматочный|матица|матичный|матка|маточник|маточный)	sense:review_uterus	
@@ -199,6 +202,7 @@ family	pattern	sense	note
 тач¹|тек|теч|ток¹|точ¹	суточ.*	sense:daily	
 тач¹|тек|теч|ток¹|точ¹	(?:точ|заточ|наточ|обточ|отточ|переточ|подточ|проточ|расточ|сточ|уточ).*	sense:sharpen	
 тач¹|тек|теч|ток¹|точ¹	.*	sense:flow	
+вед¹|веж|вежд¹|вест|вещ¹	(?:невежеств|невежд).*	sense:know	невежество (ignorance) is not knowing, not impoliteness.
 вед¹|веж|вежд¹|вест|вещ¹	(?:веж|невеж).*	sense:polite	
 вед¹|веж|вежд¹|вест|вещ¹	невест.*	sense:bride	
 вед¹|веж|вежд¹|вест|вещ¹	совест.*	sense:conscience	
@@ -261,6 +265,7 @@ family	pattern	sense	note
 хаж|ход|хож|хожд	(?:доход|расход|приход|оприход).*	sense:review_income_expense	
 хаж|ход|хож|хожд	.*	sense:review_walking	
 бер|бир|бор¹|бр¹	(?:выбор|выбира|избир|избран|отбор|подбор).*	sense:review_choice	
+бер|бир|бор¹|бр¹	убор|убранство	sense:review_adornment	убор (headwear, attire) and убранство (decoration) are not уборка.
 бер|бир|бор¹|бр¹	(?:убор|убран).*	sense:review_cleaning	
 бер|бир|бор¹|бр¹	(?:собор|соборность|соборный|соборование|соборовать|собороваться|соборянин)	sense:review_church	
 бер|бир|бор¹|бр¹	(?:собр|сбир|сбор|собир).*	sense:review_assembly	
@@ -269,14 +274,13 @@ family	pattern	sense	note
 бер|бир|бор¹|бр¹	.*	sense:review_taking	
 пут²	(?:попутчик|попутчица|сопутник|сопутница|сопутный|сопутствовать|сопутствующий|спутник|спутница|спутничество)	sense:review_companion	A companion or satellite can accompany a journey, but is not the journey itself. Keep the companion derivatives together.
 пут²	.*	sense:review_travel_path	
-глад²|глод|голод	(?:глод|выглод|доглод|изглод|наглод|поглод).*	sense:review_gnaw	
-глад²|глод|голод	(?:голод|гладн|впроголод).*	sense:review_hunger	
-глад²|глод|голод	.*	sense:review_smooth	
+глад²|глод|голод	глад|(?:гладн|впроголод).*|.*голод.*	sense:review_hunger	The глад²/голод family is hunger and gnawing; smoothness is глад¹.
+глад²|глод|голод	.*гл[ао]д.*	sense:review_gnaw	
+глад²|глод|голод	.*	-	
 гна|гни|гно(j)	(?:гно|гной).*	sense:review_pus	
 гна|гни|гно(j)	.*	sense:review_rot	
 жа²|жин|жн	(?:ужин|ужин).*	sense:review_meal	
-жа²|жин|жн	(?:жатв|жнив|жне|жниц|зажин|дожин|выжин|нажин).*	sense:review_harvest	
-жа²|жин|жн	.*	sense:review_press	
+жа²|жин|жн	.*	sense:review_harvest	The жа²/жин family is reaping (жатва, пожинать, обжинать); pressing is жа¹. Pressing verbs that both dictionaries list keep only their press reading in sense_assignments.tsv.
 жир²|жор|жр¹	(?:жор|жрат|жирн).*	sense:review_eating	
 жир²|жор|жр¹	.*	sense:review_fat	
 клик|клиц|клич	(?:клич|восклиц|выклик|оклик).*	sense:review_call_cry	
@@ -382,6 +386,7 @@ family	pattern	sense	note
 поражн|порожн|пражн|праздн	испражн.*	sense:review_defecation	
 поражн|порожн|пражн|праздн	упражн.*	sense:review_exercise	
 поражн|порожн|пражн|праздн	упраздн.*	sense:review_abolition	
+поражн|порожн|пражн|праздн	(?:отпраздн|запраздн|попраздн|спраздн|предпраздн).*	sense:review_holiday_idleness	
 поражн|порожн|пражн|праздн	праздн.*	sense:review_holiday_idleness	
 поражн|порожн|пражн|праздн	.*	sense:review_empty	
 трус²	(?:трусик|трусы).*	sense:review_underwear	

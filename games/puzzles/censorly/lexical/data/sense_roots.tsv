@@ -13,3 +13,4 @@ sense:review_head	root:head	The rootbank gives глав root:chief and голо�
 sense:review_titles_headings	root:chief	заголовок belongs with заглавие and оглавление.
 sense:small	fam:мал⁴|мел|мол¹	мелюзга has no dictionary root of its own; it shares the root of мелкий.
 sense:review_deem	root:count	
+sense:review_day24	fam:тк|ток²|точ²|тык|тыч	The dictionary files сутки and суточный under different families; one root keeps the sense together.
