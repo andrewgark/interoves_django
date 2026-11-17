@@ -94,9 +94,11 @@ Wiktionary (`dictionaries/wiktionary_*`) читают только офлайн-
 | у леммы корни другой леммы (`AnchorTable`) | `negation_pairs.tsv`, `reviewed_nest_anchors.tsv`, `adverb_bases.tsv`, `half_compounds.tsv` |
 | прямые связи пар | `aliases.tsv`, `grammar_groups.tsv` |
 
-Ещё код, а не таблицы: sense-кластеры в `splits.py` и имена собственные в
-`match/proper_names.py` (план, Ш9). `lexical/senses.py` собирает их в один
-словарь `SENSES`.
+Смыслы лемм — таблицы `sense_rules.tsv` (упорядоченные правила-регэкспы на
+всю семью Кузнецовой) и `sense_assignments.tsv` (лемма → смыслы, перекрывает
+правила); `splits.py` только загружает их. Корни таких лемм —
+`semantic_roots.tsv`. Ещё код: имена собственные в `match/proper_names.py`
+(план, Ш9). `lexical/senses.py` собирает всё в один словарь `SENSES`.
 
 ### 2C. Контекст статьи — `lexical/context.py`, класс `TokenContext`
 
@@ -158,7 +160,7 @@ Wiktionary (`dictionaries/wiktionary_*`) читают только офлайн-
 
 ```
 лемма
-├─① есть в SENSES (splits.py, proper_names.py)?
+├─① есть в SENSES (sense_rules/sense_assignments, proper_names.py)?
 │     корень: SEMANTIC_ROOT_ASSIGNMENTS, иначе Тихонов-составное, иначе
 │     Кузнецова, иначе один морф; к каждой структуре дописывается sense
 │                                               ─► SEMANTIC_SPLIT_ROOTED      24 073

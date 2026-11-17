@@ -254,3 +254,27 @@ class SenseRuleTable(ReviewedTable):
             if pattern.fullmatch(lemma):
                 return sense
         raise AssertionError('unreachable: every family ends with .*')
+
+
+class SenseAssignmentTable(ReviewedTable):
+    """lemma → its sense readings, overriding ``SenseRuleTable``.
+
+    ``senses`` is ``|``-separated (several readings of one spelling) or
+    ``-`` (no sense even where a family rule would give one).
+    """
+
+    NAME_RE = re.compile(r'^(?:sense|root|fam):[^\s|+]+$')
+
+    def _build(self, rows) -> dict[str, tuple[str, ...]]:
+        found: dict[str, tuple[str, ...]] = {}
+        for row in rows:
+            lemma, raw = fold(row['lemma']), row['senses']
+            if not lemma or not raw:
+                self.fail(f'invalid row: {row}')
+            names = () if raw == '-' else tuple(raw.split('|'))
+            if any(not self.NAME_RE.fullmatch(name) for name in names) or len(set(names)) != len(names):
+                self.fail(f'invalid senses {raw!r} for {lemma}')
+            if lemma in found:
+                self.fail(f'duplicate lemma: {lemma}')
+            found[lemma] = names
+        return found

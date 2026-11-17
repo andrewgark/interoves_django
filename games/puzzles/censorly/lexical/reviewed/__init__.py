@@ -5,9 +5,7 @@ matcher opens a data file. Reports, review queues and tool memory that live
 next to these files are not listed here and do not affect play.
 
 Still code, not tables (see docs/censorly-matching-refactor-plan.md, Ш9):
-explicit sense clusters in ``lexical/splits.py`` (its family-wide rules
-are ``SENSE_RULES``) and proper-name clusters and pair relations in
-``lexical/match/proper_names.py``.
+proper-name clusters and pair relations in ``lexical/match/proper_names.py``.
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ from games.puzzles.censorly.lexical.reviewed.table import (
     GroupTable,
     PairSet,
     ReviewedTable,
+    SenseAssignmentTable,
     SenseRuleTable,
     SpellingSet,
     StructureTable,
@@ -50,9 +49,13 @@ LABELS = ReviewedTable('labels.tsv', ('label', 'lemma', 'kind', 'note'))
 # ── Question 3: which root structures a lemma has ──────────────────────────
 
 # Kuznetsova family → ordered regex rules that split its lemmas into senses
-# (first full match wins; ``-`` keeps the lemma on the family). Explicit
-# clusters in ``splits.py`` override a rule's decision.
+# (first full match wins; ``-`` keeps the lemma on the family). A lemma in
+# several ruled families reads every sense they give.
 SENSE_RULES = SenseRuleTable('sense_rules.tsv', ('family', 'pattern', 'sense', 'note'))
+# lemma → its sense readings; overrides SENSE_RULES (``-``: no sense).
+SENSE_ASSIGNMENTS = SenseAssignmentTable('sense_assignments.tsv', ('lemma', 'senses', 'note'))
+# lemma → root structures of a sense lemma the dictionaries cannot resolve.
+SEMANTIC_ROOTS = StructureTable('semantic_roots.tsv', alternatives=True)
 # Tikhonov morph spellings that become their own root (tikh:<morph>).
 OPAQUE_ROOTS = SpellingSet('reviewed_opaque_roots.tsv', ('root_spelling', 'note'), 'root_spelling')
 # lemma → complete structures written by hand; several rows are alternatives.
@@ -116,6 +119,8 @@ __all__ = [
     'OPAQUE_ROOTS',
     'REJECTED_FALLBACK',
     'REJECTED_READINGS',
+    'SEMANTIC_ROOTS',
+    'SENSE_ASSIGNMENTS',
     'SENSE_RULES',
     'TARGET_READINGS',
     'VISIBILITY',

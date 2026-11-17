@@ -257,7 +257,7 @@ family	pattern	sense	note
 кан|кон¹	(?:закон|узакон|подзакон|беззакон).*	sense:review_law	
 кан|кон¹	.*	sense:review_end	
 хаж|ход|хож|хожд	(?:похож|подоб).*	sense:review_similar	
-хаж|ход|хож|хожд	(?:наход|нахожд).*	sense:review_finding	
+хаж|ход|хож|хожд	(?:наход|нахожд).*	sense:review_finding	Orphans batch F5 (2026-11-11): one-word sense clusters left by earlier splits join the sense of the relatives a player links them with.
 хаж|ход|хож|хожд	(?:доход|расход|приход|оприход).*	sense:review_income_expense	
 хаж|ход|хож|хожд	.*	sense:review_walking	
 бер|бир|бор¹|бр¹	(?:выбор|выбира|избир|избран|отбор|подбор).*	sense:review_choice	
@@ -554,3 +554,10 @@ family	pattern	sense	note
 де(j)|де	(?:девать|деваться|деван|вдев|вздев).*	sense:review_put	
 де(j)|де	(?:одев|надев|раздев|переодев|приодев|разодев|одеть|надеть|раздеть).*	sense:review_dress	
 де(j)|де	.*	sense:review_deed	
+ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
+ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
+ч³|чес²|чет|чит|чт	(?!вычитк)(?:счит|счет|вычт|вычет|вычит|вычисл|подсчет|расчет|рассчит|учет|отчет|зачет|недосчет|недочет|обсчет|насчет|досчет|пересчет|смет).*	sense:count	
+ч³|чес²|чет|чит|чт	.*	-	Ordinary reading forms keep their explicit assignment.
+каш¹|кос¹|кош¹	.*	sense:scythe	The кос family has three ordinary modern senses: cutting with a scythe, an oblique direction, and hair braided into a коса. A spelling in two of these families reads both.
+каш³|кос²|кош³	.*	sense:oblique	
+кос³	.*	sense:hair_braid	

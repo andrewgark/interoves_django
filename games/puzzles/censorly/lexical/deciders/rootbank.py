@@ -9,7 +9,7 @@ appended to a complete root structure and is never a root by itself.
 
 Order of evidence for one lemma, first match wins:
 
-1. a sense assignment (``splits.py``, ``proper_names.py``): the root side
+1. a sense assignment (``splits`` tables, ``proper_names.py``): the root side
    comes from ``SEMANTIC_ROOT_ASSIGNMENTS`` or the dictionaries;
 2. ``reviewed_derived_roots.tsv``, 3. ``reviewed_existing_root_assignments.tsv``;
 4. a Tikhonov compound, each morph authorized separately; a morph that

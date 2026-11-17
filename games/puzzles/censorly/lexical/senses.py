@@ -1,9 +1,8 @@
 """Sense assignments: lemma → ``sense:*`` (or explicit root) names.
 
-Collected from the two code-data modules, in this order (a later
-assignment of the same lemma wins):
+Collected in this order (a later assignment of the same lemma wins):
 
-1. ``splits.BASE_CLUSTERS``, ``splits.CLUSTERS``, ``splits.MULTI_READINGS``;
+1. ``splits``: ``data/sense_rules.tsv`` and ``data/sense_assignments.tsv``;
 2. ``proper_names.CLUSTERS``, ``proper_names.MULTI_READINGS``.
 
 ``SEMANTIC_ROOT_ASSIGNMENTS`` gives the root side of a sense lemma that the

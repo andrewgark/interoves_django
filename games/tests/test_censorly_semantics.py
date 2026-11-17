@@ -2488,15 +2488,15 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertTrue(MATCHER.relation(ANALYZER.guess('лето'), ANALYZER.target('летний')))
 
     def test_pust_family_keeps_wasteland_and_trifle_labels(self):
-        from games.puzzles.censorly.lexical.splits import _classify_review_lemma
+        from games.puzzles.censorly.lexical.reviewed import SENSE_RULES
 
         family = 'пуст²|пущ¹'
         self.assertEqual(
-            _classify_review_lemma(family, 'пустыня'),
+            SENSE_RULES.classify(family, 'пустыня'),
             'sense:review_wasteland',
         )
         self.assertEqual(
-            _classify_review_lemma(family, 'пустяк'),
+            SENSE_RULES.classify(family, 'пустяк'),
             'sense:review_trifle',
         )
 

@@ -42,7 +42,7 @@ play.py / article/redact.py
        │         ├─ dictionaries/lemmas_to_roots.tsv   Кузнецова (54.9k строк)
        │         ├─ dictionaries/root_groups.txt       группы алломорфов
        │         ├─ dictionaries/RuMorphs-Lemmas.txt   Тихонов (96k лемм)
-       │         ├─ splits.py                          sense-кластеры (8268 строк)
+       │         ├─ splits.py                          загрузчик sense-таблиц
        │         ├─ match/proper_names.py              кластеры имён собственных
        │         └─ data/reviewed_*.tsv, negation_pairs.tsv, half_compounds.tsv
        └─ _relation()                 решение по слоям (порядок важен)
@@ -60,7 +60,7 @@ play.py / article/redact.py
 
 | Источник | Лемм в банке | Что это |
 |---|---:|---|
-| `SEMANTIC_SPLIT_ROOTED` / `SEMANTIC_ROOT_ASSIGNMENT` | 24 020 / 500 | лемма есть в `splits.py` или `proper_names.py`: корень плюс `sense:*` |
+| `SEMANTIC_SPLIT_ROOTED` / `SEMANTIC_ROOT_ASSIGNMENT` | 24 020 / 500 | лемма есть в sense-таблицах или `proper_names.py`: корень плюс `sense:*` |
 | `REVIEWED_DERIVED_ROOT` | 241 | `reviewed_derived_roots.tsv`: полная структура вручную |
 | `REVIEWED_EXISTING_ROOT` | 43 | `reviewed_existing_root_assignments.tsv` |
 | `KUZNETSOVA(_MULTI)` | 30 909 | семья Кузнецовой |
@@ -109,6 +109,11 @@ FALSE NEGATIVE.
   измеряют не то, что видит игрок.
 
 ## 4. `splits.py`
+
+> **Сделано 2026-11-18 (R4).** Ниже — состояние до переделки. Сейчас
+> `splits.py` — загрузчик на ~100 строк: `data/sense_rules.tsv` (562
+> правила, 135 семей), `data/sense_assignments.tsv` (17 830 строк, явная
+> строка перекрывает правило; `-` — без смысла) и `data/semantic_roots.tsv`.
 
 8 268 строк, в которых почти нет кода. По сути это база данных, записанная как
 Python.

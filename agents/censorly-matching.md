@@ -43,7 +43,7 @@
 | FALSE NEGATIVE, часть не открывает составное с префиксоидом (сериал → телесериал) | `data/compound_heads.tsv`: составное → голова в нужном смысле; только в эту сторону, голову не открывает |
 | FALSE NEGATIVE, `matches 2 game roots` | `data/reviewed_existing_root_assignments.tsv`, трек D |
 | FALSE NEGATIVE, имя собственное ↔ прилагательное | `lexical/match/proper_names.py`, трек P |
-| FALSE POSITIVE через общий корень семьи | sense-сплит в `lexical/splits.py`, скилл `censorly-root-family`, трек F |
+| FALSE POSITIVE через общий корень семьи | sense-сплит в `data/sense_assignments.tsv` / `data/sense_rules.tsv`, скилл `censorly-root-family`, трек F |
 | FALSE POSITIVE, `source=UNIQUE_SPELLING_FALLBACK` (вена → венок) | `data/rejected_fallback.tsv` + верный корень в `reviewed_derived_roots.tsv`, трек E |
 | FALSE POSITIVE через ошибочное чтение pymorphy | `data/rejected_readings.tsv` (везде) или `data/target_readings.tsv` (при лемме, выбранной токенизатором) |
 | омограф, который решает предложение («том», «г.», «кит.») | правило в `text/tokenize.py` + `TokenContext` в `lexical/context.py` |
@@ -101,7 +101,7 @@ INTEROVES_TEST_DB_PATH=/tmp/<свой>.sqlite3 ./run_tests.sh \
 
 С 2026-11-06 набор зелёный: любое падение считай своим. Если тест
 `test_semantic_structures_always_have_a_root_component` назвал лемму, значит
-в sense-кластер `splits.py` попало слово без корня ни в одном словаре. Проверь
+в `data/sense_assignments.tsv` попало слово без корня ни в одном словаре. Проверь
 его через `explain_pair` и pymorphy, и либо убери слово (так было с
 «западок»: его нет ни в одном словаре, pymorphy видит только «западкий»),
 либо дай ему корень.
