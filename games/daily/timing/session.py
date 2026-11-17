@@ -634,6 +634,11 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
         ),
         'completed': row.status == STATUS_COMPLETED,
         'exists': True,
+        # A page can receive another game's snapshot (the salad outbox flushes
+        # queued words from whatever page opens next); the timer uses these to
+        # ignore a snapshot that is not its own.
+        'game_id': row.game_id,
+        'task_group_id': row.task_group_id,
     }
 
 

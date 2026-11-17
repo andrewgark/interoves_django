@@ -3206,6 +3206,51 @@ asyncTest(async function testEventRetryBudgetExhaustionIsFiniteAndVisible() {
   ctrl.destroy();
 })();
 
+(function testOtherGamesCompletedSnapshotIsIgnored() {
+  // The salad outbox flushed a queued word from a freshly opened ladder page;
+  // the salad's completed snapshot froze the ladder timer at 0:00.
+  var listeners = {};
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {} },
+    setAttribute: function () {},
+  };
+  var ctrl = timer.create({
+    url: '/ladder/134/timing/',
+    document: {
+      visibilityState: 'visible',
+      body: { classList: { toggle: function () {} } },
+      addEventListener: function (name, callback) { listeners[name] = callback; },
+      dispatchEvent: function () {},
+    },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    bootstrap: { status: 'auto_paused', exists: false, game_id: 'ladder', task_group_id: 1924 },
+  });
+
+  listeners['interoves:daily-timing']({ detail: {
+    completed: true, status: 'completed', exists: true,
+    accumulated_ms: 265948, frozen_ms: 265948,
+    game_id: 'salad', task_group_id: 2080,
+  } });
+  assert.strictEqual(ctrl.state().completed, false);
+  assert.strictEqual(rootEl.hidden, false);
+
+  listeners['interoves:daily-timing']({ detail: {
+    completed: true, status: 'completed', exists: true,
+    accumulated_ms: 5000, frozen_ms: 5000,
+    game_id: 'ladder', task_group_id: 1924,
+  } });
+  assert.strictEqual(ctrl.state().completed, true);
+  ctrl.destroy();
+})();
+
 var GUARDED_GLOBALS = ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'addEventListener', 'navigator'];
 
 function snapshotGlobals() {

@@ -293,6 +293,8 @@ def daily_timing_page_context(
                 anon_key=anon_key,
                 replay_slot=replay_slot,
             ))
+        state.setdefault('game_id', getattr(game, 'pk', None) or getattr(game, 'id', None))
+        state.setdefault('task_group_id', getattr(placement, 'task_group_id', None))
     return {
         'daily_timing_enabled': enabled,
         'daily_timing': state,

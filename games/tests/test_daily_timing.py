@@ -102,9 +102,12 @@ class DailyTimingScopeTests(SimpleTestCase):
         ladder = daily_timing_page_context(
             None,
             SimpleNamespace(id='ladder'),
-            SimpleNamespace(number='12', task_group=SimpleNamespace()),
+            SimpleNamespace(number='12', task_group=SimpleNamespace(), task_group_id=1924),
         )
         self.assertEqual(ladder['daily_timing_url'], '/ladder/12/timing/')
+        # The timer ignores document-broadcast snapshots of other games.
+        self.assertEqual(ladder['daily_timing']['game_id'], 'ladder')
+        self.assertEqual(ladder['daily_timing']['task_group_id'], 1924)
         desyatka = daily_timing_page_context(
             None,
             SimpleNamespace(id='des173_test'),

@@ -1308,6 +1308,19 @@
       });
     }
 
+    // Gameplay responses are broadcast on the document, and a page can get
+    // another game's: the salad outbox sends words queued on an earlier page
+    // from whatever page opens next. A completed salad snapshot froze a
+    // freshly opened ladder at 0:00 (ladder 1924, 2026-11-17). Snapshots
+    // without identity (older servers) are still accepted.
+    var ownGameId = bootstrap.game_id != null ? String(bootstrap.game_id) : '';
+    var ownTaskGroupId = bootstrap.task_group_id != null ? String(bootstrap.task_group_id) : '';
+    function isOwnSnapshot(snap) {
+      if (ownGameId && snap.game_id != null && String(snap.game_id) !== ownGameId) return false;
+      if (ownTaskGroupId && snap.task_group_id != null && String(snap.task_group_id) !== ownTaskGroupId) return false;
+      return true;
+    }
+
     function markComplete(snap) {
       completed = true;
       manuallyPaused = false;
@@ -1354,7 +1367,7 @@
         }
       }, true);
       doc.addEventListener('interoves:daily-timing', function (ev) {
-        if (ev && ev.detail) {
+        if (ev && ev.detail && isOwnSnapshot(ev.detail)) {
           var clientRevision = Number(ev.detail._client_revision);
           // Completion is terminal. A visibility/pause event can advance the
           // local revision while a successful gameplay request is in flight;
