@@ -112,7 +112,7 @@ class ClubSubscriptionPageTests(TestCase):
             body = self.client.get('/subscription/').content.decode()
         self.assertIn('new-sub-provider--preferred" aria-labelledby="new-sub-tribute-title"', body)
         # Gifts are folded away but still on the page.
-        self.assertIn('<details class="new-sub-gift-details"', body)
+        self.assertRegex(body, r'<details[^>]*class="new-sub-gift-details"')
 
     def test_anonymous_sees_page_and_login_cta(self):
         response = self.client.get(reverse('new_subscription'))
