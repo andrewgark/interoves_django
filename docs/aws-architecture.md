@@ -14,10 +14,10 @@ Players
   -> RDS MySQL + ElastiCache Redis + S3-backed static/media
 ```
 
-`interoves-env` is Blue rollback capacity. It is not the public origin and is
-not a normal deployment target. Direct public access to Blue is blocked at its
-security group; administration remains available through SSM. A DNS rollback
-must be deliberate and must first verify that Blue background jobs are held.
+The former Blue rollback environment `interoves-env` was terminated on
+2026-11-17 after RDS was decoupled from its stack and Redis moved to its own
+security group (`interoves-redis-sg`). There is no standby web environment:
+roll back by redeploying a previous Green application version.
 
 ## Asynchronous work
 

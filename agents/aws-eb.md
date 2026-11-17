@@ -1,4 +1,4 @@
-# AWS / Elastic Beanstalk — Green, Blue и worker-окружения
+# AWS / Elastic Beanstalk — Green и worker-окружения
 
 Аккаунт `916000456640`, регион `eu-central-1`. Исторический снимок EB ниже
 проверен 2026-09-28. Актуальная карта worker-очередей и ECS-сервисов находится
@@ -19,8 +19,8 @@ integrations можно аналогично масштабировать до �
 Прод для игроков — Green ALB, окружение `interoves-web-green-lb`. Cloudflare
 records для `interoves.com` и `www.interoves.com` указывают на DNS-имя его
 Application Load Balancer. Старое single-instance окружение
-`interoves-web-green` выведено из production и удаляется. Blue,
-`interoves-env`, остаётся поднятым только как аварийный откат через DNS.
+`interoves-web-green` выведено из production и удаляется. Blue
+(`interoves-env`) удалён 2026-11-17; резервного web-окружения нет.
 
 На момент проверки:
 
@@ -38,20 +38,17 @@ interoves-env` для определения прода не подходят.
 | Окружение | Роль | Прод? | Примечание |
 |---|---|---:|---|
 | `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB в 1a/1b, ASG 2/2: 1 On-Demand `t3.small` + 1 Spot (`t3.small`/`t3a.small`), Capacity Rebalancing, health `/health/live/` |
-| `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
 | `interoves-identity-worker` | legacy EB identity-worker | нет | неактуальный consumer; identity merge сейчас обслуживает ECS `interoves-identity-ecs` |
 | `interoves-integrations-worker` | integration-worker | нет | Telegram/Instagram/social тики и карточки игр |
 
 Legacy-окружения `interoves-dev`, `interoves-prod`, `interoves-django-env` и
-`interoves-word-salad-worker` удалены 2026-11-01. Имя
-`interoves-dev.eu-central-1.elasticbeanstalk.com` — это CNAME Blue
-(`interoves-env`), а не отдельное окружение. Продовая RDS входит в
-CloudFormation-стек Blue: перед удалением Blue её нужно вывести из стека.
-
-Кроны Blue (`difficulty`, `telegram`, `word salad`) должны оставаться
-выключенными: Blue, Green и workers делят одну RDS, поэтому Blue может
-перехватить ту же работу.
+`interoves-word-salad-worker` удалены 2026-11-01. Blue `interoves-env`
+(CNAME `interoves-dev.eu-central-1.elasticbeanstalk.com`) удалён 2026-11-17.
+Перед этим продовая RDS выведена из его CloudFormation-стека
+(`HasCoupledDatabase=false`, на базе остались старые теги стека — они ничего
+не значат), Redis переведён в собственную security group `interoves-redis-sg`,
+а правило «весь трафик из SG Blue» убрано из SG RDS.
 
 ## Как деплоить
 
@@ -159,7 +156,6 @@ Read-only snapshot option names from AWS on 2026-09-28 (наличие пере�
 | Environment | Найденные `TELEGRAM_*` names |
 |---|---|
 | `interoves-web-green-lb` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
-| `interoves-env` (Blue) | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `NOTIFY_CHAT_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-background-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-identity-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-integrations-worker` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
@@ -176,7 +172,7 @@ restart app server уже запущенный процесс новыми optio
 ./scripts/aws_with_role.sh aws sts get-caller-identity
 ./scripts/aws_with_role.sh aws elasticbeanstalk describe-environments \
   --region eu-central-1 --application-name interoves \
-  --environment-names interoves-web-green-lb interoves-env \
+  --environment-names interoves-web-green-lb \
   interoves-background-worker interoves-identity-worker \
   interoves-integrations-worker
 curl -sS https://interoves.com/health/live/
@@ -185,46 +181,28 @@ curl -sS https://interoves.com/health/live/
 `./scripts/eb_run.sh` и `./scripts/with_rds.sh` по умолчанию подключаются к
 `interoves-web-green-lb`/Green ALB. `eb_run.sh` выбирает running instance по EB tag и
 идёт к нему через SSM `AWS-StartSSHSession`; public IP для Green не требуется.
-`with_rds.sh` делает SSM RDS tunnel через Green. Blue выбирается только явно:
-
-```bash
-./scripts/eb_run.sh --environment interoves-env manage.py check --database default
-./scripts/with_rds.sh --environment interoves-env manage.py migrate --plan
-```
+`with_rds.sh` делает SSM RDS tunnel через Green.
 
 Это management access и не меняет, куда смотрит Cloudflare. Для RDS локальный
 порт — `13306`; не выполняйте миграции через него без явной проверки плана.
 `eb_run.sh` получает production environment из процесса Daphne и потому
 предназначен прежде всего для web. Для worker management-команд нужен отдельный
 worker-aware SSM режим; отсутствие Daphne на worker не означает, что нужно
-подключаться к Blue.
+подключаться к другому web-окружению.
 
-Скрипты `eb status`, `eb logs`, `eb printenv` и команды вида `eb deploy` или
-`update-environment` с `interoves-env` ниже в старых runbook-примерах означают
-**Blue**, не production Green. Для Green используйте `./deploy.sh`; для worker
+Старые runbook-примеры и скрипты с `interoves-env` (`eb deploy`,
+`ensure_asg_schedule.sh`, `ensure_eb_health_alarm.sh`,
+`eb_build_nutrimatic_find_expr.sh`) относятся к удалённому Blue и больше не
+работают. Для Green используйте `./deploy.sh`; для worker
 — `./scripts/deploy_ecs_worker.sh`; карту очередей и правила deploy смотрите в
 `docs/worker-queues.md`. `deploy_worker.sh` относится к старой EB-схеме.
 
-## Emergency DNS rollback Green → Blue
+## Откат
 
-Blue (`interoves-env`) остаётся rollback target. Перед откатом убедитесь, что
-его difficulty, telegram и Word Salad jobs выключены (`CUTOVER HOLD`), процессы
-не запущены, а текущие targets Blue здоровы. Не включайте эти jobs после
-возврата HTTP на Blue.
-
-Если Green доступен для проверки, порядок такой:
-
-1. прочитать текущие Blue ASG targets и проверить их health;
-2. проверить hold для Word Salad, difficulty и telegram; hourly `--health-check`
-   difficulty можно оставить;
-3. проверить, что `word_salad_recheck_cron.sh`, `difficulty_cron.sh` и
-   `telegram_cron.sh` не выполняются;
-4. только затем направить apex и `www` Cloudflare на
-   `interoves-dev.eu-central-1.elasticbeanstalk.com`.
-
-Если Green недоступен и ждать нельзя, DNS переключается первым, а holds
-накладываются сразу после этого. Это degraded rollback; Blue jobs всё равно не
-включать.
+Резервного окружения нет. Откат — это повторный деплой предыдущей версии Green
+(`aws elasticbeanstalk update-environment --environment-name
+interoves-web-green-lb --version-label <предыдущий app-green-…>`) или
+`./deploy.sh` с нужного коммита. Миграции при этом не откатываются сами.
 
 ## RDS и известные ограничения
 
@@ -253,8 +231,6 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
 |---|---|
 | EB application | `interoves` |
 | Production web | `interoves-web-green-lb` |
-| Blue rollback | `interoves-env` |
 | Region | `eu-central-1` |
 | Account | `916000456640` |
-| EC2 role Blue/legacy | `aws-elasticbeanstalk-ec2-role` |
 | Green role | `interoves-green-web-role` |

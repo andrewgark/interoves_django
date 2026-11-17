@@ -293,9 +293,6 @@ else:
 
 ALLOWED_HOSTS = [
     'interoves.eu-central-1.elasticbeanstalk.com',
-    # CNAME of Blue (interoves-env), the DNS rollback target, despite the name.
-    'interoves-dev.eu-central-1.elasticbeanstalk.com',
-    'interoves-env.eu-central-1.elasticbeanstalk.com',
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     '172.31.43.189',
     'interoves.com',

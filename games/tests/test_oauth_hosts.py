@@ -104,7 +104,7 @@ class OAuthLoginStartTests(TestCase):
                 self.assertNotIn('next', state)
 
     def test_unregistered_host_moves_the_start_to_the_main_site(self):
-        host = 'interoves-env.eu-central-1.elasticbeanstalk.com'
+        host = 'interoves.eu-central-1.elasticbeanstalk.com'
         response = Client(HTTP_HOST=host).get('/accounts/google/login/', {'next': '/salad/'})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(

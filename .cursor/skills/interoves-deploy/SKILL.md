@@ -9,16 +9,15 @@ description: Prepare an explicitly targeted Interoves Django Elastic Beanstalk r
 
 “prod”, “production”, “сайт” and an unqualified “давай задеплоим” mean the web
 production environment `interoves-web-green-lb`. `./deploy.sh` is the canonical
-Green entrypoint and accepts only that production target. `interoves-env` is
-Blue, kept only for DNS rollback; Blue must not be deployed or repaired unless
-the user explicitly requests a Blue operation.
+Green entrypoint and accepts only that production target. Blue
+(`interoves-env`) was terminated on 2026-11-17; there is no rollback
+environment, so roll back by redeploying a previous Green version.
 
 The web entrypoint itself explicitly targets Green and rejects target overrides.
 For worker deploys, require the exact environment name:
 
 - production web: `interoves-web-green-lb`;
 - workers: the exact named worker environment;
-- rollback Blue: `interoves-env`, only with explicit authorization.
 
 ## Green web deployment
 
