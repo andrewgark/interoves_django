@@ -183,12 +183,15 @@ class Command(BaseCommand):
             raise CommandError('--apply needs --backup')
         payload = puzzle_from_task(task, persist=False)
         allowed = set(options['lemma'])
+        # Not select_related('task'): that repeats the multi-megabyte article
+        # in every joined row (90 states took 62 s on production).
         rows = ChainTaskState.objects.filter(task=task).select_related(
-            'game', 'user', 'replay_slot', 'task__task_group',
+            'game', 'user', 'replay_slot',
         ).order_by('pk')
         replays = []
         skipped = 0
         for row in rows:
+            row.task = task
             replay = Replay(row, payload, task, allowed)
             if not replay.changed:
                 continue
