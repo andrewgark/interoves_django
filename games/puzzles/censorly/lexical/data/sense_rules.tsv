@@ -583,6 +583,8 @@ family	pattern	sense	note
 де(j)|де	.*бездель.*|безделиц.*|безделк.*|безделуш.*	sense:review_idleness	
 де(j)|де	(?:сдельн|сдельщ).*	sense:review_piecework	
 де(j)|де	издели.*	sense:review_product	
+де(j)|де	(?:поделк|поделочн).*	sense:review_craft	поделка (a handmade craft) and проделка (a prank) are their own senses, not делать.
+де(j)|де	проделк.*	sense:review_prank	
 де(j)|де	.*	sense:deed	
 ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
 ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
