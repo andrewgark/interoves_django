@@ -1069,6 +1069,32 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
+    @staticmethod
+    def fill_replacement(page, row, value):
+        page.locator(f'{row} button[data-repl-slot]').first.click()
+        editor_input = page.locator('.repl-editor input[data-repl-editor-input]')
+        editor_input.fill(value)
+        editor_input.press('Enter')
+
+    def test_replacements_guess_reaches_teammate_without_reload(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        first.goto(url)
+        second.goto(url)
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+        card = f'#new-task-{self.replacements_task.pk}'
+        first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+
+        self.fill_replacement(first, first_row, 'guess')
+        expect(second.locator(
+            f'{first_row} button[data-repl-slot] .unsubmitted-replacement'
+        )).to_have_text('guess', timeout=10_000)
+        expect(second.locator(f'{card} .repl-chip__guess')).to_have_text('GUESS')
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+
     def test_teammate_can_submit_next_replacements_line_after_live_update(self):
         from playwright.sync_api import expect
 
@@ -1083,14 +1109,14 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
         second_row = f'{card} tr.new-replacements-row[data-line-index="1"]'
 
-        first.locator(f'{first_row} input.new-replacements-input').fill('FOO')
+        self.fill_replacement(first, first_row, 'FOO')
         first.locator(f'{first_row} button[type="submit"]').click()
         for page in (first, second):
             expect(page.locator(first_row)).to_have_class(
                 re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
             )
 
-        second.locator(f'{second_row} input.new-replacements-input').fill('BAR')
+        self.fill_replacement(second, second_row, 'BAR')
         second.locator(f'{second_row} button[type="submit"]').click()
         for page in (first, second):
             expect(page.locator(second_row)).to_have_class(
@@ -1114,9 +1140,9 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
         second_row = f'{card} tr.new-replacements-row[data-line-index="1"]'
 
-        first.locator(f'{first_row} input.new-replacements-input').fill('FOO')
-        second_input = second.locator(f'{second_row} input.new-replacements-input')
-        second_input.fill('BAR')
+        self.fill_replacement(first, first_row, 'FOO')
+        self.fill_replacement(second, second_row, 'BAR')
+        second_guess = second.locator(f'{second_row} button[data-repl-slot] .unsubmitted-replacement')
         second_document_before = second.evaluate('window.__interovesDocumentId')
 
         held = []
@@ -1140,8 +1166,8 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             expect(first.locator(f'{first_row}')).to_have_class(
                 re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
             )
-            expect(second_input).to_have_value('BAR', timeout=10_000)
-            expect(second_input).to_be_visible()
+            expect(second_guess).to_have_text('BAR', timeout=10_000)
+            expect(second_guess).to_be_visible()
 
             for route in held:
                 route.continue_()

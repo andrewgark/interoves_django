@@ -77,6 +77,9 @@
     if (msg.raddle_ui && typeof global.applyRaddleUiState === 'function') {
       global.applyRaddleUiState(msg.raddle_ui, {fromRemote: true});
     }
+    if (msg.replacements_ui && typeof global.applyReplacementsUiState === 'function') {
+      global.applyReplacementsUiState(msg.replacements_ui);
+    }
   }
 
   function dispatchPageSyncEvent(name, detail) {

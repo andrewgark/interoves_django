@@ -11,7 +11,7 @@
 #
 # Для UI right_tokens хранит не None, а токены:
 #   - {'type': 'text', 'text': '...'}
-#   - {'type': 'slot', 'slot_index': 0..N-1}
+#   - {'type': 'slot', 'slot_index': 0..N-1, 'encoded': текст слота в задании}
 
 import html
 import json
@@ -274,7 +274,11 @@ def _segments_and_slot_values(line):
         if start > pos:
             tokens.append({'type': 'text', 'text': base[pos:start]})
         slot_idx = len(slot_values)
-        tokens.append({'type': 'slot', 'slot_index': slot_idx})
+        tokens.append({
+            'type': 'slot',
+            'slot_index': slot_idx,
+            'encoded': replacements_decode_html_entities(content),
+        })
         slot_values.append(content)
         pos = end
     if pos < len(base):
