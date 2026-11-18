@@ -574,6 +574,15 @@ family	pattern	sense	note
 де(j)|де	(?:девать|деваться|деван|вдев|вздев).*	sense:review_put	
 де(j)|де	(?:одев|надев|раздев|переодев|приодев|разодев|одеть|надеть|раздеть|переодет|раздет|поддев|пододеял|одеял).*	sense:review_dress	Clothing and bedding (одеть, раздетый, поддевка, пододеяльник) are not делать.
 де(j)|де	понадеяться	sense:hope	понадеяться is надеяться, not делать.
+де(j)|де	(?:сделк|сделочн).*	sense:review_deal	Separate meanings inside делать (user decision 2026-11-19): сделка, подделка, отделка, возделывать, выделка, разделка, безделье, сдельный, изделие.
+де(j)|де	(?:подделк|подделать|подделыв|поддельн).*	sense:review_forgery	
+де(j)|де	(?:отделк|отделоч|отделать|отделыв|обделк|обделоч).*	sense:review_finishing	
+де(j)|де	(?:возделыв|возделать).*	sense:review_cultivation	
+де(j)|де	(?:выделк|выделать|выделыв).*	sense:review_leather_dressing	
+де(j)|де	(?:разделк|разделоч|разделать|разделыв|раздельщик).*	sense:review_butchering	
+де(j)|де	.*бездель.*|безделиц.*|безделк.*|безделуш.*	sense:review_idleness	
+де(j)|де	(?:сдельн|сдельщ).*	sense:review_piecework	
+де(j)|де	издели.*	sense:review_product	
 де(j)|де	.*	sense:deed	
 ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
 ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
