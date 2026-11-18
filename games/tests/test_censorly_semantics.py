@@ -1219,6 +1219,47 @@ class SemanticsTests(SimpleTestCase):
             next(token for token in sentence if token.get('surface') == 'А')['kind'], 'stop',
         )
 
+    def test_letters_that_name_something_are_closed(self):
+        from games.puzzles.censorly.lexical.context import initial_context
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        def letters(text):
+            return [
+                (token['surface'], token.get('initially_open') is False)
+                for token in tokenize_text(text)
+                if len(token.get('surface') or '') == 1 and token['surface'].isalpha()
+            ]
+
+        closed = {
+            'Марки А-76, АИ-93 и Б-70.': ['А', 'Б'],
+            'План Б — запуск, а не план А.': ['Б', 'А'],
+            'Вступил в ВКП(б) в 1931 году.': ['б'],
+            'Включает: а) сжатие; б) разгон.': ['а', 'б'],
+            'Летом +27 °С, ток 1 А·м², напряжение 0,6 В для диода.': ['С', 'А', 'В'],
+            'Юджин О’Нил шёл к ж/д вокзалу, дом 221-б.': ['О', 'ж', 'б'],
+            'Литера «И» в марках, алоин А, алоин В.': ['И', 'А', 'В'],
+            'Типы:\n• В — варикапы;\n• С — стабилитроны.': ['В', 'С'],
+        }
+        for text, expected in closed.items():
+            with self.subTest(text=text):
+                self.assertEqual([s for s, is_closed in letters(text) if is_closed], expected)
+
+        still_open = (
+            'А потом мы ушли. В 1937 году. С 1990 года. К 2000 году.',
+            'В-третьих, Руис-и-Пикассо и рефлексия-в-себе, будучи 12-и лет.',
+            'Пользователи Instagram’а и/или Facebook.',
+            'Если б я знал, обратился б ли я к нему.',
+            'Он родился в мая 1935 года В 1937 году переехал.',
+        )
+        for text in still_open:
+            with self.subTest(text=text):
+                self.assertEqual([s for s, is_closed in letters(text) if is_closed], [])
+
+        tokens = tokenize_text('Бензин Б-70 и Б-92.')
+        self.assertEqual(matching_lemmas(tokens, 'б'), {initial_context('б')})
+        self.assertEqual(matching_lemmas(tokens, 'бы'), set())
+
     def test_fixed_abbreviations_open_only_in_their_phrase(self):
         from games.puzzles.censorly.text.tokenize import tokenize_text
 

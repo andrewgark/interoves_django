@@ -427,7 +427,9 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
     tokens.extend(_tokenize_blocks(
         raw[pos:].replace(QUOTE_END, ''), in_title=in_title, start_id=start_id + len(tokens),
     ))
-    return _open_fixed_abbreviations(_close_initials(_annotate_contextual_readings(tokens)))
+    return _open_fixed_abbreviations(_close_letter_symbols(
+        _close_initials(_annotate_contextual_readings(tokens)),
+    ))
 
 
 def _tokenize_blocks(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
@@ -881,7 +883,8 @@ def _initial_dot(tokens: list[dict[str, Any]], index: int) -> int:
     ):
         return -1
     dot = _next_nonspace(tokens, index + 1)
-    if dot < len(tokens) and tokens[dot].get('kind') == 'punct' and tokens[dot].get('surface') == '.':
+    # «Ж.-Б. Био»: the period and hyphen glue into one «.-» token.
+    if dot < len(tokens) and tokens[dot].get('kind') == 'punct' and tokens[dot].get('surface') in {'.', '.-'}:
         return dot
     return -1
 
@@ -917,16 +920,148 @@ def _close_initials(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
             or (position < len(tokens) and _is_name_word(tokens[position]))
         ):
             for at in chain:
-                tok = tokens[at]
-                tok.pop('ending', None)
-                tok['kind'] = 'content'
-                tok['lemma'] = initial_context(normalize_surface(tok.get('surface') or ''))
-                tok['context_reading'] = tok['lemma']
-                tok['initially_open'] = False
-                tok['length'] = 1
-                tok['stem_length'] = 1
-                tok['initial'] = True
+                _close_as_letter(tokens[at])
         index = max(position, index + 1) if chain else index + 1
+    return tokens
+
+
+def _close_as_letter(tok: dict[str, Any]) -> None:
+    """Read a one-letter token as the letter itself: closed, opened by it alone."""
+    tok.pop('ending', None)
+    tok['kind'] = 'content'
+    tok['lemma'] = initial_context(normalize_surface(tok.get('surface') or ''))
+    tok['context_reading'] = tok['lemma']
+    tok['initially_open'] = False
+    tok['length'] = 1
+    tok['stem_length'] = 1
+    tok['initial'] = True
+
+
+# One-letter words open at the start: conjunctions, prepositions and the
+# particle «б» (бы). The same letter can name something: «А-76», «План Б»,
+# «ВКП(б)», «°С», «1 А», «О’Нил», «литера «И»».
+_OPEN_LETTERS = frozenset('абвжикосу')
+_HYPHENS = frozenset({'-', '‐', '‑', '–'})
+_LETTER_JOINERS = ('/', '’', "'", '·', '⋅')
+_OPEN_QUOTES = ('«', '„', '"', '“')
+_CLOSE_QUOTES = ('»', '“', '"', '”')
+_CELL_BLOCKS = frozenset({'cell', 'header_cell', 'row', 'table_end', 'caption'})
+
+
+def _surface(tokens: list[dict[str, Any]], index: int) -> str:
+    return (tokens[index].get('surface') or '') if 0 <= index < len(tokens) else ''
+
+
+def _is_word_at(tokens: list[dict[str, Any]], index: int) -> bool:
+    return (
+        0 <= index < len(tokens)
+        and tokens[index].get('kind') in {'content', 'stop'}
+        and _surface(tokens, index)[:1].isalnum()
+    )
+
+
+def _gap_has_newline(tokens: list[dict[str, Any]], start: int, end: int) -> bool:
+    return any(
+        char in (tok.get('surface') or '') for tok in tokens[start + 1:end]
+        for char in '\n\r\u2028\u2029'
+    )
+
+
+def _is_letter_symbol(tokens: list[dict[str, Any]], index: int) -> bool:
+    """Whether an open one-letter word stands for the letter, not the function word."""
+    surface = _surface(tokens, index)
+    letter = normalize_surface(surface)
+    upper = surface.isupper()
+    left, right = _surface(tokens, index - 1), _surface(tokens, index + 1)
+
+    if letter == 'б' and upper:
+        # The particle «б» never opens a clause: «План Б», «Б-70».
+        return True
+    # «рефлексии-в-себе», «Руис-и-Пикассо»: a function word inside a compound.
+    if (
+        not upper and left in _HYPHENS and right in _HYPHENS
+        and _is_word_at(tokens, index - 2) and _is_word_at(tokens, index + 2)
+    ):
+        return False
+    # «А-76», «К-19», «О-ацетил», «С-образный»; not «в-третьих» or «А-а-а».
+    if right in _HYPHENS and _is_word_at(tokens, index + 2):
+        after = normalize_surface(_surface(tokens, index + 2))
+        if not (after.endswith(('ых', 'их')) or after[:1] == letter):
+            return True
+    # «дом 221-б»; «12-и лет» is a numeral ending.
+    if left in _HYPHENS and letter in 'абв' and _surface(tokens, index - 2).isdigit():
+        return True
+    # «ВКП(б)», «(версия О)», list items «а)», «б)».
+    if right.startswith(')'):
+        return True
+    # «ж/д», «А/с», «А·м²», «О’Нил», «д’О»; «и/или» stays a conjunction and
+    # «Instagram’а» keeps its case ending.
+    for joined, other in ((right, index + 2), (left, index - 2)):
+        if joined not in _LETTER_JOINERS:
+            continue
+        if joined in {'’', "'"} and other < index and not upper:
+            continue
+        if joined == '/' and 0 <= other < len(tokens) and tokens[other].get('kind') == 'stop':
+            continue
+        return True
+    # «°С».
+    if left.endswith('°'):
+        return True
+    # «литера «И»».
+    if left.endswith(_OPEN_QUOTES) and right.startswith(_CLOSE_QUOTES):
+        return True
+    previous = _previous_nonspace(tokens, index)
+    following = _next_nonspace(tokens, index + 1)
+    # A letter alone in a table cell.
+    if (
+        previous >= 0 and tokens[previous].get('block') in {'cell', 'header_cell'}
+        and (following >= len(tokens) or tokens[following].get('block') in _CELL_BLOCKS)
+    ):
+        return True
+    if not upper:
+        return False
+    # A legend item that opens a line: «• В — варикапы», «А — западные арабские».
+    if _surface(tokens, following) in {'—', '–'} and (
+        previous < 0 or _gap_has_newline(tokens, previous, index)
+        or _surface(tokens, previous) == '•' or tokens[previous].get('kind') == 'block'
+    ):
+        return True
+    if previous < 0 or _gap_has_newline(tokens, previous, index):
+        return False
+    before = _surface(tokens, previous)
+    after = _surface(tokens, following)
+    # A preposition before a name or a number governs it, even where the
+    # article lost a period: «года В 1937 году», «на север, В Китае».
+    preposition = letter in 'вксуо'
+    if preposition and _is_word_at(tokens, following) and not after[:1].islower():
+        return False
+    # A unit after a number: «1 А», «4 К», «0,6 В для диода».
+    if before[-1:].isdigit() and tokens[previous].get('kind') == 'content':
+        return True
+    # A capital mid-sentence: «План А», «алоин В», «А любит Б, Б не любит А».
+    # Verse lines start on a new line, and a quote or bracket may open a title.
+    if preposition and _is_word_at(tokens, following):
+        return False
+    return (
+        (_is_word_at(tokens, previous) and before[:1].islower())
+        or before == ','
+    )
+
+
+def _close_letter_symbols(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Close one-letter function words that stand for the letter itself."""
+    for index, tok in enumerate(tokens):
+        surface = tok.get('surface') or ''
+        if (
+            len(surface) != 1 or tok.get('initial') or tok.get('script')
+            or normalize_surface(surface) not in _OPEN_LETTERS
+            or tok.get('kind') not in {'stop', 'content'}
+            or tok.get('initially_open') is False
+            or (tok.get('kind') == 'content' and tok.get('context_reading'))
+        ):
+            continue
+        if _is_letter_symbol(tokens, index):
+            _close_as_letter(tok)
     return tokens
 
 
