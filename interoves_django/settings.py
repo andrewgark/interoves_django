@@ -506,6 +506,8 @@ except ValueError:
 
 # games.site.http.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
+# Seconds the hub keeps actor-independent placement lists (0 disables).
+HUB_LINK_CACHE_SECONDS = _env_float('HUB_LINK_CACHE_SECONDS', 60)
 
 # Sample a small fraction of task-level projection reads against the canonical
 # attempts scorer. A mismatch falls back to the canonical response and is

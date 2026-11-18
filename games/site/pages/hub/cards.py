@@ -59,11 +59,11 @@ from games.site.pages.game.progress import (
     _game_page_progress_context,
     _game_task_group_links,
     _play_url_for_task_group,
-    _player_visible_task_group_links,
     _resolve_game_page_actor,
     _task_group_progress_payload,
     _task_group_results_url,
 )
+from games.site.pages.hub import link_cache as hub_link_cache
 from games.site.session.play_mode import effective_play_mode
 
 logger = logging.getLogger('games.views.new_ui')
@@ -127,10 +127,16 @@ def _build_hub_section_cards(request, *, team):
             if is_scheduled_game(game_id):
                 card = get_scheduled_section_hub_card(
                     game,
-                    published_numbers=_published_numbers(game),
+                    published_numbers=hub_link_cache.published_numbers(game),
                 )
             else:
-                card = get_training_section_hub_context(game)
+                # Training sections have no release schedule: the whole card
+                # is shared. Copy it, because the actor fields go on top.
+                card = dict(hub_link_cache.cached(
+                    ('training_card', game_id),
+                    lambda game=game: get_training_section_hub_context(game),
+                ))
+                card['game'] = game
             play_mode, _ = _get_play_mode(request, game.project_id)
             play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
@@ -144,7 +150,7 @@ def _build_hub_section_cards(request, *, team):
                 try:
                     cta_number = str(card['cta_number'])
                     links = [
-                        link for link in _player_visible_task_group_links(game)
+                        link for link in hub_link_cache.visible_game_links(game)
                         if str(link.number) == cta_number
                     ]
                     if links:

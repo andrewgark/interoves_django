@@ -26,3 +26,7 @@ from .test_isolation import *  # noqa: E402,F403,F401
 # Test users get small ids: the first one must not inherit every unauthored
 # daily release. Tests of that fallback turn it on with override_settings.
 DAILY_DEFAULT_AUTHOR_USER_ID = None
+
+# The hub's process-local link cache would carry placements across tests that
+# reuse game ids; its own tests enable it with override_settings.
+HUB_LINK_CACHE_SECONDS = 0
