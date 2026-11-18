@@ -16,11 +16,10 @@ run is unchanged: an unfinished today is kept, an unfinished yesterday is not.
 
 from datetime import timedelta
 
-from django.db.models import Prefetch
 from django.utils import timezone
 
 from games.daily.page.section import DAILY_TIMING_GAME_IDS, MOSCOW, schedule_for
-from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile, TaskGroup
+from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, TaskGroup
 
 STREAK_COMPLETION_WINDOW = timedelta(hours=36)
 CLUB_STREAK_COMPLETION_WINDOW = timedelta(hours=84)
@@ -148,15 +147,9 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     intervals = club_access_intervals(user)
     game_ids = list(result)
     games_by_id = {str(game.id): game for game in games}
-    links_qs = GameTaskGroup.objects.filter(game_id__in=game_ids).only(
-        'game_id', 'task_group_id', 'number', 'task_group',
-    )
-    if user is not None:
-        links_qs = links_qs.prefetch_related(Prefetch(
-            'task_group__authors',
-            queryset=Profile.objects.filter(user_id=user.pk),
-        ))
-    links = list(links_qs)
+    links = list(GameTaskGroup.objects.filter(game_id__in=game_ids).only(
+        'game_id', 'task_group_id', 'number',
+    ))
     link_dates = {}
     link_publication_times = {}
     for link in links:
@@ -200,6 +193,12 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     # without creating an Attempt/PlayerCompletedGame row (which could leak
     # into timing, analytics, or result projections).
     if user is not None:
+        # One narrow query instead of prefetching every task group with its
+        # authors (~0.2 s on the hub for ~1200 links).
+        authored = set(TaskGroup.authors.through.objects.filter(
+            profile_id=user.pk,
+            taskgroup_id__in={link.task_group_id for link in links},
+        ).values_list('taskgroup_id', flat=True))
         for link in links:
             key = (str(link.game_id), link.task_group_id)
             published_date = link_dates.get(key)
@@ -211,7 +210,7 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
                 or published_date > today
             ):
                 continue
-            if link.task_group.authors.all():
+            if link.task_group_id in authored:
                 completed_dates[str(link.game_id)].add(published_date)
 
     for game_id, dates in completed_dates.items():
