@@ -29,8 +29,6 @@ lemma	senses	note
 11	-	
 одиннадцать	-	
 одиннадцатый	-	
-непосредственно	-	
-непосредственный	-	
 одноименный	-	
 хор	-	
 хоровой	-	
@@ -64,7 +62,6 @@ lemma	senses	note
 пластификатор	-	
 садист	-	
 селевый	-	
-непосредственность	-	
 снизойти	-	
 паж	-	
 следуемый	-	
@@ -93,6 +90,7 @@ lemma	senses	note
 всесветный	-	
 отселе	-	
 свить	-	свить stays apart: its form «свиты» is also the noun свита, and a winding sense would let развиваться open «свиты».
+невидимый	-	невидимый stays on the bare root with вид (correctness label невидимый → вид OK).
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -8335,6 +8333,9 @@ lemma	senses	note
 посредствующий	sense:means	
 средство	sense:means	
 опосредствоваться	sense:means	
+непосредственный	sense:means	непосредственный shares посредство with опосредствованный (correctness label OK).
+непосредственно	sense:means	
+непосредственность	sense:means	
 безмерность	sense:measure	Намерить is measuring a quantity; намереваться expresses intention.
 безмерный	sense:measure	
 вымеривание	sense:measure	
@@ -11025,8 +11026,8 @@ lemma	senses	note
 пролив	sense:review_bay	
 завзятый	sense:review_bias	
 послеродовой	sense:review_birth_origin	
-синий	sense:review_blue_color	
 иссинить	sense:review_blue_color	
+синий	sense:review_blue_color	синий stays apart from синяк (homonym review test); the s1 label синячок → синий OK is a known loss.
 межкостный	sense:review_bone	
 разорвать	sense:review_break	
 разрыв	sense:review_break	
@@ -11040,6 +11041,7 @@ lemma	senses	note
 взяточнический	sense:review_bribery	
 взяточничество	sense:review_bribery	
 взятка	sense:review_bribery	
+синячок	sense:review_bruise	
 кадет	sense:review_cadet	
 кадетка	sense:review_cadet	
 кадетский	sense:review_cadet	
@@ -12112,6 +12114,7 @@ lemma	senses	note
 явно	sense:review_presence_reality	
 неявный	sense:review_presence_reality	
 явить	sense:review_presence_reality	
+появиться	sense:review_presence_reality|sense:review_revelation	появиться reads both явиться/явный and появление: correctness s1/s3 label явно → появиться OK.
 нажать	sense:review_press	нажать, выжать, отжать, дожать, прожать, пережать are pressing only, though both жать families list them.
 выжать	sense:review_press	
 отжать	sense:review_press	
@@ -12227,7 +12230,6 @@ lemma	senses	note
 воскрешение	sense:review_resurrection	
 розница	sense:review_retail	Retail (розница) is not разный.
 розничный	sense:review_retail	
-появиться	sense:review_revelation	Words outside the root dictionary (participles, reflexives, adverbs reached by spelling fallback) take the sense of their base, or they stay on the bare root and open none of it.
 выявить	sense:review_revelation	
 выявиться	sense:review_revelation	
 спетость	sense:review_ripening	
@@ -12564,7 +12566,6 @@ lemma	senses	note
 старостиха	sense:review_village_head	
 поселок	sense:review_village|sense:settlement	поселок is a village (село) and a settlement (поселение, поселиться).
 проходимец	sense:review_villain	
-невидимый	sense:review_visibility	
 навестить	sense:review_visit	
 навещать	sense:review_visit	
 навещаться	sense:review_visit	
