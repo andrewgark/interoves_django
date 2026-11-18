@@ -147,11 +147,19 @@ def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Tas
     }
     out = {}
     for number, task in numbers_and_tasks:
-        state = states.get(task.pk) or default_state()
+        state = states.get(task.pk)
+        if state is None:
+            continue
         attempts = len(state.get('guesses') or [])
         hints = hint_count(state)
-        payload = puzzle_from_task(task)
-        won = bool(payload and _state_won(state, payload))
+        won = bool(state.get('won'))
+        # Only legacy states without the won flag need the article: their
+        # solve is a fully revealed title. Loading every archived puzzle here
+        # cycled the 16-entry payload cache and re-tokenized ~40 articles per
+        # hub view (2-3 s).
+        if not won and state.get('revealed_lemmas'):
+            payload = puzzle_from_task(task)
+            won = bool(payload and _state_won(state, payload))
         if not won and not attempts and not hints:
             continue
         parts = []

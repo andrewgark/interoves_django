@@ -333,6 +333,8 @@ def censorly_hub_page(request):
         game,
         progress_for_actor=hub_progress_for_actor,
         digits_only=True,
+        # Each task stores a whole tokenized article; progress rarely needs it.
+        task_defer=('tags', 'checker_data'),
         random_button_template='site/partials/censorly_random_button.html',
         rules_body_template='site/_censorly_rules_body.html',
         empty_text='Цензурки скоро появятся.',

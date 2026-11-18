@@ -325,6 +325,7 @@ def daily_hub_context(
     rules_body_template,
     empty_text,
     digits_only=False,
+    task_defer=(),
 ):
     """Строки архива, календарь и общая шапка хаба.
 
@@ -374,7 +375,7 @@ def daily_hub_context(
         for task in Task.objects.filter(
             task_group_id__in=[link.task_group_id for _number, link in numbered],
             number='1',
-        )
+        ).defer(*task_defer)
     }
     user, anon_key = resolve_actor(request)
     progress = progress_for_actor(

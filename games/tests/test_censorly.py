@@ -242,6 +242,34 @@ class CensorlyEngineTests(TestCase):
         self.assertEqual(solved[3]['row_class'], 'new-task--solved')
         self.assertTrue(solved[3]['is_solved'])
 
+    def test_hub_progress_loads_articles_only_for_legacy_states(self):
+        game, task, _hash, _puzzle = _make_puzzle_task(
+            title='Кот', body='Кот сидит у окна.',
+        )
+        _game2, untouched, _hash2, _puzzle2 = _make_puzzle_task(
+            title='Дом', body='Дом стоит.',
+        )
+        ChainTaskState.objects.create(
+            task=task, game=game, anon_key='censorly-legacy',
+            game_mode='general',
+            state=json.dumps({
+                'guesses': [{'word': 'кот', 'hits': 1}],
+                'revealed_lemmas': ['кот'],
+            }),
+        )
+        with patch(
+            'games.puzzles.censorly.play.puzzle_from_task',
+            wraps=puzzle_from_task,
+        ) as load:
+            progress = hub_progress_for_actor(
+                game=game,
+                numbers_and_tasks=[(3, task), (4, untouched)],
+                anon_key='censorly-legacy',
+            )
+        self.assertTrue(progress[3]['is_solved'])
+        self.assertNotIn(4, progress)
+        self.assertEqual([call.args[0].pk for call in load.call_args_list], [task.pk])
+
     def test_reset_progress_returns_deleted_attempts_atomically(self):
         game, task, _hash, _puzzle = _make_puzzle_task()
         Attempt.manager.create(
