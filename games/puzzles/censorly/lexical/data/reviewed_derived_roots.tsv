@@ -3242,3 +3242,11 @@ lemma	root_structure	note
 драконовски	root:draconian	Opaque audit O1 (2026-11-17): драконовские законы are Draco the lawgiver, not дракон.
 ничья	root:draw_game	Nest-anchor audit N1 (2026-11-18): ничья (a draw) is not ничто or ничтожный.
 спин	root:spin_physics	Reviewed-row audit R1 (2026-11-18): the physics spin, not спина.
+кэрол	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+кэррол	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+кэролл	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+кэрролл	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+керол	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+керолл	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+керрол	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.
+керролл	root:proper_carroll	Spelling variants of Carroll (Льюис Кэрролл) are one name.

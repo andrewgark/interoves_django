@@ -1534,6 +1534,13 @@ class SemanticsTests(SimpleTestCase):
         self.assertEqual(explain('смерть', 'умереть'), 'root')
         self.assertEqual(explain('смерть', 'умер'), 'root')
 
+    def test_carroll_spellings_are_one_name(self):
+        spellings = ('кэрол', 'кэррол', 'кэролл', 'кэрролл', 'керол', 'керолл', 'керрол', 'керролл')
+        for guess in spellings:
+            for target in ('кэрролл', 'кэрролла', 'керол'):
+                if guess != target:
+                    self.assertTrue(opens(guess, target), f'{guess}/{target} stayed closed')
+
     def test_required_matches(self):
         for guess, target, reason in TRUE_CASES:
             self.assertTrue(opens(guess, target), f'{guess}/{target} stayed closed')
