@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -89,10 +89,21 @@ def _claim_many(*, limit, now=None):
         Q(status=DailyResultProjectionRefreshOutbox.STATUS_SENDING)
         & (Q(claimed_until__isnull=True) | Q(claimed_until__lte=now))
     )
+    # Lock only the outbox rows. A plain FOR UPDATE over the select_related
+    # join also X-locks the Game and TaskGroup rows, which every Attempt
+    # insert of that game S-locks for its foreign key check: the claim then
+    # waited on players' transactions and blocked new ones (prod "Lock wait
+    # timeout exceeded" in the background worker). Rows another claimer
+    # holds are skipped rather than waited for.
+    lock_kwargs = {}
+    if connection.features.has_select_for_update_of:
+        lock_kwargs['of'] = ('self',)
+    if connection.features.has_select_for_update_skip_locked:
+        lock_kwargs['skip_locked'] = True
     with transaction.atomic():
         rows = list(
             DailyResultProjectionRefreshOutbox.objects.filter(eligible)
-            .select_for_update()
+            .select_for_update(**lock_kwargs)
             .select_related('game', 'task_group')
             .order_by('id')[:limit]
         )

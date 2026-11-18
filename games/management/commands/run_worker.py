@@ -3,6 +3,7 @@
 import os
 import signal
 import time
+import traceback
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
@@ -99,8 +100,8 @@ class Command(BaseCommand):
                         )
                 except Exception as exc:
                     self.stderr.write(
-                        'projection outbox dispatch failed: {}: {}'.format(
-                            exc.__class__.__name__, exc,
+                        'projection outbox dispatch failed: {}: {}\n{}'.format(
+                            exc.__class__.__name__, exc, traceback.format_exc(),
                         ),
                     )
                 try:

@@ -223,7 +223,9 @@ def run_named_daily_statistics_refresh(*, game_id, task_group_id):
     for _attempt in range(3):
         revision = int(cache.get(revision_key, 0) or 0)
         for published_at in published_at_values:
-            build_daily_statistics(game, group, published_at=published_at)
+            build_daily_statistics(
+                game, group, published_at=published_at, require_published=True,
+            )
             result_key = _versioned_cache_key(
                 game_id, task_group_id, revision, published_at,
             )

@@ -134,13 +134,13 @@ class DailyStatisticsTests(TestCase):
         real_build = statistics_module.build_daily_statistics
         calls = []
 
-        def build_after_completion(game, task_group, *, published_at=None):
+        def build_after_completion(game, task_group, *, published_at=None, **kwargs):
             # A completion lands between the worker's revision read and its
             # build, so the build stores the newer generation only.
             if not calls:
                 daily_cache.set(revision_key, 5, timeout=60)
             calls.append(published_at)
-            return real_build(game, task_group, published_at=published_at)
+            return real_build(game, task_group, published_at=published_at, **kwargs)
 
         with patch.object(
             statistics_module, 'build_daily_statistics', side_effect=build_after_completion,
@@ -272,6 +272,37 @@ class DailyStatisticsTests(TestCase):
             'kind': 'alphabet', 'solved': 2, '_stale': True,
         })
         build_payload.assert_not_called()
+
+    def test_worker_refresh_does_not_take_the_stale_generation(self):
+        # A page request holds the build lock while the worker arrives. The
+        # page may serve the previous generation; the worker must publish the
+        # current one instead of failing the SQS message (prod RuntimeError
+        # "daily statistics generation was not published").
+        from games.realtime.projection import run_named_daily_statistics_refresh
+
+        tg = TaskGroup.objects.create(label='worker vs page build lock')
+        daily_cache = caches['daily_statistics']
+        revision_key = '{}:revision'.format(cache_key(self.game.id, tg.id))
+        daily_cache.set(revision_key, 1, timeout=REVISION_TIMEOUT)
+        daily_cache.set(
+            _versioned_cache_key(self.game.id, tg.id, 0),
+            {'kind': 'alphabet', 'solved': 2},
+            timeout=CACHE_TIMEOUT,
+        )
+        result_key = _versioned_cache_key(self.game.id, tg.id, 1)
+        daily_cache.set(
+            '{}:build-lock'.format(result_key), 'page-request',
+            timeout=CACHE_BUILD_LOCK_TIMEOUT,
+        )
+
+        with patch('games.daily.timing.statistics.CACHE_BUILD_WAIT_SECONDS', 0.3):
+            status = run_named_daily_statistics_refresh(
+                game_id=self.game.id, task_group_id=tg.id,
+            )
+
+        self.assertEqual(status, 'ok')
+        self.assertIsNotNone(daily_cache.get(result_key))
+        self.assertNotIn('_stale', daily_cache.get(result_key))
 
     def test_redis_build_lock_release_uses_atomic_token_check(self):
         redis_client = Mock()
