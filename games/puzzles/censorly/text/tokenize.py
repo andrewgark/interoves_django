@@ -915,14 +915,54 @@ def _close_initials(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 break
             chain.append(position)
             position = _next_nonspace(tokens, dot + 1)
+        if chain and len(chain) == 1 and _is_regnal_numeral(tokens, chain[0]):
+            chain = []
         if chain and (
             len(chain) > 1
             or (position < len(tokens) and _is_name_word(tokens[position]))
+            or _before_name_particle(tokens, position)
+            or _after_surname(tokens, chain[0])
         ):
             for at in chain:
                 _close_as_letter(tokens[at])
         index = max(position, index + 1) if chain else index + 1
     return tokens
+
+
+def _is_regnal_numeral(tokens: list[dict[str, Any]], index: int) -> bool:
+    """«Карлу I. Брокгауз…»: a Roman numeral after a name, not an initial."""
+    previous = _previous_nonspace(tokens, index)
+    return (
+        (tokens[index].get('surface') or '') in {'I', 'V', 'X'}
+        and previous >= 0 and _is_name_word(tokens[previous])
+    )
+
+
+# «А. фон Шамиссо», «Л. ван Бетховен».
+_NAME_PARTICLES = frozenset({
+    'фон', 'ван', 'дер', 'де', 'ди', 'дю', 'да', 'ла', 'ле', 'дель', 'ибн', 'бен', 'аль', 'эль',
+})
+
+
+def _before_name_particle(tokens: list[dict[str, Any]], index: int) -> bool:
+    if index >= len(tokens) or (tokens[index].get('surface') or '') not in _NAME_PARTICLES:
+        return False
+    following = _next_nonspace(tokens, index + 1)
+    return following < len(tokens) and _is_name_word(tokens[following])
+
+
+def _after_surname(tokens: list[dict[str, Any]], index: int) -> bool:
+    """«Поппэ А. Как была…»: an initial after a surname on the same line.
+
+    Only for a letter that would show open as a function word: «Петра I.» is
+    a numeral and «Ефрона Т. XIII» a volume.
+    """
+    previous = _previous_nonspace(tokens, index)
+    return (
+        normalize_surface(tokens[index].get('surface') or '') in _OPEN_LETTERS
+        and previous >= 0 and _is_name_word(tokens[previous])
+        and not _gap_has_newline(tokens, previous, index)
+    )
 
 
 def _close_as_letter(tok: dict[str, Any]) -> None:
@@ -946,6 +986,7 @@ _LETTER_JOINERS = ('/', '’', "'", '·', '⋅')
 _OPEN_QUOTES = ('«', '„', '"', '“')
 _CLOSE_QUOTES = ('»', '“', '"', '”')
 _CELL_BLOCKS = frozenset({'cell', 'header_cell', 'row', 'table_end', 'caption'})
+_FORMULA_OPERATORS = frozenset({'×', '=', '⋅', '∙', '±'})
 
 
 def _surface(tokens: list[dict[str, Any]], index: int) -> str:
@@ -1007,11 +1048,14 @@ def _is_letter_symbol(tokens: list[dict[str, Any]], index: int) -> bool:
     # «°С».
     if left.endswith('°'):
         return True
+    previous = _previous_nonspace(tokens, index)
+    following = _next_nonspace(tokens, index + 1)
+    # A factor in a formula of units: «1 Кл × В × с».
+    if _surface(tokens, previous) in _FORMULA_OPERATORS or _surface(tokens, following) in _FORMULA_OPERATORS:
+        return True
     # «литера «И»».
     if left.endswith(_OPEN_QUOTES) and right.startswith(_CLOSE_QUOTES):
         return True
-    previous = _previous_nonspace(tokens, index)
-    following = _next_nonspace(tokens, index + 1)
     # A letter alone in a table cell.
     if (
         previous >= 0 and tokens[previous].get('block') in {'cell', 'header_cell'}
@@ -1038,14 +1082,16 @@ def _is_letter_symbol(tokens: list[dict[str, Any]], index: int) -> bool:
     # A unit after a number: «1 А», «4 К», «0,6 В для диода».
     if before[-1:].isdigit() and tokens[previous].get('kind') == 'content':
         return True
-    # A capital mid-sentence: «План А», «алоин В», «А любит Б, Б не любит А».
-    # Verse lines start on a new line, and a quote or bracket may open a title.
+    # A capital mid-sentence: «алоин В», «А любит Б, Б не любит А», «витамины
+    # А (каротин), С (…)». Verse lines start on a new line, and a quote or
+    # bracket may open a title.
     if preposition and _is_word_at(tokens, following):
         return False
-    return (
-        (_is_word_at(tokens, previous) and before[:1].islower())
-        or before == ','
-    )
+    if (_is_word_at(tokens, previous) and before[:1].islower()) or before.endswith(','):
+        return True
+    # After a capitalized word only before punctuation: «План А,», «Кольцо В —»;
+    # «Пу И отрёкся» may start a sentence.
+    return _is_word_at(tokens, previous) and not _is_word_at(tokens, following)
 
 
 def _close_letter_symbols(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:

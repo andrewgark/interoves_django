@@ -1240,6 +1240,11 @@ class SemanticsTests(SimpleTestCase):
             'Юджин О’Нил шёл к ж/д вокзалу, дом 221-б.': ['О', 'ж', 'б'],
             'Литера «И» в марках, алоин А, алоин В.': ['И', 'А', 'В'],
             'Типы:\n• В — варикапы;\n• С — стабилитроны.': ['В', 'С'],
+            'Это План А, а Кольцо В — центральное.': ['А', 'В'],
+            'Витамины А (каротин), С (аскорбиновая кислота).': ['А', 'С'],
+            'Единица 1 Кл × В × с.': ['В', 'с'],
+            'Писали А. фон Шамиссо и Ф. де Соссюр.': ['А', 'Ф'],
+            '— Поппэ А. Как была крещена Русь.': ['А'],
         }
         for text, expected in closed.items():
             with self.subTest(text=text):
@@ -1255,6 +1260,12 @@ class SemanticsTests(SimpleTestCase):
         for text in still_open:
             with self.subTest(text=text):
                 self.assertEqual([s for s, is_closed in letters(text) if is_closed], [])
+
+        # A numeral or a volume after a name is not an initial.
+        self.assertFalse(any(
+            token.get('initial')
+            for token in tokenize_text('При Пу И отрёкся. Карлу I. Брокгауза и Ефрона Т. XIII.')
+        ))
 
         tokens = tokenize_text('Бензин Б-70 и Б-92.')
         self.assertEqual(matching_lemmas(tokens, 'б'), {initial_context('б')})
