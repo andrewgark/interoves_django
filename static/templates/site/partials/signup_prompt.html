@@ -12,10 +12,10 @@
   </ul>
   <p class="new-signup-prompt__text">Вход в одну кнопку через соцсеть — никаких логинов и паролей. Всё, что вы уже решили, перенесётся.</p>
   <div class="new-signup-prompt__providers">
-    <a class="new-btn new-btn--mini" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}" data-signup-prompt-provider="telegram"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Telegram</a>
-    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}" data-signup-prompt-provider="yandex">Яндекс</a>
-    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'google' process='login' next=auth_next_url %}" data-signup-prompt-provider="google"><i class="ph ph-google-logo" aria-hidden="true"></i> Google</a>
-    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}" data-signup-prompt-provider="vk">VK</a>
+    <a rel="nofollow" class="new-btn new-btn--mini" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}" data-signup-prompt-provider="telegram"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Telegram</a>
+    <a rel="nofollow" class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}" data-signup-prompt-provider="yandex">Яндекс</a>
+    <a rel="nofollow" class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'google' process='login' next=auth_next_url %}" data-signup-prompt-provider="google"><i class="ph ph-google-logo" aria-hidden="true"></i> Google</a>
+    <a rel="nofollow" class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}" data-signup-prompt-provider="vk">VK</a>
   </div>
   <button type="button" class="new-link-dotted new-signup-prompt__later" data-signup-prompt-dismiss>Позже</button>
 </aside>

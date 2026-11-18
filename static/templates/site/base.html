@@ -67,6 +67,10 @@
   <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/regular/style.css" %}">
   {# Phosphor fill — filled difficulty icons #}
   <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/fill/style.css" %}">
+  {% if request.GET.snapshot or request.GET.sort or request.GET.actors or request.GET.page %}
+  {# Snapshot/sort/filter/page variants of results tables are an endless crawl space. #}
+  <meta name="robots" content="noindex,nofollow">
+  {% endif %}
   {% block extrahead %}{% endblock %}
 </head>
 <body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-offline-actor="{{ offline_actor|default:'' }}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
@@ -327,16 +331,16 @@
       {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
       <p class="pal-lead">Google с почтой <strong>@glowbyteconsulting.com</strong> или Яндекс с почтой <strong>@glowbyte.ru</strong>.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
+        <a rel="nofollow" class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
+        <a rel="nofollow" class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
       </div>
       {% else %}
       <p class="pal-lead">Выберите способ входа.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url %}">Войти через Google</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}">Войти через VK</a>
-        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}">Войти через Telegram</a>
+        <a rel="nofollow" class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url %}">Войти через Google</a>
+        <a rel="nofollow" class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
+        <a rel="nofollow" class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}">Войти через VK</a>
+        <a rel="nofollow" class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}">Войти через Telegram</a>
       </div>
       {% endif %}
     </div>
@@ -414,7 +418,7 @@
       <h2 id="new-telegram-claim-title" class="pal-title">Привязать Telegram?</h2>
       <p class="pal-lead">Вы указывали Telegram @{{ unverified_telegram_handle }}. Привяжите его через вход в Telegram, иначе уберём ник из профиля.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <a class="new-btn" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Привязать</a>
+        <a rel="nofollow" class="new-btn" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Привязать</a>
         <button type="submit" form="telegram-claim-dismiss" class="new-btn new-btn--ghost">Не привязывать</button>
       </div>
     </div>

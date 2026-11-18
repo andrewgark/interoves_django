@@ -4,6 +4,6 @@
     <p class="new-login-hint">@{{ profile.telegram_username|default:profile.telegram_handle }}</p>
   {% else %}
     <p class="new-login-hint">Ник появится после входа в Telegram. Вписать его вручную нельзя.</p>
-    <a class="new-btn" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить Telegram</a>
+    <a rel="nofollow" class="new-btn" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить Telegram</a>
   {% endif %}
 </div>

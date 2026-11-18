@@ -147,7 +147,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Подключить</a>
       {% endif %}
       </div>
     </div>
@@ -162,7 +162,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
       </div>
     </div>
@@ -180,7 +180,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
       </div>
     </div>
@@ -195,7 +195,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
       </div>
     </div>
@@ -210,7 +210,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.vk }}" data-provider-label="VK">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
       </div>
     </div>
@@ -225,7 +225,7 @@
           <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.telegram }}" data-provider-label="Telegram">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-account-action" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить</a>
+        <a rel="nofollow" class="new-account-action" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить</a>
       {% endif %}
       </div>
     </div>
