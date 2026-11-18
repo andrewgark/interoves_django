@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from allauth.account.signals import user_signed_up
 from allauth.socialaccount.models import SocialApp
@@ -13,6 +14,7 @@ from django.utils import timezone
 from games.identity.merge.anon_queue import claim_next_merge_job, process_merge_job
 from games.models import (
     AnonAccountClaim,
+    AnonymousMergeJob,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -209,6 +211,21 @@ class AnalyticsIdentityTests(TestCase):
         user_signed_up.send(sender=User, request=request, user=user)
         self.assertEqual(PlayerStartedGame.objects.filter(user=user).count(), 1)
         self.assertEqual(AnonAccountClaim.objects.filter(anon_key=key).count(), 1)
+
+    def test_signup_queues_a_large_anonymous_history(self):
+        key = 'signup-large-claim-key'
+        start = self._started(anon_key=key)
+        user = User.objects.create_user('signup-large-user', 'signup-large@example.com', 'x')
+        request = RequestFactory().post('/accounts/signup/')
+        stamp_anon_identity(request, key)
+        request.user = user
+        with patch('games.site.http.signals.SIGNUP_SYNC_CLAIM_MAX_STATES', -1):
+            user_signed_up.send(sender=User, request=request, user=user)
+        start.refresh_from_db()
+        self.assertEqual(start.anon_key, key)
+        self.assertIsNone(start.user_id)
+        self.assertEqual(AnonAccountClaim.objects.get(anon_key=key).user_id, user.pk)
+        self.assertEqual(AnonymousMergeJob.objects.get(anon_key=key).user_id, user.pk)
 
     def test_existing_account_login_does_not_auto_claim(self):
         key = 'login-no-auto-claim-key'

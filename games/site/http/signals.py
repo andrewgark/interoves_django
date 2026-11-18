@@ -455,6 +455,9 @@ def _auto_claim_signup_anon_history(request, user):
         anon_key = browser_anon_key(request)
         if not anon_key:
             return
+        if not _signup_claim_fits_request(anon_key):
+            _queue_signup_anon_claim(request, user, anon_key)
+            return
         result = claim_and_migrate_anon_history(user, anon_key)
         log_auth_event(
             'auth_account_claim',
@@ -476,6 +479,46 @@ def _auto_claim_signup_anon_history(request, user):
             rotate_anonymous_identity(request)
     except Exception:
         logger.exception('signup anonymous auto-claim failed')
+
+
+# A guest history above these sizes moves through the step-wise identity
+# worker queue. Moved in one signup transaction, a long history held row locks
+# on Attempt and timing tables for ~25 s (2026-11-18 22:00 UTC) and stalled
+# every player's guesses into admission-gate 503s.
+SIGNUP_SYNC_CLAIM_MAX_ATTEMPTS = 100
+SIGNUP_SYNC_CLAIM_MAX_STATES = 10
+
+
+def _signup_claim_fits_request(anon_key):
+    from games.identity.merge.anon_steps import anon_migration_counts
+
+    counts = anon_migration_counts(anon_key)
+    return (
+        counts.get('attempts', 0) <= SIGNUP_SYNC_CLAIM_MAX_ATTEMPTS
+        and counts.get('states', 0) <= SIGNUP_SYNC_CLAIM_MAX_STATES
+    )
+
+
+def _queue_signup_anon_claim(request, user, anon_key):
+    from games.identity.merge.anon_queue import enqueue_anonymous_merge
+    from games.ops.analytics.identity import rotate_anonymous_identity
+    from games.site.http.auth_observability import log_auth_event, request_session_fingerprint
+    from games.site.session.gameplay_context import anonymous_actor_fingerprint
+
+    with transaction.atomic():
+        job, status = enqueue_anonymous_merge(user, anon_key)
+    log_auth_event(
+        'auth_account_claim',
+        request,
+        user_id=str(user.pk),
+        session_fingerprint=request_session_fingerprint(request),
+        anon_fingerprint=anonymous_actor_fingerprint(anon_key),
+        success=status in ('ok', 'empty'),
+        claim_status='queued' if status == 'ok' else status,
+        merge_job_id=str(job.id) if job is not None else '',
+    )
+    if status == 'ok':
+        rotate_anonymous_identity(request)
 
 
 def _mark_daily_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None):
