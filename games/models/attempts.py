@@ -382,17 +382,29 @@ class AttemptManager(models.Manager):
         tasks_by_id = Task.objects.in_bulk(task_ids)
 
         # 1 query: all attempts for all tasks (optionally scoped to one game).
-        attempt_related = ['team', 'user', 'game']
+        # Not select_related('game'): the join repeats the Game row (with its
+        # large text columns) for every attempt and built one Game object per
+        # attempt, ~2.5x the cost of the rest. A few shared objects suffice.
+        attempt_related = ['team', 'user']
         attempt_qs = self.filter(task_id__in=task_ids, skip=False, replay_slot=replay_slot).select_related(*attempt_related).order_by('time', 'pk')
         if actor_filter:
             attempt_qs = attempt_qs.filter(**actor_filter)
         if game is not None:
             attempt_qs = attempt_qs.filter(game=game)
         all_attempts = list(attempt_qs)
+        if game is not None:
+            games_by_id = {game.pk: game}
+        else:
+            games_by_id = Game.objects.in_bulk(
+                {a.game_id for a in all_attempts if a.game_id is not None}
+            )
         for a in all_attempts:
             task = tasks_by_id.get(a.task_id)
             if task is not None:
                 a.task = task
+            shared_game = games_by_id.get(a.game_id)
+            if shared_game is not None:
+                a.game = shared_game
         if mode == 'tournament':
             all_attempts = self.filter_attempts_with_mode(all_attempts, mode)
 
