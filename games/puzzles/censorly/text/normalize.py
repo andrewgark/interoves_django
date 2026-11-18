@@ -81,7 +81,10 @@ def split_stem_ending(surface: str) -> tuple[str, str]:
 def _supplementary_letter_ranges() -> str:
     ranges: list[tuple[int, int]] = []
     start = previous = None
-    for codepoint in range(0x10000, 0x110000):
+    # Letters exist only in planes 1-3 (planes 4-13 are unassigned, 14 holds
+    # format/variation marks, 15-16 private use). Scanning all 1.1M code points
+    # cost ~1 s of CPU in every fresh web process.
+    for codepoint in range(0x10000, 0x40000):
         if unicodedata.category(chr(codepoint)).startswith('L'):
             if start is None:
                 start = codepoint
