@@ -47,6 +47,7 @@
 | FALSE POSITIVE, `source=UNIQUE_SPELLING_FALLBACK` (вена → венок) | `data/rejected_fallback.tsv` + верный корень в `reviewed_derived_roots.tsv`, трек E |
 | FALSE POSITIVE через ошибочное чтение pymorphy | `data/rejected_readings.tsv` (везде) или `data/target_readings.tsv` (при лемме, выбранной токенизатором) |
 | омограф, который решает предложение («том», «г.», «кит.») | правило в `text/tokenize.py` + `TokenContext` в `lexical/context.py` |
+| однобуквенное слово открыто как союз/предлог/частица, а это буква («А-76», «План Б», «ВКП(б)», «°С»), или наоборот закрыта служебная буква | `_close_letter_symbols` / `_close_initials` в `text/tokenize.py`; эффект на корпусе — `review.letter_audit` до и после |
 | сокращение не открывает полную форму | `data/aliases.tsv` (сокращение-омограф обычного слова туда не клади, только в `labels.tsv`) |
 
 Чини семью целиком, а не одну пару. Отвергнутую семью запиши в
@@ -58,6 +59,7 @@
 | Задача | Команда (`python -m games.puzzles.censorly.offline.tools.…`) |
 |---|---|
 | разбор пары | `review.explain_pair A B` или `--pairs-file` |
+| однобуквенные слова: буква или служебное, с контекстом (diff двух прогонов; `--suspicious` — вероятные пропуски; `--db` через `with_rds.sh --raw` — сыгранные статьи) | `review.letter_audit --out /tmp/letters.tsv` (~20 с) |
 | метрика покрытия и дыры по трекам (`SUMMARY rooted_russian_tokens=…`) | `coverage_report --gaps /tmp/gaps.tsv` (~1 мин) |
 | та же метрика на отложенной выборке (очереди её не читают) | `coverage_report --holdout` (~1 мин) |
 | набор метрик: покрытие по группам слов на обоих корпусах, правильность по размеченным выборкам и по `bee.roots.json` | `metrics` (~5 мин, с `linked`); `metrics draw --per-group 30 --extra 100 --seed N` — новая выборка для разметки; `metrics orphans` — частые слова с корнем, которые ничто не открывает |
