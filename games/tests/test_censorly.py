@@ -810,6 +810,27 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(card['cta_number'], '1')
         self.assertTrue(card['is_today'])
 
+    def test_share_hash_of_a_former_random_game_opens_its_schedule_slot(self):
+        from django.test import RequestFactory
+
+        from games.site.views.daily import censorly as censorly_views
+
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        link.number = '1'
+        link.save(update_fields=['number'])
+        self.assertEqual(link.share_hash, self.share_hash)
+        self.game.tags = {'censorly_publish_start': '2026-10-01T00:00:00+03:00'}
+        self.game.save(update_fields=['tags'])
+
+        request = RequestFactory().get(f'/censorly/{self.share_hash}/')
+        request.user = self.plain
+        _game, task, meta, error = censorly_views._load_visible_task(request, self.share_hash)
+
+        self.assertIsNone(error)
+        self.assertEqual(task, self.task)
+        self.assertFalse(meta['is_random'])
+        self.assertEqual(meta['schedule_number'], 1)
+
     def test_random_hash_link_stays_out_of_the_schedule(self):
         self.assertEqual(list(GameTaskGroup.sorted_links(game=self.game)), [])
         self.assertEqual(

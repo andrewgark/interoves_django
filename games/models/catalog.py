@@ -366,31 +366,55 @@ class GameTaskGroup(models.Model):
             return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
         return (0, link.key_sort(), link.pk)
 
-    @staticmethod
-    def _exclude_random_schedule_links(queryset):
-        # Only the random game's own hash-numbered link is excluded. Early
-        # accepted Цензурка offers moved that task group into the schedule
-        # under a numeric number while its RandomCensorlyGame row stayed;
-        # such a link is a real schedule slot.
-        random_hash_q = (
-            models.Q(
-                game_id='alphabetty',
-                task_group__random_alphabetty_game__share_hash=models.F('number'),
-            )
-            | models.Q(
-                game_id='censorly',
-                task_group__random_censorly_game__share_hash=models.F('number'),
-            )
-        )
-        return queryset.exclude(random_hash_q)
+    # A permanent random game owns one placement whose ``number`` is its
+    # share hash. The same task group may also hold a numeric schedule slot
+    # (early accepted Цензурка offers were moved into the schedule and kept
+    # their random row): being a random game and being a daily edition are
+    # independent, so only the hash-numbered link counts as the random one.
+    RANDOM_GAME_RELATIONS = {
+        'alphabetty': 'random_alphabetty_game',
+        'censorly': 'random_censorly_game',
+    }
 
+    @classmethod
+    def random_game_link_q(cls, prefix=''):
+        """Q for random games' own links; ``prefix`` is e.g. ``'placement__'``."""
+        q = models.Q(pk__in=[])
+        for game_id, relation in cls.RANDOM_GAME_RELATIONS.items():
+            q |= models.Q(**{
+                f'{prefix}game_id': game_id,
+                f'{prefix}task_group__{relation}__share_hash': models.F(f'{prefix}number'),
+            })
+        return q
+
+    @classmethod
+    def random_game_link_pks(cls, links):
+        """PKs of the random games' own links among already loaded ``links``."""
+        candidates = [
+            link for link in links
+            if link.game_id in cls.RANDOM_GAME_RELATIONS and link.pk is not None
+        ]
+        if not candidates:
+            return set()
+        return set(
+            cls.objects.filter(pk__in=[link.pk for link in candidates])
+            .filter(cls.random_game_link_q())
+            .values_list('pk', flat=True)
+        )
+
+    def is_random_game_link(self):
+        """Is this the random game's own hash-numbered link (not a schedule slot)?"""
+        return bool(self.random_game_link_pks([self]))
+
+    @classmethod
+    def _exclude_random_schedule_links(cls, queryset):
+        return queryset.exclude(cls.random_game_link_q())
 
     @classmethod
     def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
         if queryset is None:
             queryset = cls.objects.filter(game=game)
-        # Permanent random Alphabetty and Цензурка games use a hash as
-        # ``number`` and do not belong in numeric schedule/navigation lists.
+        # Random games' own hash-numbered links are not schedule slots.
         if hasattr(queryset, 'exclude'):
             if not include_deferred:
                 queryset = queryset.filter(is_deferred=False)
@@ -399,28 +423,8 @@ class GameTaskGroup(models.Model):
             links = list(queryset)
             if not include_deferred:
                 links = [link for link in links if not link.is_deferred]
-            task_group_ids = [link.task_group_id for link in links]
-            random_hashes = set()
-            if task_group_ids:
-                from games.models import RandomAlphabettyGame, RandomCensorlyGame
-
-                random_hashes = set(
-                    RandomAlphabettyGame.objects.filter(
-                        task_group_id__in=task_group_ids,
-                    ).values_list('task_group_id', 'share_hash')
-                )
-                random_hashes.update(
-                    RandomCensorlyGame.objects.filter(
-                        task_group_id__in=task_group_ids,
-                    ).values_list('task_group_id', 'share_hash')
-                )
-            queryset = [
-                link for link in links
-                if not (
-                    link.game_id in ('alphabetty', 'censorly')
-                    and (link.task_group_id, link.number) in random_hashes
-                )
-            ]
+            random_pks = cls.random_game_link_pks(links)
+            queryset = [link for link in links if link.pk not in random_pks]
         links = sorted(
             queryset,
             key=lambda link: cls._schedule_sort_key(

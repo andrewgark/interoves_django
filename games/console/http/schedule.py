@@ -26,9 +26,7 @@ def _sync_difficulty_schedule_after_commit(game_id, placement_ids):
     placements = GameTaskGroup.objects.filter(
         game_id=game_id,
         pk__in=placement_ids,
-        task_group__random_alphabetty_game__isnull=True,
-        task_group__random_censorly_game__isnull=True,
-    ).select_related('game', 'task_group')
+    ).exclude(GameTaskGroup.random_game_link_q()).select_related('game', 'task_group')
     for placement in placements:
         ensure_daily_difficulty_row(placement)
 

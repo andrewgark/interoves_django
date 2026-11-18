@@ -267,14 +267,11 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
     except (TypeError, ValueError):
         # Numbered scheduled tasks may also be opened through their share hash.
         from games.daily.page.placement import resolve_accessible_daily_placement
-        from games.models import RandomCensorlyGame
 
         shared_link = resolve_accessible_daily_placement(
             game, number, user=request.user,
         )
-        if shared_link is not None and not RandomCensorlyGame.objects.filter(
-            task_group_id=shared_link.task_group_id,
-        ).exists():
+        if shared_link is not None and not shared_link.is_random_game_link():
             task = Task.objects.filter(
                 task_group_id=shared_link.task_group_id, number='1',
             ).first()

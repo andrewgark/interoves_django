@@ -829,6 +829,21 @@ class CensorlyDifficultyObservationTests(TestCase):
         )
         self.assertEqual(get_cached_game_difficulties([self.random_placement]), {})
 
+    def test_schedule_slot_of_a_former_random_game_is_rated(self):
+        # Early accepted Цензурка offers renumbered the random game's own link
+        # into the schedule and kept its RandomCensorlyGame row (prod №37).
+        from games.daily.difficulty.core import _supported_placements
+
+        GameTaskGroup.objects.filter(pk=self.random_placement.pk).update(number='9982')
+        slot = GameTaskGroup.objects.get(pk=self.random_placement.pk)
+
+        self.assertFalse(slot.is_random_game_link())
+        self.assertIsNotNone(ensure_daily_difficulty_row(slot))
+        self.assertIn(
+            slot.pk,
+            {row.pk for row in _supported_placements(game_ids=('censorly',))},
+        )
+
     def test_deferred_editions_get_no_difficulty_row(self):
         from games.daily.difficulty.core import _supported_placements, prune_deferred_difficulty_rows
 

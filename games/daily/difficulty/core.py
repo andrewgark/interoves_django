@@ -33,8 +33,6 @@ from games.models import (
     GameTaskGroup,
     HiddenAnonKey,
     HintAttempt,
-    RandomAlphabettyGame,
-    RandomCensorlyGame,
 )
 
 
@@ -207,12 +205,6 @@ def _safe_state(raw):
     return state if isinstance(state, dict) else {}
 
 
-_RANDOM_GAME_MODELS = {
-    'alphabetty': RandomAlphabettyGame,
-    'censorly': RandomCensorlyGame,
-}
-
-
 def _observation(game_id):
     definition = _DIFFICULTY_DEFINITIONS.get(game_id)
     if definition is None:
@@ -230,13 +222,13 @@ def _is_unrated_placement(placement) -> bool:
 
 
 def _is_random_daily_placement(placement) -> bool:
-    """Random Alphabetty and Censorly games are permanent, not daily editions."""
+    """A random game's own link is permanent, not a daily edition.
+
+    Its task group may also hold a numeric schedule slot; that slot is rated.
+    """
     if placement is None:
         return False
-    model = _RANDOM_GAME_MODELS.get(placement.game_id)
-    if model is None:
-        return False
-    return model.objects.filter(task_group_id=placement.task_group_id).exists()
+    return placement.is_random_game_link()
 
 
 def _is_salad_hint(attempt):
@@ -594,10 +586,8 @@ def _norm_values_from_snapshots(game_id):
     ratings = []
     rows = DailyGameDifficulty.objects.filter(
         placement__game_id=game_id,
-        placement__task_group__random_alphabetty_game__isnull=True,
-        placement__task_group__random_censorly_game__isnull=True,
         placement__is_deferred=False,
-    ).only('n', 'payload')
+    ).exclude(GameTaskGroup.random_game_link_q('placement__')).only('n', 'payload')
     for row in rows.iterator():
         payload = row.payload or {}
         metrics = payload.get('metrics') or {}
@@ -972,9 +962,7 @@ def is_debut_edition(placement):
     numbers = GameTaskGroup.objects.filter(
         game_id=placement.game_id,
         is_deferred=False,
-        task_group__random_alphabetty_game__isnull=True,
-        task_group__random_censorly_game__isnull=True,
-    ).exclude(pk=placement.pk).values_list('number', flat=True)
+    ).exclude(GameTaskGroup.random_game_link_q()).exclude(pk=placement.pk).values_list('number', flat=True)
     return not any(
         key is not None and key < first
         for key in map(GameTaskGroup.try_number_key, numbers)
@@ -1151,10 +1139,9 @@ def _supported_placements(*, game_ids=None):
         GameTaskGroup.objects.filter(
             game_id__in=game_ids,
             task_group__tasks__task_type__in=[TASK_TYPE_BY_GAME_ID[g] for g in game_ids],
-            task_group__random_alphabetty_game__isnull=True,
-            task_group__random_censorly_game__isnull=True,
             is_deferred=False,
         )
+        .exclude(GameTaskGroup.random_game_link_q())
         .select_related('game', 'task_group')
         .distinct()
     )
@@ -1253,10 +1240,8 @@ def sync_daily_difficulty_schedule(game, *, now=None):
     now = now or timezone.now()
     placements = list(
         game.task_group_links.select_related('game', 'task_group').filter(
-            task_group__random_alphabetty_game__isnull=True,
-            task_group__random_censorly_game__isnull=True,
             is_deferred=False,
-        )
+        ).exclude(GameTaskGroup.random_game_link_q())
     )
     snapshots = {
         row.placement_id: row

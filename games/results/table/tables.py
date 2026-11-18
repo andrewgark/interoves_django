@@ -4,7 +4,7 @@ from django.db.models import Prefetch, Q
 
 from games.daily.page.section import is_scheduled_game, visible_links
 from games.daily.registry import daily_game_has_heavy_payload
-from games.models import Task
+from games.models import GameTaskGroup, Task
 
 
 class ResultsTaskGroupHeader:
@@ -44,18 +44,16 @@ def load_results_placements_and_tasks(game, task_group_number=None):
         # a placement is intentionally outside the numeric daily schedule.
         from games.sections.placement_share import is_share_hash_segment
 
-        is_random_hash = False
+        random_placements = []
         if task_group_number is not None and is_share_hash_segment(str(task_group_number)):
-            from games.models import RandomAlphabettyGame
-
-            is_random_hash = RandomAlphabettyGame.objects.filter(
-                share_hash=str(task_group_number).strip().lower(),
-            ).exists()
-        if is_random_hash:
-            placements = [
+            random_pks = GameTaskGroup.random_game_link_pks(links)
+            random_placements = [
                 placement for placement in links
-                if str(placement.number) == str(task_group_number)
+                if placement.pk in random_pks
+                and str(placement.number) == str(task_group_number)
             ]
+        if random_placements:
+            placements = random_placements
         else:
             placements = visible_links(links, game, reverse=False)
     else:
