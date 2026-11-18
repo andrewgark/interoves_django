@@ -572,7 +572,7 @@ family	pattern	sense	note
 де(j)|де	(?:действ|деятель|действен).*	sense:review_action	
 де(j)|де	(?:девать|деваться|деван|вдев|вздев).*	sense:review_put	
 де(j)|де	(?:одев|надев|раздев|переодев|приодев|разодев|одеть|надеть|раздеть).*	sense:review_dress	
-де(j)|де	.*	sense:review_deed	
+де(j)|де	.*	sense:deed	
 ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
 ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
 ч³|чес²|чет|чит|чт	(?:отчетлив|отчетист).*	sense:review_clear	отчетливый (distinct, clear) goes with четкий, not with отчет.
