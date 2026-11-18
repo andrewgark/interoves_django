@@ -130,41 +130,64 @@ def anon_migrate_count(request):
 
     # Задания, уже сданные на OK на авторизованном профиле (личный режим),
     # не учитываем — их посылки восстанавливать незачем.
+    # Read the guest's (small) task lists by anon_key first and filter in
+    # Python: ``exclude(task_id__in=<every task the user solved>)`` made
+    # MySQL range-scan the whole (task, anon_key) index, ~0.8 s per call on
+    # an endpoint every signed-in page view requests.
+    anon_task_ids = list(
+        Attempt.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True, task__isnull=False,
+        ).values_list('task_id', flat=True)
+    )
+    hint_task_ids = list(
+        HintAttempt.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).values_list('hint__task_id', flat=True)
+    )
+    state_task_ids = list(
+        ChainTaskState.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).values_list('task_id', flat=True)
+    )
+    candidate_task_ids = {
+        task_id for task_id in (*anon_task_ids, *hint_task_ids, *state_task_ids)
+        if task_id is not None
+    }
     solved_task_ids = set(
         Attempt.manager.filter(
             user=request.user, team__isnull=True, anon_key__isnull=True, status='Ok',
+            task_id__in=candidate_task_ids,
         ).values_list('task_id', flat=True)
-    )
+    ) if candidate_task_ids else set()
+    unsolved_task_ids = {task_id for task_id in anon_task_ids if task_id not in solved_task_ids}
+    n = sum(1 for task_id in anon_task_ids if task_id not in solved_task_ids)
 
-    anon_attempts = (
-        Attempt.manager.filter(
-            anon_key=anon_key, user__isnull=True, team__isnull=True, task__isnull=False,
-        )
-        .exclude(task_id__in=solved_task_ids)
-    )
-
-    # Count in SQL: materializing the history with full related tasks repeats
-    # large puzzle JSON for every attempt and can exhaust a web host's RAM.
-    n = anon_attempts.count()
     example = None
-    examples = (
-        anon_attempts.select_related('task', 'game')
-        .only('task__task_group_id', 'game__name')
-        .order_by('time')
-    )
-    for attempt in examples.iterator(chunk_size=100):
-        example = _anon_task_group_link(attempt)
-        if example is not None:
-            break
+    if unsolved_task_ids:
+        # Only the link fields: full related tasks repeat large puzzle JSON
+        # for every attempt and can exhaust a web host's RAM.
+        examples = (
+            Attempt.manager.filter(
+                anon_key=anon_key, user__isnull=True, team__isnull=True,
+                task_id__in=unsolved_task_ids,
+            )
+            .select_related('task', 'game')
+            .only('task__task_group_id', 'game__name')
+            .order_by('time')
+        )
+        for attempt in examples.iterator(chunk_size=100):
+            example = _anon_task_group_link(attempt)
+            if example is not None:
+                break
 
     counts = anon_migration_counts(anon_key)
     counts['unsolved_attempts'] = n
-    counts['transferable_hints'] = HintAttempt.objects.filter(
-        anon_key=anon_key, user__isnull=True, team__isnull=True,
-    ).exclude(hint__task_id__in=solved_task_ids).count()
-    counts['transferable_states'] = ChainTaskState.objects.filter(
-        anon_key=anon_key, user__isnull=True, team__isnull=True,
-    ).exclude(task_id__in=solved_task_ids).count()
+    counts['transferable_hints'] = sum(
+        1 for task_id in hint_task_ids if task_id not in solved_task_ids
+    )
+    counts['transferable_states'] = sum(
+        1 for task_id in state_task_ids if task_id not in solved_task_ids
+    )
     total_items = (
         n
         + sum(

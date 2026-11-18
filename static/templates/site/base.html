@@ -479,6 +479,12 @@
       return 'interoves_anon_migrate_later:' + userId + ':' + anonKey;
     }
     var postponeMs = 72 * 60 * 60 * 1000;
+    var emptyRecheckMs = 12 * 60 * 60 * 1000;
+    function postponeEmptyCheck(anonKey) {
+      try {
+        localStorage.setItem(laterKey(anonKey), String(Date.now() + emptyRecheckMs));
+      } catch (e) {}
+    }
     function shouldPrompt(anonKey) {
       try {
         if (localStorage.getItem(decisionKey(anonKey)) === '1') return false;
@@ -828,12 +834,19 @@
     })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) {
+          // A claimed or hidden key will not become transferable.
+          if (r.status === 409) postponeEmptyCheck(anonKey);
           if (!r.ok) throw new Error(data.status || 'request_failed');
           return data;
         });
       })
       .then(function (data) {
-        if (!data || !data.show_prompt) return;
+        if (!data || !data.show_prompt) {
+          // Signed-in play never writes to the browser's guest key, so an
+          // empty answer stays empty: do not ask again on every page view.
+          postponeEmptyCheck(anonKey);
+          return;
+        }
         var lead = modal.querySelector('[data-migrate-lead]');
         if (lead) {
           lead.textContent = '';
