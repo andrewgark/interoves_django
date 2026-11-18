@@ -50,6 +50,49 @@ lemma	senses	note
 всевышний	-	
 синильный	-	
 родный	-	родный keeps its reviewed derived root (родные «relatives»): a sense would bypass reviewed_derived_roots.tsv and leave it rootless.
+единожды	-	Reviewed orphan (sense_orphan_queue.tsv) that stands apart from its family senses: another meaning, a loanword or a homonym.
+яванец	-	
+огласовка	-	
+хормейстер	-	
+доха	-	
+выкидыш	-	
+ниц	-	
+доселе	-	
+хорист	-	
+отщеп	-	
+внеклассный	-	
+пластификатор	-	
+садист	-	
+селевый	-	
+непосредственность	-	
+снизойти	-	
+паж	-	
+следуемый	-	
+блестянка	-	
+сброженный	-	
+экстраверт	-	
+надир	-	
+креп	-	
+садизм	-	
+пречистый	-	
+неваляшка	-	
+обвалочный	-	
+вьюн	-	
+интервидение	-	
+уделывать	-	
+клика	-	
+липаза	-	
+липома	-	
+ничком	-	
+пажеский	-	
+постпред	-	
+нераспечатанный	-	
+плов	-	
+пластикат	-	
+садистский	-	
+всесветный	-	
+отселе	-	
+свить	-	свить stays apart: its form «свиты» is also the noun свита, and a winding sense would let развиваться open «свиты».
 настоятель	sense:abbot	
 настоятельница	sense:abbot	
 настоятельность	sense:abbot	
@@ -380,6 +423,7 @@ lemma	senses	note
 одиночница	sense:alone	
 одиночный	sense:alone	
 поодиночке	sense:alone	
+одиночник	sense:alone	
 посол	sense:ambassador	
 посольский	sense:ambassador	
 посольство	sense:ambassador	
@@ -1048,6 +1092,13 @@ lemma	senses	note
 убийца	sense:beat	
 убиться	sense:beat	
 убоина	sense:beat	
+бия	sense:beat	
+сбивание	sense:beat	
+прибивание	sense:beat	
+оббивать	sense:beat	
+оббивка	sense:beat	
+оббить	sense:beat	
+пробивание	sense:beat	
 изукрасить	sense:beauty	
 изукраситься	sense:beauty	
 изукрашивать	sense:beauty	
@@ -1330,6 +1381,7 @@ lemma	senses	note
 согнутый	sense:bend	
 согнуть	sense:bend	
 согнуться	sense:bend	
+несгибаемый	sense:bend	
 предавать	sense:betrayal	
 предаваться	sense:betrayal	
 предатель	sense:betrayal	
@@ -1719,6 +1771,7 @@ lemma	senses	note
 светлуха	sense:bright	
 светлый	sense:bright	
 светлынь	sense:bright	
+высветлить	sense:bright	
 светелка	sense:bright_room	
 светелочка	sense:bright_room	
 светелочный	sense:bright_room	
@@ -2137,6 +2190,7 @@ lemma	senses	note
 уносить	sense:carry	
 уноситься	sense:carry	
 уносной	sense:carry	
+несомый	sense:carry	
 доноситься	sense:carry|sense:denunciation	
 доносить	sense:carry|sense:denunciation|sense:wear	
 относить	sense:carry|sense:relation	
@@ -2260,6 +2314,7 @@ lemma	senses	note
 разряжать	sense:charge	
 разряжаться	sense:charge	
 разряженный	sense:charge	
+зарядовый	sense:charge	
 устав	sense:charter	
 уставный	sense:charter	
 уставщик	sense:charter	
@@ -2507,6 +2562,7 @@ lemma	senses	note
 разгородить	sense:city	
 разгородиться	sense:city	
 междугородный	sense:city	
+междугородний	sense:city	
 взыск	sense:claim_suit	
 взыскание	sense:claim_suit	
 иск	sense:claim_suit	
@@ -2694,6 +2750,10 @@ lemma	senses	note
 узнавать	sense:cognize	
 узнаваться	sense:cognize	
 узнать	sense:cognize	
+неопознанный	sense:cognize	
+узнаться	sense:cognize	
+непознанный	sense:cognize	
+непознаваемый	sense:cognize	
 знать	sense:cognize|sense:nobility	
 сожитель	sense:cohabitation	
 сожительница	sense:cohabitation	
@@ -3029,6 +3089,7 @@ lemma	senses	note
 недоумие	sense:confusion	
 недоумок	sense:confusion	
 неразумие	sense:confusion	
+неразумение	sense:confusion	
 заздравный	sense:congratulate	
 здравица	sense:congratulate	
 поздравитель	sense:congratulate	
@@ -3160,6 +3221,10 @@ lemma	senses	note
 стройность	sense:construct	
 стройный	sense:construct	
 недостроенный	sense:construct	
+встраивание	sense:construct	
+пристроенный	sense:construct	
+встроенный	sense:construct	
+состроить	sense:construct	
 потребитель	sense:consumption	
 потребительский	sense:consumption	
 потребление	sense:consumption	
@@ -3279,6 +3344,7 @@ lemma	senses	note
 недосчитывать	sense:count	
 недосчитываться	sense:count	
 страна	sense:country	
+соцстрана	sense:country	
 поветовый	sense:county	
 вычитать	sense:count|root:read	
 вычитывать	sense:count|root:read	
@@ -3586,6 +3652,9 @@ lemma	senses	note
 урезывание	sense:cut	
 урезывать	sense:cut	
 урезываться	sense:cut	
+нарезание	sense:cut	
+прорезание	sense:cut	
+подрезание	sense:cut	
 дача	sense:dacha	
 дачка	sense:dacha	
 дачник	sense:dacha	
@@ -4270,6 +4339,7 @@ lemma	senses	note
 скидка	sense:discount	
 скидывать	sense:discount	
 скидываться	sense:discount	
+скидывание	sense:discount	
 опала	sense:disgrace	
 опальный	sense:disgrace	
 посуда	sense:dishes	суд² (vessel) is unrelated to суд¹ and its modern words drifted apart: tableware, anatomical vessels and ships are separate senses.
@@ -4462,6 +4532,7 @@ lemma	senses	note
 уделить	sense:divide	
 уделять	sense:divide	
 распределенный	sense:divide	
+неразделенный	sense:divide	
 богослужебный	sense:divine_service	Religious service is a narrow lexicalized subfamily. Keep only the exact богослуж- pair here: священнослужитель and церковнослужитель have different full compound structures and must not be merged by this sense.
 богослужение	sense:divine_service	
 разведенец	sense:divorce	
@@ -4596,6 +4667,7 @@ lemma	senses	note
 уволакиваться	sense:drag	
 уволочь	sense:drag	
 уволочься	sense:drag	
+волоченый	sense:drag	
 бессточный	sense:drain	
 сток	sense:drain	
 стоковый	sense:drain	
@@ -4796,6 +4868,7 @@ lemma	senses	note
 спиваться	sense:drunk	
 спиться	sense:drunk	
 пьянство	sense:drunk	
+пьянить	sense:drunk	
 уточка	sense:duck	
 поединок	sense:duel	
 помет	sense:dung_mark	
@@ -5073,11 +5146,13 @@ lemma	senses	note
 сопровождать	sense:escort	
 сопровождаться	sense:escort	
 сопровождение	sense:escort	
+препровожденный	sense:escort	
 присущий	sense:essence	
 суть	sense:essence	
 существенность	sense:essence	
 существенный	sense:essence	
 сущность	sense:essence	
+сущностный	sense:essence	
 существо	sense:essence|sense:creature	существо is «по существу» (essence) and a creature, not existing.
 бессословность	sense:estate	
 бессословный	sense:estate	
@@ -5180,6 +5255,8 @@ lemma	senses	note
 преисполниться	sense:execute	
 преисполнять	sense:execute	
 преисполняться	sense:execute	
+выполнимый	sense:execute	
+невыполненный	sense:execute	
 выставить	sense:exhibit	
 выставиться	sense:exhibit	
 выставка	sense:exhibit	
@@ -5363,6 +5440,7 @@ lemma	senses	note
 припасть	sense:fall	
 упавший	sense:fall	
 упасть	sense:fall	
+опадение	sense:fall	
 знаменитость	sense:fame	
 знаменитый	sense:fame	
 изувер	sense:fanatic	
@@ -5451,6 +5529,7 @@ lemma	senses	note
 разгораживаться	sense:fence	
 согражданин	sense:fence	
 согражданка	sense:fence	
+перегородчатый	sense:fence	
 волокнистость	sense:fiber	
 волокнистый	sense:fiber	
 волокно	sense:fiber	
@@ -5509,6 +5588,10 @@ lemma	senses	note
 пополнять	sense:fill	
 пополняться	sense:fill	
 располнеть	sense:fill	
+заполниться	sense:fill	
+невосполнимый	sense:fill	
+незаполненный	sense:fill	
+наполняемость	sense:fill	
 головня	sense:firebrand|sense:smut	
 светляк	sense:firefly	
 светлячок	sense:firefly	
@@ -5591,6 +5674,9 @@ lemma	senses	note
 утопать	sense:flood_drown	
 утопывать	sense:flood_drown	
 утопываться	sense:flood_drown	
+обтекание	sense:flow	
+сверхтекучий	sense:flow	
+сверхтекучесть	sense:flow	
 подтачивать	sense:flow|sense:sharpen	
 подтачиваться	sense:flow|sense:sharpen	
 вытачивание	sense:flow|sense:stitch|sense:sharpen	
@@ -5924,6 +6010,9 @@ lemma	senses	note
 смораживаться	sense:frost	
 сморозить	sense:frost	
 заморозка	sense:frost	
+незамерзающий	sense:frost	
+разморозка	sense:frost	
+размораживание	sense:frost	
 дозаправка	sense:fuel	
 заправка	sense:fuel	
 заправочный	sense:fuel	
@@ -6260,6 +6349,8 @@ lemma	senses	note
 хватский	sense:grab	
 хватывать	sense:grab	
 хвать	sense:grab	
+перехватчик	sense:grab	
+схватывание	sense:grab	
 существительное	sense:grammar_noun	
 предоставить	sense:grant	
 предоставиться	sense:grant	
@@ -6449,6 +6540,7 @@ lemma	senses	note
 сращиваться	sense:grow	
 срост	sense:grow	
 сросток	sense:grow	
+доращивать	sense:grow	
 пальба	sense:gunfire	
 пальнуть	sense:gunfire	
 пальщик	sense:gunfire	
@@ -6644,6 +6736,8 @@ lemma	senses	note
 утяжелять	sense:heavy	
 утяжеляться	sense:heavy	
 тяжело	sense:heavy	
+сверхтяжелый	sense:heavy	
+тяготить	sense:heavy	
 беспомощность	sense:helplessness	
 беспомощный	sense:helplessness	
 подол	sense:hem	
@@ -6775,6 +6869,9 @@ lemma	senses	note
 ударяемый	sense:hit	
 ударять	sense:hit	
 ударяться	sense:hit	
+контрудар	sense:hit	
+соударение	sense:hit	
+соударяться	sense:hit	
 вшибать	sense:hit_strike	
 вшибаться	sense:hit_strike	
 вшибить	sense:hit_strike	
@@ -7306,6 +7403,7 @@ lemma	senses	note
 учить	sense:instruct	
 учиться	sense:instruct	
 обученный	sense:instruct	
+недоучить	sense:instruct	
 поношение	sense:insult	
 вознамериваться	sense:intent	
 вознамериться	sense:intent	
@@ -7369,6 +7467,7 @@ lemma	senses	note
 следовательский	sense:investigate	
 следственный	sense:investigate	
 следствовать	sense:investigate	
+расследоваться	sense:investigate	
 следствие	sense:investigate|sense:review_consequence	Orphans batch F7: следствие is also «последствие», показаться also «казаться» (мне показалось), происшествие is what произошло.
 пригласительный	sense:invite	
 пригласить	sense:invite	
@@ -7421,6 +7520,11 @@ lemma	senses	note
 соединять	sense:join	
 соединяться	sense:join	
 неприсоединение	sense:join	
+отсоединять	sense:join	
+неприсоединившийся	sense:join	
+отсоединение	sense:join	
+отсоединить	sense:join	
+отсоединяться	sense:join	
 отмычка	sense:join_link	
 отмычный	sense:join_link	
 перемычка	sense:join_link	
@@ -7566,6 +7670,7 @@ lemma	senses	note
 пускаться	sense:launch	
 пусковой	sense:launch	
 пуститься	sense:launch	
+перезапуск	sense:launch	
 запущенный	sense:launch|sense:neglect	
 выстиранный	sense:launder	The productive стир- laundry derivatives share the existing стирка cluster. Простирать remains ambiguous between washing and extending.
 выстирать	sense:launder	
@@ -7746,6 +7851,7 @@ lemma	senses	note
 укладчица	sense:lay	
 укладывать	sense:lay	
 укладываться	sense:lay	
+обкладывание	sense:lay	
 отпуск	sense:leave	
 отпускать	sense:leave	
 отпускаться	sense:leave	
@@ -7756,6 +7862,7 @@ lemma	senses	note
 отпущение	sense:leave	
 отпущенник	sense:leave	
 отпущенница	sense:leave	
+отпускание	sense:leave	
 затоковать	sense:lek	
 урок	sense:lesson	
 впуск	sense:let	пуск: one sense:let was too broad (выпускник opened запущенный). The base verbs пускать/пустить keep both let and launch (MULTI_READINGS).
@@ -7794,6 +7901,7 @@ lemma	senses	note
 пропускник	sense:let	
 пропускной	sense:let	
 пропустить	sense:let	
+пропускаться	sense:let	
 е	sense:letter_e	The dictionary also analyzes the one-letter name of Е as a rare present-tense form of быть. In Censorly, the standalone letter is its own lexical sense; do not attach it to the быть family.
 ш	sense:letter_sh	
 пускать	sense:let|sense:launch	пустить: let in and set going; запущенный: launched and neglected.
@@ -7823,6 +7931,7 @@ lemma	senses	note
 светящийся	sense:light	
 свечение	sense:light	
 сверхсветовой	sense:light	
+послесвечение	sense:light	
 нравиться	sense:like	
 понравиться	sense:like	
 разонравиться	sense:like	
@@ -8042,6 +8151,7 @@ lemma	senses	note
 удлиниться	sense:long	
 удлинять	sense:long	
 удлиняться	sense:long	
+продлеваться	sense:long	
 двойник	sense:lookalike	
 двойниковый	sense:lookalike	
 двойница	sense:lookalike	
@@ -8098,6 +8208,7 @@ lemma	senses	note
 разлюбляться	sense:love	
 слюбиться	sense:love	
 слюбляться	sense:love	
+люба	sense:love	
 вниз	sense:low	The ниж/низ family had no split: low position and lowering stay together, while lowland geography, humiliation and baseness separate.
 внизу	sense:low	
 донизу	sense:low	
@@ -8368,6 +8479,7 @@ lemma	senses	note
 посредством	sense:means	
 посредствующий	sense:means	
 средство	sense:means	
+опосредствоваться	sense:means	
 безмерность	sense:measure	Намерить is measuring a quantity; намереваться expresses intention.
 безмерный	sense:measure	
 вымеривание	sense:measure	
@@ -8805,6 +8917,8 @@ lemma	senses	note
 современница	sense:modern	
 современность	sense:modern	
 современный	sense:modern	
+сверхсовременный	sense:modern	
+суперсовременный	sense:modern	
 патока	sense:molasses	
 паточный	sense:molasses	
 настроение	sense:mood	
@@ -8967,6 +9081,9 @@ lemma	senses	note
 содвинуться	sense:move	
 сдвиг	sense:move	
 движок	sense:move	
+надвижка	sense:move	
+раздвигание	sense:move	
+сдвигание	sense:move	
 взмутить	sense:muddy	
 взмутиться	sense:muddy	
 взмучивать	sense:muddy	
@@ -9005,6 +9122,7 @@ lemma	senses	note
 смущаться	sense:muddy	
 смущение	sense:muddy	
 смущенный	sense:muddy	
+мутноватый	sense:muddy	
 множитель	sense:multiply	
 множительный	sense:multiply	
 множить	sense:multiply	
@@ -9032,6 +9150,8 @@ lemma	senses	note
 умножитель	sense:multiply	
 умножить	sense:multiply	
 умножиться	sense:multiply	
+помножить	sense:multiply	
+перемножаться	sense:multiply	
 мышечный	sense:muscle	
 мышца	sense:muscle	
 печерица	sense:mushroom	
@@ -9369,6 +9489,8 @@ lemma	senses	note
 устроенный	sense:organize_device	
 обустройство	sense:organize_device	
 обустроить	sense:organize_device	
+обустраивать	sense:organize_device	
+обустраиваться	sense:organize_device	
 другой	sense:other	
 остальной	sense:other	
 по-другому	sense:other	
@@ -9872,6 +9994,7 @@ lemma	senses	note
 тычина	sense:poke	
 тычинка	sense:poke	
 тычинковый	sense:poke	
+тычиночный	sense:poke	
 ополячивать	sense:polish_people	
 ополячиваться	sense:polish_people	
 ополячить	sense:polish_people	
@@ -10060,6 +10183,7 @@ lemma	senses	note
 слив	sense:pour	
 сливание	sense:pour	
 сливной	sense:pour	
+заливное	sense:pour	
 сливать	sense:pour|sense:review_merge	
 сливаться	sense:pour|sense:review_merge	
 слить	sense:pour|sense:review_merge	Слить воду / слить компании; отлив is both ebb tide and pouring off.
@@ -10075,6 +10199,7 @@ lemma	senses	note
 мощный	sense:power	
 мощь	sense:power	
 всемогущий	sense:power	
+всемогущество	sense:power	
 выпад	sense:precipitate	
 выпадание	sense:precipitate	
 выпадать	sense:precipitate	
@@ -10428,6 +10553,11 @@ lemma	senses	note
 вытянутый	sense:pull	
 втянутый	sense:pull	
 тяговый	sense:pull	
+затянутый	sense:pull	
+тягловый	sense:pull	
+протягивание	sense:pull	
+перетягивание	sense:pull	
+тянутый	sense:pull	
 расправа	sense:punish	
 безукоризненность	sense:punish_kar	
 безукоризненный	sense:punish_kar	
@@ -10740,6 +10870,7 @@ lemma	senses	note
 соотносить	sense:relation	
 соотноситься	sense:relation	
 соотношение	sense:relation	
+соотнесение	sense:relation	
 выпуск	sense:release	
 выпускание	sense:release	
 выпускать	sense:release	
@@ -11040,10 +11171,13 @@ lemma	senses	note
 завзятый	sense:review_bias	
 послеродовой	sense:review_birth_origin	
 синий	sense:review_blue_color	
+иссинить	sense:review_blue_color	
+межкостный	sense:review_bone	
 разорвать	sense:review_break	
 разрыв	sense:review_break	
 разрывать	sense:review_break	
 разрываться	sense:review_break	
+дыхало	sense:review_breathing	
 взяток	sense:review_bribery	
 взяточник	sense:review_bribery	
 взяточница	sense:review_bribery	
@@ -11055,7 +11189,11 @@ lemma	senses	note
 кадетка	sense:review_cadet	
 кадетский	sense:review_cadet	
 кадетство	sense:review_cadet	
+клич	sense:review_call_cry	
 призываться	sense:review_calling	
+отзывчивый	sense:review_calling	
+позывной	sense:review_calling	
+вызывной	sense:review_calling	
 звание	sense:review_calling|sense:review_title	
 унимать	sense:review_calm	
 униматься	sense:review_calm	
@@ -11130,6 +11268,7 @@ lemma	senses	note
 убирать	sense:review_cleaning	
 убраться	sense:review_cleaning	
 чистить	sense:review_cleaning	
+почистить	sense:review_cleaning	
 четкий	sense:review_clear	четкий (clear, precise) is not читать/считать.
 четкость	sense:review_clear	
 затворить	sense:review_closing	
@@ -11194,11 +11333,16 @@ lemma	senses	note
 трусоватый	sense:review_cowardice	
 трус	sense:review_cowardice|sense:review_shaking	трус is a coward and, archaically, an earthquake; трусить is to be afraid and to shake or trot.
 трусить	sense:review_cowardice|sense:review_shaking	
+трещиноватый	sense:review_crack	
+трещинный	sense:review_crack	
+трещиноватость	sense:review_crack	
 сливки	sense:review_cream	
 сливкоотделитель	sense:review_cream	
 сливочки	sense:review_cream	
 сливочник	sense:review_cream	
 сливочный	sense:review_cream	
+перекрестие	sense:review_cross	
+перекрещенный	sense:review_cross	
 склеп	sense:review_crypt	
 склепный	sense:review_crypt	
 культура	sense:review_culture	
@@ -11240,6 +11384,7 @@ lemma	senses	note
 убыточность	sense:review_decrease	
 убыточный	sense:review_decrease	
 убыть	sense:review_decrease	
+убытие	sense:review_decrease	
 считаться	sense:review_deem	считаться and счесть mean «to be regarded, to deem», apart from counting (счет); считать and посчитать read both.
 счесть	sense:review_deem	
 счесться	sense:review_deem	
@@ -11382,6 +11527,7 @@ lemma	senses	note
 обняться	sense:review_embrace	
 объятие	sense:review_embrace	
 объять	sense:review_embrace	
+опорожнение	sense:review_empty	
 просветить	sense:review_enlightenment	Enlightenment/education is not the physical-light family. Keep these forms out of sense:light so «свет» does not open them.
 просветиться	sense:review_enlightenment	
 предприимчивость	sense:review_enterprise	
@@ -11575,6 +11721,7 @@ lemma	senses	note
 отецкий	sense:review_father	
 отцов	sense:review_father	
 безотцовщина	sense:review_father	
+сверхчувственный	sense:review_feeling	
 путина	sense:review_fishing_season	
 примеривать	sense:review_fitting	
 примериваться	sense:review_fitting	
@@ -11634,6 +11781,8 @@ lemma	senses	note
 географически	sense:review_geography	
 географический	sense:review_geography	
 география	sense:review_geography	
+оргстекло	sense:review_glass	
+остеклованный	sense:review_glass	
 пересуд	sense:review_gossip	
 пересуды	sense:review_gossip	
 пересуживать	sense:review_gossip	
@@ -11648,9 +11797,18 @@ lemma	senses	note
 пороховой	sense:review_gunpowder	
 рукоять	sense:review_hand	
 произойти	sense:review_happening|sense:review_outcome_origin	«произойти» is both «случиться» and «вести род» (произошёл от обезьяны), the second shared with происходить and происхождение.
+отверждение	sense:review_hardness	
+отвердитель	sense:review_hardness	
+отвердить	sense:review_hardness	
+отверждать	sense:review_hardness	
+сверхтвердый	sense:review_hardness	
 возыметь	sense:review_have	
 поиметь	sense:review_have	
+оголовок	sense:review_head	
 выше	sense:review_height	
+превыше	sense:review_height	
+возвысить	sense:review_height	
+высотник	sense:review_height	
 эллинистический	sense:review_hellene	
 эллинский	sense:review_hellene	
 сопка	sense:review_hill	сопка (hill) is not сыпать/насыпь.
@@ -11691,6 +11849,7 @@ lemma	senses	note
 орудийный	sense:review_instrument	
 орудовать	sense:review_instrument	
 поорудийно	sense:review_instrument	
+орудный	sense:review_instrument	
 беспрерывность	sense:review_interruption	
 беспрерывный	sense:review_interruption	
 непрерывка	sense:review_interruption	
@@ -11716,6 +11875,7 @@ lemma	senses	note
 убитый	sense:review_killed	
 убить	sense:review_killed	
 трудоемкий	sense:review_labor	
+трудяга	sense:review_labor	
 причитать	sense:review_lament	причитать (to lament) is not читать or причитаться (be due).
 причитание	sense:review_lament	
 причитальщица	sense:review_lament	
@@ -11723,6 +11883,7 @@ lemma	senses	note
 причитывать	sense:review_lament	
 приземный	sense:review_land	
 внеземной	sense:review_land	
+околоземный	sense:review_land	
 выложить	sense:review_lay_out	
 прилагаться	sense:review_laying	
 сложение	sense:review_laying|sense:lag_sum	
@@ -11778,6 +11939,7 @@ lemma	senses	note
 призанять	sense:review_loan	
 долгоживучий	sense:review_long_lived	
 долгоживущий	sense:review_long_lived	
+лежбище	sense:review_lying	
 сумасшедшая	sense:review_madness	
 сумасшедший	sense:review_madness	
 возмужалость	sense:review_manhood_narrow	
@@ -11842,6 +12004,7 @@ lemma	senses	note
 провозвестник	sense:review_messenger	
 провозвестница	sense:review_messenger	
 уведомитель	sense:review_messenger	
+вестовый	sense:review_messenger	
 перелетный	sense:review_migratory	
 взболтаться	sense:review_mixing|sense:review_sway	
 поумерить	sense:review_moderation	
@@ -11863,6 +12026,7 @@ lemma	senses	note
 мамуля	sense:review_mother	
 мамуся	sense:review_mother	
 мамушка	sense:review_mother	
+вселенный	sense:review_move_in	
 повествование	sense:review_narrative	
 повествователь	sense:review_narrative	
 повествовательный	sense:review_narrative	
@@ -11870,6 +12034,7 @@ lemma	senses	note
 повествоваться	sense:review_narrative	
 повестушка	sense:review_narrative	
 повесть	sense:review_narrative	
+подпитка	sense:review_nutrition	
 питание	sense:review_nutrition|sense:review_power_supply	
 вещевой	sense:review_object	The common root «вещ» covers both concrete objects and substances. Keep their established derivatives with the matching modern meaning.
 вещица	sense:review_object	
@@ -12059,6 +12224,12 @@ lemma	senses	note
 утыкаться	sense:review_poke	
 утыкивать	sense:review_poke	
 утыкиваться	sense:review_poke	
+стыковочный	sense:review_poke	
+бесстыковой	sense:review_poke	
+пристыковаться	sense:review_poke	
+расстыковка	sense:review_poke	
+состыковаться	sense:review_poke	
+состыковка	sense:review_poke	
 хоревый	sense:review_polecat	хорь (polecat) is not хор (choir, хоровод).
 хорек	sense:review_polecat	
 хориный	sense:review_polecat	
@@ -12087,13 +12258,19 @@ lemma	senses	note
 явный	sense:review_presence_reality	
 явно	sense:review_presence_reality	
 неявный	sense:review_presence_reality	
+явить	sense:review_presence_reality	
 нажать	sense:review_press	нажать, выжать, отжать, дожать, прожать, пережать are pressing only, though both жать families list them.
 выжать	sense:review_press	
 отжать	sense:review_press	
 дожать	sense:review_press	
 прожать	sense:review_press	
 пережать	sense:review_press	
+прижимание	sense:review_press	
+жим	sense:review_press	
+отжимание	sense:review_press	
+разжим	sense:review_press	
 предыдущий	sense:review_previous	предыдущий (previous) is not идти/пройти.
+перепечатывание	sense:review_print	
 печать	sense:review_print|sense:seal	Печать is printing or a seal; распечатать prints out or unseals.
 распечатать	sense:review_print|sense:seal	
 распечататься	sense:review_print|sense:seal	
@@ -12113,6 +12290,7 @@ lemma	senses	note
 прибыльность	sense:review_profit	
 прибыльный	sense:review_profit	
 прибыточный	sense:review_profit	
+прибыток	sense:review_profit	
 имение	sense:review_property	
 именьице	sense:review_property	
 именьишко	sense:review_property	
@@ -12126,6 +12304,7 @@ lemma	senses	note
 продовольствие	sense:review_provisions	
 продовольствовать	sense:review_provisions	
 чистилище	sense:review_purgatory	
+чистовой	sense:review_purity	
 гноеотделение	sense:review_pus	
 гноеотделительный	sense:review_pus	
 гноеродный	sense:review_pus	
@@ -12197,7 +12376,9 @@ lemma	senses	note
 розничный	sense:review_retail	
 появиться	sense:review_revelation	Words outside the root dictionary (participles, reflexives, adverbs reached by spelling fallback) take the sense of their base, or they stay on the bare root and open none of it.
 выявить	sense:review_revelation	
+выявиться	sense:review_revelation	
 спетость	sense:review_ripening	
+подоспевать	sense:review_ripening	
 восход	sense:review_rise	
 восходитель	sense:review_rise	
 восходить	sense:review_rise	
@@ -12322,6 +12503,7 @@ lemma	senses	note
 наслать	sense:review_send_upon	
 насылать	sense:review_send_upon	
 насылаться	sense:review_send_upon	
+ниспосылать	sense:review_send_upon	
 разнимать	sense:review_separate	
 разниматься	sense:review_separate	
 разнять	sense:review_separate	
@@ -12361,6 +12543,7 @@ lemma	senses	note
 советизировать	sense:review_soviet	
 советизироваться	sense:review_soviet	
 советский	sense:review_soviet	
+плюющий	sense:review_spitting	
 супруг	sense:review_spouse	супруг (spouse) is not упругий; петух is not петь/песня.
 супруга	sense:review_spouse	
 супружеский	sense:review_spouse	
@@ -12449,6 +12632,7 @@ lemma	senses	note
 показания	sense:review_testimony	
 ложа	sense:review_theater_box	
 ляжка	sense:review_thigh	
+гремучник	sense:review_thunder_sound	
 прилив	sense:review_tide	
 приливный	sense:review_tide	
 приливо-отливный	sense:review_tide	
@@ -12578,9 +12762,12 @@ lemma	senses	note
 западный	sense:review_west	
 весь	sense:review_whole|fam:вес³	The lemma «весь» also has the historical ethnonym reading from a separate dictionary family. Keep that alternative while assigning the common determiner/adjective to its modern «whole» sense.
 широта	sense:review_width|sense:review_latitude	Широта is both latitude and breadth; конечность is a limb or finiteness.
+писцовый	sense:review_writing	
+недописанный	sense:review_writing	
 писать	sense:review_writing|sense:urinate	
 писаться	sense:review_writing|sense:urinate	
 письмо	sense:review_written_text|sense:review_writing	The written message retains its dedicated reading, while also participating in the broader writing family.
+безжелтушный	sense:review_yellow	
 восставать	sense:revolt	
 восставить	sense:revolt	
 восставлять	sense:revolt	
@@ -13278,6 +13465,7 @@ lemma	senses	note
 сгребаться	sense:row	
 сгрести	sense:row	
 сгрестись	sense:row	
+отгребание	sense:row	
 впритирку	sense:rub	
 втереть	sense:rub	
 втереться	sense:rub	
@@ -13400,6 +13588,8 @@ lemma	senses	note
 уторник	sense:rub	
 уторный	sense:rub	
 уторщик	sense:rub	
+перетирание	sense:rub	
+подтирание	sense:rub	
 порубливать	sense:ruble	
 разрубленный	sense:ruble	
 рублевик	sense:ruble	
@@ -13520,11 +13710,15 @@ lemma	senses	note
 рубчатый	sense:scar	
 рубчик	sense:scar	
 срубчик	sense:scar	
+рубцовый	sense:scar	
 наука	sense:science	учёный is a scientist: science, not a lesson.
 научный	sense:science	
 ученость	sense:science	
 ученый	sense:science	
 научно	sense:science	
+научность	sense:science	
+квазинаучный	sense:science	
+антинаучный	sense:science	
 распекание	sense:scold	
 распеканция	sense:scold	
 распекательский	sense:scold	
@@ -13643,6 +13837,7 @@ lemma	senses	note
 сыщик	sense:search	
 сыщица	sense:search	
 сыщицкий	sense:search	
+изыск	sense:search	
 приправа	sense:season	
 приправить	sense:season	
 приправка	sense:season	
@@ -13790,6 +13985,7 @@ lemma	senses	note
 созерцать	sense:see	
 созерцаться	sense:see	
 узреть	sense:see	
+обзорность	sense:see	
 рассада	sense:seedling	
 рассадник	sense:seedling	
 рассадный	sense:seedling	
@@ -13863,6 +14059,7 @@ lemma	senses	note
 сряжаться	sense:series	
 уряжать	sense:series	
 уряжаться	sense:series	
+междурядный	sense:series	
 подряд	sense:series|sense:contract	
 рядить	sense:series|sense:outfit	
 рядиться	sense:series|sense:outfit	
@@ -14189,6 +14386,7 @@ lemma	senses	note
 спираться	sense:shove	
 упереть	sense:shove	
 упереться	sense:shove	
+отпирание	sense:shove	
 безусадочный	sense:shrink_settle	
 осадка	sense:shrink_settle	
 оседание	sense:shrink_settle	
@@ -14426,6 +14624,7 @@ lemma	senses	note
 рабский	sense:slave	
 рабство	sense:slave	
 рабыня	sense:slave	
+рабствовать	sense:slave	
 пологий	sense:slope	
 пологость	sense:slope	
 измельчание	sense:small	
@@ -14466,6 +14665,8 @@ lemma	senses	note
 классовость	sense:social_class	
 классовый	sense:social_class	
 надклассовый	sense:social_class	
+внеклассовый	sense:social_class	
+межклассовый	sense:social_class	
 класс	sense:social_class|sense:classification	
 общественник	sense:society	
 общественница	sense:society	
@@ -14477,6 +14678,7 @@ lemma	senses	note
 общинный	sense:society	
 светский	sense:society	
 светскость	sense:society	
+антиобщественный	sense:society	
 подметка	sense:sole	
 подметочный	sense:sole	
 единственный	sense:sole_united	
@@ -14603,6 +14805,7 @@ lemma	senses	note
 уговаривать	sense:speak	
 уговариваться	sense:speak	
 безоговорочный	sense:speak	
+приговариваться	sense:speak	
 данный	sense:specified	The adjectival «данный» means specified / in question, not a transfer.
 мара	sense:specter	
 беспорочный	sense:speech	
@@ -15229,6 +15432,9 @@ lemma	senses	note
 складывание	sense:store	
 складывать	sense:store	
 складываться	sense:store	
+складировать	sense:store	
+складирование	sense:store	
+складироваться	sense:store	
 пересказ	sense:story	
 пересказать	sense:story	
 пересказчик	sense:story	
@@ -16130,6 +16336,9 @@ lemma	senses	note
 умышленный	sense:thought	
 умышлять	sense:thought	
 умышляться	sense:thought	
+мыслиться	sense:thought	
+немыслимо	sense:thought	
+переосмысливаться	sense:thought	
 встрепанный	sense:thrash	
 встрепать	sense:thrash	
 встрепаться	sense:thrash	
@@ -16350,6 +16559,9 @@ lemma	senses	note
 скидной	sense:throw	
 скидочка	sense:throw	
 скинуть	sense:throw	
+откидной	sense:throw	
+опрокидывание	sense:throw	
+перекидывание	sense:throw	
 путевка	sense:ticket	
 изразец	sense:tile	
 изразцовый	sense:tile	
@@ -16371,6 +16583,7 @@ lemma	senses	note
 повременный	sense:time	
 повременщик	sense:time	
 повременщица	sense:time	
+вневременный	sense:time	
 вместе	sense:together	
 совместимость	sense:together	
 совместимый	sense:together	
@@ -16572,6 +16785,7 @@ lemma	senses	note
 увалень	sense:topple	
 увалить	sense:topple	
 увалять	sense:topple	
+обваловать	sense:topple	
 валять	sense:topple|sense:felting	
 валяться	sense:topple|sense:felting	
 вывалять	sense:topple|sense:felting	
@@ -16930,6 +17144,7 @@ lemma	senses	note
 укрутка	sense:twist	
 укручивать	sense:twist	
 укручиваться	sense:twist	
+накрутка	sense:twist	
 всучать	sense:twist_yarn	
 всучаться	sense:twist_yarn	
 всучивание	sense:twist_yarn	
@@ -17040,6 +17255,8 @@ lemma	senses	note
 удвоитель	sense:two	
 удвоить	sense:two	
 удвоиться	sense:two	
+двоить	sense:two	
+сдваивание	sense:two	
 опечатка	sense:typo	
 безобразие	sense:ugly	
 безобразина	sense:ugly	
@@ -17823,6 +18040,11 @@ lemma	senses	note
 целость	sense:whole	
 целый	sense:whole	
 цельный	sense:whole	
+извить	sense:winding	
+извив	sense:winding	
+взвиться	sense:winding	
+извивистый	sense:winding	
+извиться	sense:winding	
 развивать	sense:winding|sense:development	
 развиваться	sense:winding|sense:development	
 развитой	sense:winding|sense:development	
@@ -18001,6 +18223,7 @@ lemma	senses	note
 сработанный	sense:work	
 сработать	sense:work	
 сработаться	sense:work	
+прораб	sense:work	
 мировая	sense:worldly	
 мирок	sense:worldly	
 мирской	sense:worldly	
@@ -18107,6 +18330,8 @@ lemma	senses	note
 сдергивать	sense:yank	
 сдергиваться	sense:yank	
 сдернуть	sense:yank	
+отдергивание	sense:yank	
+передергивание	sense:yank	
 отрок	sense:youth	
 отроковица	sense:youth	
 отроческий	sense:youth	

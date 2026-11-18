@@ -15,8 +15,11 @@ anchor or negation) that stand on the bare root of a family whose every
 dictionary lemma has a sense. Nothing in that family shares the bare root,
 so the word opens none of its relatives (появиться did not open
 появление). Only words seen at least ``ORPHAN_MIN_TOKENS`` times in the
-article corpus are listed. Resolve one with the sense of its base, or ``-``
-in ``sense_assignments.tsv`` when it rightly stands apart (вид, двадцать).
+article corpus are listed (about 2 300 more never occur in an article).
+Resolve one with the sense of its base, or ``-`` in ``sense_assignments.tsv``
+when it rightly stands apart (вид, двадцать). Check the matching snapshot
+after a batch: a sense on a word whose forms are also another noun's
+(свить / свиты ← свита) can open that noun.
 
 Both are sorted by corpus frequency. Rerun after a change::
 
@@ -39,7 +42,7 @@ QUEUE = DATA / 'sense_review_queue.tsv'
 ORPHAN_QUEUE = DATA / 'sense_orphan_queue.tsv'
 COLUMNS = ('family', 'lemma', 'corpus_tokens')
 ORPHAN_COLUMNS = ('root', 'lemma', 'corpus_tokens')
-ORPHAN_MIN_TOKENS = 10
+ORPHAN_MIN_TOKENS = 1
 
 
 @lru_cache(maxsize=1)
