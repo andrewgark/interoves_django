@@ -474,21 +474,33 @@ def _completed_actors(game, task_group, published_at=None, only_keys=None):
     result_times = {}
     if published_at is not None and actors:
         actors_by_key = dict(actor_pairs)
+        # Group every actor of the release and pick ours in Python. An OR of
+        # one exact-actor clause per solver (hundreds) made MySQL test each
+        # attempt row against all of them: ~0.9 s per cold statistics build,
+        # the costliest query shape on the database.
+        task_ids = list(
+            Task.objects.filter(task_group=task_group).values_list('id', flat=True)
+        )
         first_attempts = Attempt.manager.filter(
             game=game,
-            task__task_group=task_group,
+            task_id__in=task_ids,
             skip=False,
             status__in=('Ok', 'Partial', 'Wrong'),
             replay_slot__isnull=True,
-        ).filter(_actor_q(actors_by_key)).values(
+        ).values(
             'team_id', 'user_id', 'anon_key',
         ).annotate(first_attempt=Min('time'))
         for row in first_attempts:
-            key = (
-                ('team', row['team_id']) if row['team_id'] else
-                ('user', row['user_id']) if row['user_id'] else
-                ('anon', row['anon_key'])
-            )
+            team_id, user_id, anon_key = row['team_id'], row['user_id'], row['anon_key']
+            # Same exact actor shapes as _actor_q.
+            if team_id is not None and user_id is None and anon_key is None:
+                key = ('team', team_id)
+            elif user_id is not None and team_id is None and anon_key is None:
+                key = ('user', user_id)
+            elif anon_key is not None and team_id is None and user_id is None:
+                key = ('anon', anon_key)
+            else:
+                continue
             actor = actors_by_key.get(key)
             if actor is not None and row['first_attempt'] is not None:
                 result_times[actor] = row['first_attempt']
@@ -1049,7 +1061,14 @@ DAILY_STATISTICS_ADAPTERS.update({
 })
 
 
-def build_daily_statistics(game, task_group, *, published_at=None):
+def build_daily_statistics(game, task_group, *, published_at=None, require_published=False):
+    """Current statistics generation, shared through the cache.
+
+    Page requests may get the previous generation while another process
+    builds the current one. ``require_published`` (the background refresh)
+    never takes that stale read: it waits for the current generation and,
+    if the builder does not finish in time, caches its own calculation.
+    """
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game.id, task_group.id)
     result = None
@@ -1107,11 +1126,12 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                     if cached is not None:
                         if int(cache.get(revision_key, 0) or 0) == revision:
                             return cached
-                    stale = _previous_revision_payload(
-                        cache, game.id, task_group.id, revision, published_at,
-                    )
-                    if stale is not None:
-                        return stale
+                    if not require_published:
+                        stale = _previous_revision_payload(
+                            cache, game.id, task_group.id, revision, published_at,
+                        )
+                        if stale is not None:
+                            return stale
                 except Exception:
                     cache_failed = True
                     logger.warning(
@@ -1145,6 +1165,8 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                 try:
                     if int(cache.get(revision_key, 0) or 0) != revision:
                         continue
+                    if require_published and cache.get(result_key) is None:
+                        cache.set(result_key, result, CACHE_TIMEOUT)
                 except Exception:
                     logger.warning(
                         'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
