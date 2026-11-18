@@ -569,9 +569,11 @@ family	pattern	sense	note
 лест|лещ²|льст|льщ	.*	sense:review_flattery_seduction	
 па¹|пад|паж|пас¹|пащ	.*	sense:review_falling	
 би(j)|бо(j)¹|бь	.*	sense:review_battle	
-де(j)|де	(?:действ|деятель|действен).*	sense:review_action	
+де(j)|де	(?:деятель|бездеятель|деяни|деяться).*	sense:review_activity	деятельность, деятель, деяние (activity, an agent) are their own sense, apart from делать/дело and from действие.
+де(j)|де	(?:действ|действен).*	sense:review_action	
 де(j)|де	(?:девать|деваться|деван|вдев|вздев).*	sense:review_put	
-де(j)|де	(?:одев|надев|раздев|переодев|приодев|разодев|одеть|надеть|раздеть).*	sense:review_dress	
+де(j)|де	(?:одев|надев|раздев|переодев|приодев|разодев|одеть|надеть|раздеть|переодет|раздет|поддев|пододеял|одеял).*	sense:review_dress	Clothing and bedding (одеть, раздетый, поддевка, пододеяльник) are not делать.
+де(j)|де	понадеяться	sense:hope	понадеяться is надеяться, not делать.
 де(j)|де	.*	sense:deed	
 ч³|чес²|чет|чит|чт	почти	-	The ч/чес/чет/чит family includes counting, reading and respect. «почти» is the adverb «almost», not an honor derivative.
 ч³|чес²|чет|чит|чт	(?:почет|почт|почит|чест|чтить|учтив).*	sense:honor	
