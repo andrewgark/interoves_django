@@ -749,6 +749,45 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(response, '🔄 1 попытка')
         self.assertContains(response, 'data-fully-solved="1"')
 
+    def test_numbered_slot_of_a_former_random_game_stays_in_the_schedule(self):
+        # Early accepted offers renumbered the random game's own link into
+        # the schedule and kept its RandomCensorlyGame row (prod №37, №51–53).
+        from datetime import datetime, timezone as dt_timezone
+
+        from games.sections.hub import get_scheduled_section_hub_card
+        from games.site.pages.hub.cards import _published_numbers
+
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.share_hash = None
+        link.save(update_fields=['number', 'name', 'share_hash'])
+        self.assertTrue(
+            RandomCensorlyGame.objects.filter(task_group=self.task.task_group).exists()
+        )
+        self.game.tags = {'censorly_publish_start': '2026-10-01T00:00:00+03:00'}
+        self.game.save(update_fields=['tags'])
+        now = datetime(2026, 10, 1, 9, 0, tzinfo=dt_timezone.utc)
+
+        self.assertEqual(
+            [link.number for link in GameTaskGroup.sorted_links(game=self.game)], ['1'],
+        )
+        self.assertEqual(
+            [link.number for link in GameTaskGroup.sorted_links(list(GameTaskGroup.objects.filter(game=self.game)))],
+            ['1'],
+        )
+        card = get_scheduled_section_hub_card(
+            self.game, published_numbers=_published_numbers(self.game), now=now,
+        )
+        self.assertEqual(card['cta_number'], '1')
+        self.assertTrue(card['is_today'])
+
+    def test_random_hash_link_stays_out_of_the_schedule(self):
+        self.assertEqual(list(GameTaskGroup.sorted_links(game=self.game)), [])
+        self.assertEqual(
+            GameTaskGroup.sorted_links(list(GameTaskGroup.objects.filter(game=self.game))), [],
+        )
+
     def test_hub_shows_like_totals_and_next_transition(self):
         from datetime import timedelta
 
@@ -814,11 +853,16 @@ class CensorlyAccessTests(TestCase):
         self.assertFalse(row['is_archive_locked'])
 
     def test_hub_hides_unpublished_slots_during_soft_launch(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
         link = GameTaskGroup.objects.get(task_group=self.task.task_group)
         link.number = '1'
         link.name = 'Цензурка #1'
         link.save(update_fields=['number', 'name'])
-        self.game.tags = {'censorly_publish_start': '2026-10-30T00:00:00+03:00'}
+        start = (timezone.localdate() + timedelta(days=3)).isoformat()
+        self.game.tags = {'censorly_publish_start': f'{start}T00:00:00+03:00'}
         self.game.save(update_fields=['tags'])
 
         self.client.force_login(self.staff)

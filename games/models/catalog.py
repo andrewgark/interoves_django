@@ -368,14 +368,18 @@ class GameTaskGroup(models.Model):
 
     @staticmethod
     def _exclude_random_schedule_links(queryset):
+        # Only the random game's own hash-numbered link is excluded. Early
+        # accepted Цензурка offers moved that task group into the schedule
+        # under a numeric number while its RandomCensorlyGame row stayed;
+        # such a link is a real schedule slot.
         random_hash_q = (
             models.Q(
                 game_id='alphabetty',
-                task_group__random_alphabetty_game__isnull=False,
+                task_group__random_alphabetty_game__share_hash=models.F('number'),
             )
             | models.Q(
                 game_id='censorly',
-                task_group__random_censorly_game__isnull=False,
+                task_group__random_censorly_game__share_hash=models.F('number'),
             )
         )
         return queryset.exclude(random_hash_q)
@@ -396,25 +400,25 @@ class GameTaskGroup(models.Model):
             if not include_deferred:
                 links = [link for link in links if not link.is_deferred]
             task_group_ids = [link.task_group_id for link in links]
-            random_task_group_ids = set()
+            random_hashes = set()
             if task_group_ids:
                 from games.models import RandomAlphabettyGame, RandomCensorlyGame
 
-                random_task_group_ids = set(
+                random_hashes = set(
                     RandomAlphabettyGame.objects.filter(
                         task_group_id__in=task_group_ids,
-                    ).values_list('task_group_id', flat=True)
+                    ).values_list('task_group_id', 'share_hash')
                 )
-                random_task_group_ids.update(
+                random_hashes.update(
                     RandomCensorlyGame.objects.filter(
                         task_group_id__in=task_group_ids,
-                    ).values_list('task_group_id', flat=True)
+                    ).values_list('task_group_id', 'share_hash')
                 )
             queryset = [
                 link for link in links
                 if not (
                     link.game_id in ('alphabetty', 'censorly')
-                    and link.task_group_id in random_task_group_ids
+                    and (link.task_group_id, link.number) in random_hashes
                 )
             ]
         links = sorted(
