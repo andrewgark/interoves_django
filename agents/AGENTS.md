@@ -336,3 +336,27 @@ For WebSocket, live task state, teammate synchronization, pending rechecks, and 
 ## Daily-game difficulty cache
 
 Star ratings for ladder / alphabetty / salad are stored snapshots, refreshed by a minute cron (not on page load). See **[docs/difficulty-cache.md](../docs/difficulty-cache.md)**.
+
+## Random games vs daily schedule
+
+«Случайная игра» и «выпуск расписания» — независимые понятия в разных
+плоскостях, а не взаимоисключающие типы task group. Один и тот же
+`TaskGroup` может одновременно иметь запись случайной игры
+(`RandomAlphabettyGame`, `RandomCensorlyGame`, а также share-ссылки
+предложений Лесенки/Салатика) и номерной слот в расписании. Так бывает на
+проде: ранние принятые предложения Цензурки переносили task group случайной
+игры в расписание, и запись `RandomCensorlyGame` осталась (№37, №51–53).
+
+Правила для всех игр со случайными/share-играми:
+
+- Принадлежность к расписанию определяет только сам `GameTaskGroup`: номер
+  (числовой, не share-hash) и `is_deferred`. Наличие записи случайной игры на
+  task group не исключает слот из расписания. Исключать можно только ссылку
+  самой случайной игры — ту, у которой `number` равен её `share_hash`
+  (см. `GameTaskGroup._exclude_random_schedule_links`).
+- И наоборот: открытие по share-hash не должно предполагать, что task group
+  не стоит в расписании (общие попытки, прогресс, статистика).
+- Не «чинить» такие пересечения удалением записей случайной игры: от них
+  каскадом зависят предложения/офферы и старые share-ссылки.
+- В тестах фикстуры часто создают случайную запись вместе с номерным слотом;
+  проверяйте поведение именно с обеими записями, а не удаляйте случайную.
