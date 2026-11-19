@@ -31,6 +31,7 @@ var/eurovision_booklet/
 var/censorly_pool/
 var/wiktionary/
 var/censorly_corpus/
+var/censorly_html/
 var/geoip/
 
 # Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)

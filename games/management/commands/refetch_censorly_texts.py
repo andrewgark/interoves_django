@@ -2,20 +2,33 @@
 
 By default, only parser fixes reach players: the revision stays. A task whose
 body text comes out the same is not touched (its open games do not reload).
+
+A saved revision never changes, so its API response is kept in
+``var/censorly_html/`` and a second dry run re-parses without Wikipedia.
+Review a parser change before saving anything:
+
+    ./scripts/with_rds.sh manage.py refetch_censorly_texts --dry-run --report /tmp/dry.jsonl
+
+Each report row has the number of changed spans and the ``article.junk`` hits
+before and after, so a regression shows as new junk or an unexpected change.
 """
 
 from __future__ import annotations
 
+import collections
 import difflib
 import json
 import time
+from pathlib import Path
 
 import requests
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from games.console.games.censorly import CensorlySupportError, refetch_task_text
 from games.models import Task
-from games.puzzles.censorly.ids import CENSORLY_TASK_TYPE
+from games.puzzles.censorly.article.junk import find_junk
+from games.puzzles.censorly.ids import CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.puzzles.censorly.text.tokenize import FORMULA_START
 
 
@@ -25,6 +38,15 @@ def _first_difference(old: str, new: str, width: int = 90) -> str:
         if tag != 'equal':
             return f'{old[max(0, i1 - 30):i2 + 30][:width]!r} -> {new[max(0, j1 - 30):j2 + 30][:width]!r}'
     return ''
+
+
+def _changed_spans(old: str, new: str) -> int:
+    matcher = difflib.SequenceMatcher(None, old, new, autojunk=False)
+    return sum(1 for tag, *_rest in matcher.get_opcodes() if tag != 'equal')
+
+
+def _junk_counts(text: str) -> dict[str, int]:
+    return dict(collections.Counter(hit.pattern for hit in find_junk(text)))
 
 
 class Command(BaseCommand):
@@ -44,6 +66,11 @@ class Command(BaseCommand):
         parser.add_argument('--limit', type=int, default=0, help='Max tasks to process (0 = all)')
         parser.add_argument('--sleep', type=float, default=1.0, help='Seconds between Wikipedia requests')
         parser.add_argument('--report', default='', help='Write a JSON lines report to this path')
+        parser.add_argument(
+            '--html-cache', default=str(Path(settings.BASE_DIR) / 'var' / 'censorly_html'),
+            help='Directory for saved-revision API responses (default: var/censorly_html)',
+        )
+        parser.add_argument('--no-html-cache', action='store_true', help='Always ask Wikipedia')
 
     def handle(self, *args, **options):
         dry = options['dry_run']
@@ -57,6 +84,9 @@ class Command(BaseCommand):
             qs = qs[:options['limit']]
         report = open(options['report'], 'a', encoding='utf-8') if options['report'] else None
         session = requests.Session()
+        # Only a saved revision is immutable; the latest one is not cached.
+        cache_dir = None if options['no_html_cache'] or options['latest_revision'] else Path(options['html_cache'])
+        self.html_cache_dir = cache_dir
         counts = {'seen': 0, 'changed': 0, 'saved': 0, 'unchanged': 0, 'errors': 0}
         try:
             for task in qs.iterator():
@@ -81,6 +111,8 @@ class Command(BaseCommand):
                         'tokens': [result['old_token_count'], result['token_count']],
                         'formulas': [old_text.count(FORMULA_START), new_text.count(FORMULA_START)],
                         'chars': [len(old_text), len(new_text)],
+                        'changed_spans': _changed_spans(old_text, new_text),
+                        'junk': [_junk_counts(old_text), _junk_counts(new_text)],
                         'saved': result['updated'],
                         'first_difference': _first_difference(old_text, new_text),
                     }
@@ -92,7 +124,8 @@ class Command(BaseCommand):
                 if report is not None and row is not None:
                     report.write(json.dumps(row, ensure_ascii=False) + '\n')
                     report.flush()
-                time.sleep(pause)
+                if not (result or {}).get('from_cache'):
+                    time.sleep(pause)
         finally:
             if report is not None:
                 report.close()
@@ -105,9 +138,13 @@ class Command(BaseCommand):
         last_error = ''
         for attempt in range(4):
             try:
-                return refetch_task_text(
+                cached = self._cached(task) if not latest else False
+                result = refetch_task_text(
                     task, same_revision=not latest, only_if_changed=True, dry_run=dry, session=session,
-                ), ''
+                    html_cache_dir=self.html_cache_dir,
+                )
+                result['from_cache'] = cached
+                return result, ''
             except CensorlySupportError as exc:
                 last_error = str(exc)
                 # A rate limit or a network hiccup is worth another try; a
@@ -116,3 +153,11 @@ class Command(BaseCommand):
                     return None, last_error
             time.sleep(max(pause, 1.0) * (5 ** attempt))
         return None, last_error
+
+    def _cached(self, task) -> bool:
+        if self.html_cache_dir is None:
+            return False
+        tags = task.tags if isinstance(task.tags, dict) else {}
+        data = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags.get(CENSORLY_TAGS_KEY), dict) else {}
+        revid = data.get('wiki_revid')
+        return bool(revid) and (self.html_cache_dir / f'{int(revid)}.json.gz').exists()

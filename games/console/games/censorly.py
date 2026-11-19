@@ -602,6 +602,7 @@ def refetch_task_text(
     only_if_changed: bool = False,
     dry_run: bool = False,
     session=None,
+    html_cache_dir=None,
 ) -> dict[str, Any]:
     """Re-parse a task's Wikipedia article and store the new body.
 
@@ -619,9 +620,18 @@ def refetch_task_text(
     if same_revision and not revid:
         raise CensorlySupportError('У партии не сохранена ревизия статьи')
     try:
-        article = fetch_article(title, revid=revid, session=session)
+        article = fetch_article(title, revid=revid, session=session, html_cache_dir=html_cache_dir)
     except WikiFetchError as exc:
         raise CensorlySupportError(str(exc)) from exc
+    if only_if_changed and article.extract == old.get('body_text'):
+        # The body is the source of truth; its tokens (seconds per article)
+        # are not needed to tell that nothing changed.
+        token_count = len(old.get('title_tokens') or []) + len(old.get('body_tokens') or [])
+        return {
+            'wiki_title': title, 'token_count': token_count, 'old_token_count': token_count,
+            'truncated': bool(old.get('truncated')), 'changed': False, 'updated': False,
+            'old_body_text': article.extract, 'body_text': article.extract,
+        }
     puzzle = build_puzzle_payload(
         wiki_title=title,
         body_text=article.extract,
