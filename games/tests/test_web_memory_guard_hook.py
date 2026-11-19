@@ -69,6 +69,7 @@ class WebMemoryGuardHookTests(TestCase):
         # 1913 MB t3.small minus the 512 MB reserve.
         self.assertIn('MemoryMax=1401M\n', dropin)
         self.assertIn('MemorySwapMax=0\n', dropin)
+        self.assertIn('OOMPolicy=continue\n', dropin)
         self.assertIn(
             'systemctl set-property --runtime web.service MemoryMax=1401M MemorySwapMax=0',
             calls,

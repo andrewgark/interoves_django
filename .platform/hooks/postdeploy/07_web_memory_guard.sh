@@ -12,6 +12,11 @@
 # small swap file is headroom for the agents, not for Daphne
 # (MemorySwapMax=0), so Daphne never slows down by swapping.
 #
+# OOMPolicy=continue: the cgroup also holds Nutrimatic's find-expr children.
+# With the default OOMPolicy=stop, an OOM kill of find-expr made systemd stop
+# the whole unit, so Daphne went down for ~90 s with it (2026-11-19 21:39 UTC).
+# If Daphne itself is the victim, its exit still triggers Restart=always.
+#
 # EB does not rerun postdeploy hooks after a reboot, so swap and swappiness
 # are also persisted in fstab and sysctl.d; the drop-in already lives in /etc.
 set -euo pipefail
@@ -62,6 +67,7 @@ cat >"$DROPIN_DIR/10-memory-guard.conf" <<UNIT
 MemoryAccounting=yes
 MemoryMax=$WEB_MEMORY_MAX
 MemorySwapMax=0
+OOMPolicy=continue
 RestartSec=2
 UNIT
 chmod 0644 "$DROPIN_DIR/10-memory-guard.conf"

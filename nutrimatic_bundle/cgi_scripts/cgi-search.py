@@ -250,8 +250,21 @@ if hard != -1:
   file_limit = min(file_limit, hard)
 resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, hard))
 stderr_file = tempfile.TemporaryFile(mode="w+b")
+
+
+def _find_expr_preexec():
+  signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+  # find-expr shares Daphne's memory cgroup: when it runs out, the kernel
+  # should kill this search, not the web server.
+  try:
+    with open("/proc/self/oom_score_adj", "w") as f:
+      f.write("1000")
+  except OSError:
+    pass
+
+
 proc = subprocess.Popen([binary, index, query_bytes],
-    preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL),
+    preexec_fn=_find_expr_preexec,
     stdout=subprocess.PIPE, stderr=stderr_file)
 atexit.register(_cleanup_find_expr, proc)
 
