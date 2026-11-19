@@ -82,3 +82,16 @@ class CookieCsrfTokenTests(TestCase):
         self.assertNotEqual(response.status_code, 403)
         rejected = client.post('/robots.txt', HTTP_X_CSRFTOKEN='x' * 32)
         self.assertEqual(rejected.status_code, 403)
+
+
+class RootIconTests(TestCase):
+    def test_root_icon_urls_redirect_to_static_files(self):
+        for path, target in (
+            ('/favicon.ico', 'img/favicon/favicon.ico'),
+            ('/apple-touch-icon.png', 'img/favicon/apple-icon-180x180.png'),
+            ('/apple-touch-icon-precomposed.png', 'img/favicon/apple-icon-180x180.png'),
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response['Location'].endswith(target))

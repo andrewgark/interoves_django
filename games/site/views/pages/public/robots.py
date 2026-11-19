@@ -25,3 +25,16 @@ Disallow: /*?*page=
 @cache_control(public=True, max_age=86400)
 def robots_txt(request):
     return HttpResponse(ROBOTS_TXT, content_type='text/plain; charset=utf-8')
+
+
+def root_icon(request, path):
+    """Browsers and iOS ask for icons at the site root, not the <link> URLs.
+
+    Without these routes APPEND_SLASH turned /favicon.ico into a 404 at
+    /favicon.ico/. The static URL carries the release hash, so redirect
+    temporarily instead of pinning one release.
+    """
+    from django.shortcuts import redirect
+    from django.templatetags.static import static
+
+    return redirect(static(path), permanent=False)

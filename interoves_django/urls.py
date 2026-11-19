@@ -35,7 +35,7 @@ from games.site.views.pages.public.feed import instagram_feed, ladder_teaser_jpg
 from games.site.views.pages.public.health import live as health_live, ready as health_ready
 from games.site.views.pages.public.legal import legal_page
 from games.site.views.pages.public.order import order_game_landing
-from games.site.views.pages.public.robots import robots_txt
+from games.site.views.pages.public.robots import robots_txt, root_icon
 from games.site.views.pages.public.vote import next_game_autumn_vote_page, next_game_vote_page
 from microsites import views as microsites_views
 
@@ -110,6 +110,9 @@ eurovision_booklet_patterns = [
 
 urlpatterns = [
     path('robots.txt', robots_txt, name='robots_txt'),
+    path('favicon.ico', root_icon, {'path': 'img/favicon/favicon.ico'}),
+    path('apple-touch-icon.png', root_icon, {'path': 'img/favicon/apple-icon-180x180.png'}),
+    path('apple-touch-icon-precomposed.png', root_icon, {'path': 'img/favicon/apple-icon-180x180.png'}),
     path('admin/', admin.site.urls),
     path('accounts/login/', lambda request: redirect('/?' + urlencode({'login': 1, **({'next': request.GET['next']} if request.GET.get('next') else {})}))),
     path('accounts/', include('allauth.urls')),
