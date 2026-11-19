@@ -440,6 +440,9 @@ html.new-ui-dark .repl-editor {
 .repl-chip.is-done .repl-chip__part:first-child {
   border-left: 0;
 }
+.repl-chip.is-highlighted {
+  border-color: var(--warning);
+}
 .repl-chip__dot {
   display: inline-block;
   width: 0.4rem;

@@ -288,16 +288,23 @@
       renderSlot(el, b.guesses[el.getAttribute('data-repl-slot-key')] || '');
     });
     renderChips(b, boardSlots(b));
+    // Chips are rebuilt and slots may be new after a redraw: keep the hover.
+    if (b.highlight) setHighlight(b, b.highlight);
     if (typeof settings.onRender === 'function') settings.onRender(b.root);
     if (editor && editor.taskId === b.taskId) refreshEditor();
   }
 
+  /** Highlight every slot of one source word, and its chip in the word list. */
   function setHighlight(b, wordKey) {
+    b.highlight = wordKey || null;
     b.root.querySelectorAll('[data-repl-slot-key]').forEach(function (el) {
       el.classList.toggle(
         'is-highlighted',
         !!wordKey && normWord(el.getAttribute('data-encoded')) === wordKey,
       );
+    });
+    b.root.querySelectorAll('.repl-chip').forEach(function (el) {
+      el.classList.toggle('is-highlighted', !!wordKey && el.getAttribute('data-word-key') === wordKey);
     });
   }
 
@@ -719,17 +726,28 @@
       if (part.hasAttribute('data-repl-chip-word')) openChipEditor(cur, wordKey, null);
       else openChipEditor(cur, wordKey, part.getAttribute('data-repl-chip-guess'));
     });
-    function chipHover(e) {
-      var chip = e.target && e.target.closest ? e.target.closest('.repl-chip') : null;
-      setHighlight(b, chip ? chip.getAttribute('data-word-key') : null);
+    // Hovering or focusing a chip or a slot in the text highlights every
+    // slot of the same source word.
+    function hoverTarget(e) {
+      var t = e.target;
+      if (!t || !t.closest) return null;
+      var chip = t.closest('.repl-chip');
+      if (chip && b.root.contains(chip)) return chip.getAttribute('data-word-key');
+      var slot = t.closest('[data-repl-slot-key]');
+      if (slot && b.root.contains(slot)) return normWord(slot.getAttribute('data-encoded'));
+      return null;
     }
-    var box = b.root.querySelector('[data-repl-words]');
-    if (box) {
-      box.addEventListener('mouseover', chipHover);
-      box.addEventListener('focusin', chipHover);
-      box.addEventListener('mouseleave', function () { setHighlight(b, null); });
-      box.addEventListener('focusout', function () { setHighlight(b, null); });
+    function onHover(e) {
+      var wordKey = hoverTarget(e);
+      if (wordKey !== (b.highlight || null)) setHighlight(b, wordKey);
     }
+    b.root.addEventListener('mouseover', onHover);
+    b.root.addEventListener('focusin', onHover);
+    b.root.addEventListener('mouseleave', function () { setHighlight(b, null); });
+    b.root.addEventListener('focusout', function (e) {
+      // Moving focus to another slot or chip re-highlights through focusin.
+      if (!e.relatedTarget || !b.root.contains(e.relatedTarget)) setHighlight(b, null);
+    });
   }
 
   /** Bind every `.repl-board` under `root`; safe to call after a card redraw. */
@@ -756,6 +774,7 @@
         outbox: prev ? prev.outbox : {},
         flushTimer: prev ? prev.flushTimer : null,
         retryDelay: prev ? prev.retryDelay : 0,
+        highlight: null,
         saveError: false,
         refused: prev ? prev.refused : false,
       };

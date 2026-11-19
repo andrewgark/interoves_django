@@ -1069,6 +1069,58 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
+    def update_replacements_task(self, **fields):
+        """Change the replacements task from a thread: Playwright owns this one's event loop."""
+        errors = []
+
+        def update():
+            close_old_connections()
+            try:
+                Task.objects.filter(pk=self.replacements_task.pk).update(**fields)
+            except Exception as exc:  # pragma: no cover - surfaced in the test thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=update)
+        thread.start()
+        thread.join()
+        if errors:
+            raise errors[0]
+
+    def test_replacements_hovering_a_slot_highlights_the_same_word(self):
+        from playwright.sync_api import expect
+
+        self.update_replacements_task(
+            text='FOO and BAR\nFOO',
+            checker_data=json.dumps({'lines': [['ONE', 'TWO'], ['ONE']]}),
+        )
+        page = self.browser_page_for(self.user_one)
+        page.goto(f'{self.live_server_url}/games/{self.game.pk}/3/')
+        card = f'#new-task-{self.replacements_task.pk}'
+        slots = page.locator(f'{card} [data-repl-slot-key]')
+        foo_chip = page.locator(f'{card} .repl-chip[data-word-key="FOO"]')
+
+        def highlighted():
+            return slots.evaluate_all(
+                "els => els.map(el => el.classList.contains('is-highlighted'))"
+            )
+
+        page.locator(f'{card} [data-repl-slot-key="1:0"]').hover()
+        expect(foo_chip).to_have_class(re.compile(r'.*is-highlighted.*'))
+        self.assertEqual(highlighted(), [True, False, True])
+
+        page.locator(f'{card} .new-replacements-mode-bar').hover()
+        expect(foo_chip).not_to_have_class(re.compile(r'.*is-highlighted.*'))
+        self.assertEqual(highlighted(), [False, False, False])
+
+        # Keyboard focus highlights too.
+        page.locator(f'{card} [data-repl-slot-key="0:1"]').focus()
+        expect(page.locator(f'{card} [data-repl-slot-key="0:1"]')).to_have_class(
+            re.compile(r'.*is-highlighted.*'),
+        )
+        self.assertEqual(highlighted(), [False, True, False])
+
     @staticmethod
     def fill_replacement(page, row, value):
         page.locator(f'{row} button[data-repl-slot]').first.click()
@@ -1132,25 +1184,10 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
     def test_replacements_line_paste_fills_every_slot(self):
         from playwright.sync_api import expect
 
-        errors = []
-
-        def make_two_slot_line():
-            close_old_connections()
-            try:
-                Task.objects.filter(pk=self.replacements_task.pk).update(
-                    text='FOO and BAR\nBAZ',
-                    checker_data=json.dumps({'lines': [['ONE', 'TWO'], ['X']]}),
-                )
-            except Exception as exc:  # pragma: no cover - surfaced in the test thread
-                errors.append(exc)
-            finally:
-                close_old_connections()
-
-        thread = Thread(target=make_two_slot_line)
-        thread.start()
-        thread.join()
-        if errors:
-            raise errors[0]
+        self.update_replacements_task(
+            text='FOO and BAR\nBAZ',
+            checker_data=json.dumps({'lines': [['ONE', 'TWO'], ['X']]}),
+        )
         first = self.browser_page_for(self.user_one)
         second = self.browser_page_for(self.user_two)
         url = f'{self.live_server_url}/games/{self.game.pk}/3/'
