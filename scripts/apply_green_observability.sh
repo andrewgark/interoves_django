@@ -11,6 +11,8 @@ POLICY_NAME="interoves-green-web-observability"
 SNS_TOPIC_NAME="interoves-eb-health-alerts"
 SYSTEMD_LOG_GROUP="/aws/elasticbeanstalk/${ENV_NAME}/systemd"
 KERNEL_LOG_GROUP="/aws/elasticbeanstalk/${ENV_NAME}/kernel"
+WEB_STDOUT_LOG_GROUP="/aws/elasticbeanstalk/${ENV_NAME}/var/log/web.stdout.log"
+RDS_SLOWQUERY_LOG_GROUP="/aws/rds/instance/awseb-e-rkvpj3bv2a-stack-awsebrdsdatabase-xbcxyy6hynls/slowquery"
 POLICY_FILE="$ROOT/infra/elasticbeanstalk/green/cloudwatch/web-instance-observability-policy.json"
 AWS_WRAPPER="$ROOT/scripts/aws_with_role.sh"
 AWS_PROFILE_OVERRIDE="${OBSERVABILITY_AWS_PROFILE:-}"
@@ -119,6 +121,30 @@ aws_prod logs put-metric-filter --region "$REGION" \
     --filter-pattern '?"web.service: Main process exited" ?"web.service: Failed with result"' \
     --metric-transformations metricName=WebServiceFailures,metricNamespace=InterOves/Web,metricValue=1
 
+# Application signals (2026-11-19). The 22:00 UTC incident on 2026-11-18 —
+# a 25 s anonymous-history merge transaction stalling every player's writes
+# into admission 503s — was visible only in instance-local logs.
+aws_prod logs put-metric-filter --region "$REGION" \
+    --log-group-name "$WEB_STDOUT_LOG_GROUP" \
+    --filter-name interoves-green-slow-requests \
+    --filter-pattern '"slow_request"' \
+    --metric-transformations metricName=SlowRequests,metricNamespace=InterOves/Web,metricValue=1
+aws_prod logs put-metric-filter --region "$REGION" \
+    --log-group-name "$WEB_STDOUT_LOG_GROUP" \
+    --filter-name interoves-green-admission-rejections \
+    --filter-pattern '"db_admission_metrics" -"\"rejected_delta\":0,"' \
+    --metric-transformations metricName=AdmissionRejectionSamples,metricNamespace=InterOves/Web,metricValue=1
+aws_prod logs put-metric-filter --region "$REGION" \
+    --log-group-name "$WEB_STDOUT_LOG_GROUP" \
+    --filter-name interoves-green-crawl-probe \
+    --filter-pattern '"crawl_probe"' \
+    --metric-transformations metricName=CrawlProbeRequests,metricNamespace=InterOves/Web,metricValue=1
+aws_prod logs put-metric-filter --region "$REGION" \
+    --log-group-name "$RDS_SLOWQUERY_LOG_GROUP" \
+    --filter-name interoves-rds-lock-waits \
+    --filter-pattern '%Lock_time: [1-9][0-9]*\.%' \
+    --metric-transformations metricName=RdsLockWaits,metricNamespace=InterOves/Web,metricValue=1
+
 elb_dimensions="[{\"Name\":\"LoadBalancer\",\"Value\":\"$LB_DIM\"}]"
 target_dimensions="[{\"Name\":\"LoadBalancer\",\"Value\":\"$LB_DIM\"},{\"Name\":\"TargetGroup\",\"Value\":\"$TG_DIM\"}]"
 asg_dimensions="[{\"Name\":\"AutoScalingGroupName\",\"Value\":\"$ASG_NAME\"}]"
@@ -154,5 +180,15 @@ ensure_alarm interoves-green-web-kernel-oom \
 ensure_alarm interoves-green-web-service-failure \
     "systemd reported a Daphne web.service process failure" InterOves/Web \
     WebServiceFailures Sum 60 1 1 1 GreaterThanOrEqualToThreshold notBreaching "$no_dimensions"
+
+ensure_alarm interoves-green-admission-rejections \
+    "Web admission gate rejected requests (503) in at least two 10 s samples within five minutes" InterOves/Web \
+    AdmissionRejectionSamples Sum 300 1 1 2 GreaterThanOrEqualToThreshold notBreaching "$no_dimensions"
+ensure_alarm interoves-green-slow-requests \
+    "At least 20 slow_request (>=2 s) lines in five minutes on Green" InterOves/Web \
+    SlowRequests Sum 300 1 1 20 GreaterThanOrEqualToThreshold notBreaching "$no_dimensions"
+ensure_alarm interoves-rds-lock-waits \
+    "At least five RDS queries waited >=1 s for locks within five minutes" InterOves/Web \
+    RdsLockWaits Sum 300 1 1 5 GreaterThanOrEqualToThreshold notBreaching "$no_dimensions"
 
 echo "Green observability IAM, log groups, metric filters and alarms applied."
