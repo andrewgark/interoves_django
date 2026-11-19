@@ -3,6 +3,8 @@
 
 {% block title %}О нас{% endblock %}
 
+{% block og_meta %}{% endblock %}
+
 {% block extrahead %}
   {{ block.super }}
   <meta name="description" content="Inter Oves — клуб сложных головоломок, где интернет разрешён. Десяточки, ежедневные игры, puzzle hunts, история проекта и игры для компаний.">
@@ -13,6 +15,7 @@
   <meta property="og:title" content="О нас · Inter Oves">
   <meta property="og:description" content="Inter Oves — клуб сложных головоломок, где интернет разрешён. Десяточки, ежедневные игры, puzzle hunts, история проекта и игры для компаний.">
   <meta property="og:url" content="https://interoves.com/about/">
+  <meta property="og:image" content="{{ default_og.image }}">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="{% static 'css/about.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
 {% endblock %}

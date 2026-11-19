@@ -1,8 +1,9 @@
-{% comment %}Link preview tags. Context: og = {title, description, url, image} (absolute URLs).{% endcomment %}
+{% comment %}Link preview tags. Context: og = {title, description, url, image} (absolute URLs);
+an empty og.title falls back to the page title.{% endcomment %}
 <meta property="og:type" content="website">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:site_name" content="Inter Oves">
-<meta property="og:title" content="{{ og.title }}">
+<meta property="og:title" content="{% if og.title %}{{ og.title }}{% else %}{{ page_title|default:"Interoves" }} · Inter Oves{% endif %}">
 <meta property="og:description" content="{{ og.description }}">
 <meta property="og:url" content="{{ og.url }}">
 <meta property="og:image" content="{{ og.image }}">

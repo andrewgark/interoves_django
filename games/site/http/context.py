@@ -307,3 +307,10 @@ def notifications_nav(request):
     except Exception:
         logger.exception('event=notifications_nav_failed user=%s', user.pk)
         return {}
+
+
+def link_preview(request):
+    """Default OpenGraph tags; a view's own ``og`` wins (see site/base.html)."""
+    from games.community.preview import page_og
+
+    return {'default_og': page_og(request)}

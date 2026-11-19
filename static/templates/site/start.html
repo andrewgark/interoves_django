@@ -3,6 +3,8 @@
 
 {% block title %}С чего начать{% endblock %}
 
+{% block og_meta %}{% endblock %}
+
 {% block extrahead %}
   {{ block.super }}
   <meta name="description" content="Начните знакомство с Inter Oves: ежедневные головоломки со словами — Салатик, Лесенка, Алфавитка и Цензурка.">
@@ -13,6 +15,7 @@
   <meta property="og:title" content="С чего начать · Inter Oves">
   <meta property="og:description" content="Новые головоломки каждый день и архив предыдущих. Выберите, с чего начать.">
   <meta property="og:url" content="https://interoves.com/start/">
+  <meta property="og:image" content="{{ default_og.image }}">
 {% endblock %}
 
 {% block content %}

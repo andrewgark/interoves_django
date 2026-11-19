@@ -470,6 +470,7 @@ TEMPLATES = [
                 'games.site.http.context.daily_player',
                 'games.site.http.context.unverified_telegram_prompt',
                 'games.site.http.context.ui_notices',
+                'games.site.http.context.link_preview',
                 'games.site.http.site_version.site_version',
             ],
         },

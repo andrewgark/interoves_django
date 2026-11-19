@@ -1,7 +1,7 @@
 {% extends "site/base.html" %}
 {% load filters %}
 {% block title %}{{ player.name }}{% endblock %}
-{% block extrahead %}<meta name="robots" content="noindex">{% if og %}{% include "site/partials/og_meta.html" %}{% endif %}{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <section class="new-profile-card player-card" aria-labelledby="player-name">
   <div class="new-profile-card__hero">

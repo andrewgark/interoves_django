@@ -73,6 +73,8 @@
   {# Snapshot/sort/filter/page variants of results tables are an endless crawl space. #}
   <meta name="robots" content="noindex,nofollow">
   {% endif %}
+  {# Pages with hand-written preview tags override this block. #}
+  {% block og_meta %}{% if og or default_og %}{% include "site/partials/og_meta.html" with og=og|default:default_og %}{% endif %}{% endblock %}
   {% block extrahead %}{% endblock %}
 </head>
 <body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-offline-actor="{{ offline_actor|default:'' }}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
