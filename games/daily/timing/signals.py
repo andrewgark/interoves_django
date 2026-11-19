@@ -25,8 +25,14 @@ def _daily_game_ids():
 
 
 def _invalidate_pairs(pairs):
-    from games.daily.timing.statistics import invalidate_daily_statistics
+    from django.db import transaction
 
+    from games.daily.timing.statistics import invalidate_daily_statistics
+    from games.site.pages.results.compute import bump_results_visibility_generation
+
+    # Release results tables are cached by source revision; a visibility
+    # change shows or hides people without touching any attempt.
+    transaction.on_commit(bump_results_visibility_generation)
     for game_id, task_group_id in set(pairs):
         invalidate_daily_statistics(game_id, task_group_id)
 

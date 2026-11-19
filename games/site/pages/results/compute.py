@@ -327,12 +327,60 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     }
 
 
+RESULTS_VISIBILITY_GENERATION_KEY = 'new_results:visibility-generation'
+RELEASE_RESULTS_TIMEOUT = 5 * 60
+
+
+def results_visibility_generation():
+    try:
+        return int(cache.get(RESULTS_VISIBILITY_GENERATION_KEY) or 0)
+    except Exception:
+        return 0
+
+
+def bump_results_visibility_generation():
+    """Hidden teams/profiles/anonymous keys and authorship change who is shown."""
+    try:
+        cache.incr(RESULTS_VISIBILITY_GENERATION_KEY)
+    except ValueError:
+        cache.set(RESULTS_VISIBILITY_GENERATION_KEY, 1, None)
+    except Exception:
+        logger.warning('results_visibility_generation_bump_failed', exc_info=True)
+
+
+def _release_source_revision(game, task_group_number):
+    """Projection source revision of one release, bumped by every gameplay mutation."""
+    from games.models import DailyResultProjectionState, GameTaskGroup
+
+    task_group_id = GameTaskGroup.objects.filter(
+        game=game, number=str(task_group_number),
+    ).values_list('task_group_id', flat=True).first()
+    if task_group_id is None:
+        return None
+    return DailyResultProjectionState.objects.filter(
+        game=game, task_group_id=task_group_id,
+    ).values_list('source_revision', flat=True).first()
+
+
 def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
-    """Reuse the full result calculation while progressive pages are loading."""
+    """Reuse the full result calculation while progressive pages are loading.
+
+    A single release keys its cache by the release's projection source
+    revision (bumped in the same transaction as every attempt) and the
+    visibility generation, so it stays valid for minutes until someone plays
+    it. Salad has no task projection read path and paid a 1-1.6 s live
+    calculation every 10 s otherwise.
+    """
     actor_key = 'all' if actor_types is None else ','.join(sorted(actor_types))
     cache_key = 'new_results:v2:{}:{}:{}:{}:{}'.format(
         game.id, mode, task_group_number or '-', alphabetty_sort, actor_key,
     )
+    timeout = 10
+    if mode == 'general' and task_group_number is not None:
+        revision = _release_source_revision(game, task_group_number)
+        if revision is not None:
+            cache_key = '{}:r{}:v{}'.format(cache_key, revision, results_visibility_generation())
+            timeout = RELEASE_RESULTS_TIMEOUT
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -340,7 +388,7 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
         game, mode, task_group_number=task_group_number,
         alphabetty_sort=alphabetty_sort, actor_types=actor_types,
     )
-    cache.set(cache_key, data, 10)
+    cache.set(cache_key, data, timeout)
     return data
 
 
