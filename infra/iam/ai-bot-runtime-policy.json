@@ -99,6 +99,20 @@
           "aws:RequestedRegion": "eu-central-1"
         }
       }
+    },
+    {
+      "Sid": "CloudWatchLogsMetricFilters",
+      "Effect": "Allow",
+      "Action": [
+        "logs:PutMetricFilter",
+        "logs:DeleteMetricFilter"
+      ],
+      "Resource": [
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/*",
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/*:*",
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/rds/instance/*",
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/rds/instance/*:*"
+      ]
     }
   ]
 }
