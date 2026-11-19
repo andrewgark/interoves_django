@@ -763,6 +763,20 @@ class LadderOfferFlowTests(TestCase):
             [self.other.pk],
         )
 
+    def test_actor_reset_reconciles_only_that_actor(self):
+        from games.club.offers.ladder import reset_raddle_progress
+
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        with patch(
+            'games.daily.completion.targeted_completion_reconciliation.reconcile_task_group_actors',
+        ) as reconcile:
+            reset_raddle_progress(task=task, user=self.user)
+        kwargs = reconcile.call_args.kwargs
+        self.assertEqual(kwargs['actor_keys'], {(None, self.user.pk, None)})
+        self.assertFalse(kwargs['include_group_actors'])
+
     def test_resize_unpublished_offer_resets_progress_for_every_actor(self):
         offer = create_offer(self.user)
         update_offer_content(

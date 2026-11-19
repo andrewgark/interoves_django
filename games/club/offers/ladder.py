@@ -512,6 +512,10 @@ def reset_raddle_progress(
             user.pk if user is not None else None,
             anon_key,
         )},
+        # Only this actor's attempts went away, so only its completion can
+        # change. Re-checking every actor of the group made each Ladder
+        # tutorial visit (it resets the board) cost ~1000 queries and 2-5 s.
+        include_group_actors=False,
     )
     # attempt_revision is task-wide. Do not rotate it for an actor-scoped
     # reset: that would make other actors' still-valid attempts look stale.
