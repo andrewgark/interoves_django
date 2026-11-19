@@ -54,6 +54,25 @@ from interoves_django.asgi_event_loop_monitor import EventLoopLagMonitorMiddlewa
 
 django.setup()
 
+
+def _warm_censorly_lexicon():
+    """Build the Censorly root bank before the process takes traffic.
+
+    Built lazily, it cost the first matching guess of every web process
+    5-15 s of CPU, stalling every other request the process was serving.
+    """
+    if runtime_role() != RUNTIME_ROLE_WEB or os.environ.get('CENSORLY_WARM_LEXICON', '1') == '0':
+        return
+    try:
+        from games.puzzles.censorly.lexical.deciders.rootbank import ROOT_BANK
+
+        ROOT_BANK.built()
+    except Exception:
+        logging.getLogger(__name__).exception('censorly lexicon warm-up failed')
+
+
+_warm_censorly_lexicon()
+
 application = EventLoopLagMonitorMiddleware(ProtocolTypeRouter({
   "http":  http_asgi_app,
   "websocket": AuthMiddlewareStack(
