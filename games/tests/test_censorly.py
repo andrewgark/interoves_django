@@ -1863,6 +1863,40 @@ class CensorlyWikiHelperTests(TestCase):
             _html_extract_to_text(raw), 'Книга считается лучшей. Тиндализация. Токсин.',
         )
 
+    def test_mathml_keeps_negated_relations_degrees_and_reaction_arrows(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def render(mathml):
+            return clean_wiki_extract(_html_extract_to_text(f'<p><math>{mathml}</math></p>'))
+
+        # «=» with a combining long solidus overlay is «≠», not «=».
+        self.assertEqual(render('<mrow><mi>a</mi><mo>=\u0338</mo><mn>0</mn></mrow>'), 'a ≠ 0')
+        # A condition over a reaction arrow reads as in \overset.
+        self.assertEqual(
+            render(
+                '<mrow><mi>A</mi><mover><mo>→</mo><msup><mi>t</mi><mo>∘</mo></msup></mover>'
+                '<mi>B</mi></mrow>'
+            ),
+            'A → (t°) B',
+        )
+        # mhchem prints a phantom-only script before the real one.
+        self.assertEqual(
+            render(
+                '<mrow><mi>p</mi><mo>⟶</mo>'
+                '<msubsup><mrow><mphantom><mi>A</mi></mphantom></mrow>'
+                '<mphantom><mn>2</mn></mphantom><mphantom><mn>3</mn></mphantom></msubsup>'
+                '<msubsup><mrow></mrow><mn>2</mn><mn>3</mn></msubsup><mi>H</mi><mi>e</mi></mrow>'
+            ),
+            'p ⟶ ₂³He',
+        )
+        # A bar over a bold vector letter stays on the letter.
+        self.assertEqual(render('<mrow><mover><mi>𝐡</mi><mo>‾</mo></mover></mrow>'), '𝐡¯')
+
+    def test_tex_degree_superscript_is_the_degree_sign(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        self.assertEqual(clean_wiki_extract(r'{\displaystyle \beta = 30^{\circ}}'), 'β = 30°')
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text

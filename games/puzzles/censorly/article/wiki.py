@@ -212,7 +212,9 @@ def _mathml_to_tex(node: _MathNode) -> str:
 
     if tag in {'mi', 'mn', 'mo'}:
         # Drop invisible function application / times / separator / plus.
-        text = re.sub('[\u2061-\u2064]', '', _mathml_text(node))
+        # NFC folds a negation overlay into one sign: «=\u0338» is «≠»; left
+        # apart, the tokenizer drops the overlay and «≠ 0» reads «= 0».
+        text = unicodedata.normalize('NFC', re.sub('[\u2061-\u2064]', '', _mathml_text(node)))
         # A function name (sin, tg, det, lim) comes as <mi> or as <mo>.
         if tag != 'mn' and len(text) > 1 and text.isalpha():
             if text in _TEX_FUNCTION_COMMANDS:
@@ -250,12 +252,14 @@ def _mathml_to_tex(node: _MathNode) -> str:
         if mark and set(mark) <= set("′″‴'"):
             base += mark.replace('′', "'").replace('″', "''").replace('‴', "'''")
             return base if tag == 'msup' else f'{base}_{{{arg(1)}}}'
-    if tag == 'msup':
-        return f'{base}^{{{arg(1)}}}'
-    if tag == 'msub':
-        return f'{base}_{{{arg(1)}}}'
-    if tag == 'msubsup':
-        return f'{base}_{{{arg(1)}}}^{{{arg(2)}}}'
+    if tag in {'msup', 'msub', 'msubsup'}:
+        # mhchem's \ce{^3_2He} first prints a script made of phantoms only:
+        # an empty index is no index, not «₍₎».
+        scripts = [arg(1), ''] if tag == 'msub' else ['', arg(1)] if tag == 'msup' else [arg(1), arg(2)]
+        sub, sup = (script if script.strip() else '' for script in scripts)
+        return base.strip('{}') if not (sub or sup) and not base.strip('{}').strip() else (
+            base + (f'_{{{sub}}}' if sub else '') + (f'^{{{sup}}}' if sup else '')
+        )
     if tag == 'mfrac':
         if _mathml_is_stack(node):
             # \atop under a big operator: the cleaner joins the rows with «, ».
@@ -271,6 +275,11 @@ def _mathml_to_tex(node: _MathNode) -> str:
             return f'\\{_MATHML_OVER_ACCENTS[mark]}{{{arg(0)}}}'
         if tag == 'munder' and mark in _MATHML_UNDER_ACCENTS:
             return f'\\{_MATHML_UNDER_ACCENTS[mark]}{{{arg(0)}}}'
+        if tag in {'mover', 'munderover'} and _mathml_text(elements[0]) in _TEX_ANNOTATED_ARROWS:
+            # A reaction condition over (and under) an arrow: «→ (t°)», as
+            # \overset reads; the line under it follows after a comma.
+            label = arg(1) if tag == 'mover' else ', '.join(filter(None, (arg(2), arg(1))))
+            return f'\\overset{{{label}}}{{{base}}}'
         if tag == 'mover':
             return f'{base}^{{{arg(1)}}}'
         if tag == 'munder':
@@ -1047,7 +1056,8 @@ _BIG_OPERATOR_WITH_LIMITS_RE = re.compile(
     rf'[∑∏∫∬∭∮](?:[ {re.escape(_SCRIPT_CHARS)}]|₍[^₎]*₎|\^\([^()]*(?:\([^()]*\)[^()]*)*\))*$'
 )
 _SINGLE_SCRIPT_ATOM_RE = re.compile(
-    rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ][{re.escape(_SCRIPT_CHARS)}]*$'
+    # Bold and other math alphanumerics (𝐡, 𝐁) are single letters too.
+    rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ\U0001D400-\U0001D7FF][{re.escape(_SCRIPT_CHARS)}]*$'
 )
 
 
@@ -1218,7 +1228,7 @@ class _TexTextParser:
                     # A reaction condition belongs to the arrow, rather than
                     # becoming a guessed word inside a raw ^{...} fragment.
                     label = re.sub(r'\^\([∘°]\)$', '°', label)
-                    return f'{value} ({label})', base[1]
+                    return f'{value} ({label}) ', base[1]
                 if name in ('overset', 'stackrel'):
                     translated = label.translate(_SUPERSCRIPTS)
                     fully_translated = all(
@@ -1441,6 +1451,10 @@ class _TexTextParser:
                 arg = self._argument(i + 1)
                 if arg:
                     value, i = arg
+                    if ch == '^' and value.strip() in {'∘', '°'}:
+                        # 30^\circ is the degree sign, not a superscript ring.
+                        out.append('°')
+                        continue
                     trans = _SUPERSCRIPTS if ch == '^' else _SUBSCRIPTS
                     # The nested parser uses the mathematical minus sign in
                     # prose. Script glyph tables expect TeX's ASCII minus.
@@ -1463,7 +1477,7 @@ class _TexTextParser:
         rendered = re.sub(r'\s*([=+−×·≤≥≠≈≡])\s*', r' \1 ', rendered)
         rendered = re.sub(r'\s*([<>])\s*', r' \1 ', rendered)
         rendered = re.sub(
-            r'\s*([∈∉∋∌⊂⊃⊄⊅⊆⊇⊈⊉∪∩→←↔⇒⇐⇔↦∧∨∥∦∝])\s*',
+            r'\s*([∈∉∋∌⊂⊃⊄⊅⊆⊇⊈⊉∪∩→←↔⇒⇐⇔↦⟶⟵⟷⇌⇆∧∨∥∦∝])\s*',
             r' \1 ', rendered,
         )
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
