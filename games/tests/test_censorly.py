@@ -1780,6 +1780,53 @@ class CensorlyWikiHelperTests(TestCase):
             'Жёлтое море (кор. 황해, 黃海 хванхэ)',
         )
 
+    def test_html_extract_drops_wikidata_more_sources_mark(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        raw = (
+            '<p>Мбаппе (род. <span class="nowrap">20 декабря 1998</span>'
+            '<sup><a class="extiw" href="https://www.wikidata.org/wiki/Q21621995">[…]</a></sup>, '
+            'Париж). Он сказал: «Я […] играю».</p>'
+        )
+
+        self.assertEqual(
+            _html_extract_to_text(raw),
+            'Мбаппе (род. 20 декабря 1998, Париж). Он сказал: «Я […] играю».',
+        )
+
+    def test_html_extract_drops_source_notes_and_duplicate_coordinates(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw = (
+            '<p>Ангелов<sup class="reference"><a>[18]</a></sup>&#160;'
+            '<small class="ref-info">(недоступная ссылка)</small>. '
+            'Посадка: <span class="coordinates"><span class="geo-geo-dms">'
+            '<span class="geo-dms">68°13′08″&#160;с.&#160;ш. 125°44′57″&#160;з.&#160;д.</span>'
+            '<span class="geo-multi-punct">&#xfeff; / &#xfeff;</span>'
+            '<span class="geo-dec">68,2188°&#160;с.&#160;ш. 125,7492°&#160;з.&#160;д.'
+            '<span style="display:none">&#xfeff; / <span class="geo">68.2188; -125.7492</span></span>'
+            '</span></span></span>.</p>'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(_html_extract_to_text(raw)),
+            'Ангелов. Посадка: 68°13′08″\xa0с.\xa0ш. 125°44′57″\xa0з.\xa0д.',
+        )
+
+    def test_clean_extract_closes_separators_left_by_pronunciation(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw = (
+            '<p><b>Apple Inc</b> (<small>МФА:</small> <span class="IPA"><a>[ˈæp(ə)l]</a></span>, «Эппл»)'
+            '&#160;— корпорация. <b>Берлин</b> (нем.&#160;Berlin <span class="IPA"><a>[bɛɐ̯ˈliːn]</a></span>, '
+            '<span class="noexcerpt">слушать</span>). <b>Пастер</b> (фр.&#160;Louis Pasteur&#8203;; 1822).</p>'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(_html_extract_to_text(raw)),
+            'Apple Inc («Эппл»)\xa0— корпорация. Берлин (нем.\xa0Berlin). Пастер (фр.\xa0Louis Pasteur; 1822).',
+        )
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text

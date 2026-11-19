@@ -329,6 +329,11 @@ class _WikiExtractHTMLParser(HTMLParser):
         'error', 'nomobile', 'noexcerpt', 'sortkey', 'reflist', 'refbegin',
         # Foreign-language original under a translated quotation.
         'ts-oq',
+        # «(недоступная ссылка)», «(англ.)» after a source, «МФА (чеш.)».
+        'ref-info',
+        # {{coord}} prints degrees-minutes, then decimal degrees and a
+        # machine-readable pair that the site stylesheet hides.
+        'geo-multi-punct', 'geo-dec',
     }
     # Divs that carry article text: the parser wrapper, section headings, the
     # ruwiki quotation template around its <blockquote> and multi-column lists.
@@ -738,9 +743,10 @@ class _WikiExtractHTMLParser(HTMLParser):
             else:
                 self.parts.insert(split, ' ')
             return
-        if tag == 'sup' and ''.join(self.parts[start:]).strip() == '?':
+        if tag == 'sup' and ''.join(self.parts[start:]).strip() in {'?', '[…]'}:
             # {{lang-ko}}, {{lang-zh}} etc. link a superscript «?» to the
-            # script's article (Хангыль, Ханча) as font help, not text.
+            # script's article (Хангыль, Ханча) as font help; a Wikidata
+            # date or place links «[…]» to more sources. Neither is text.
             del self.parts[start:]
             return
         # 10<sup>18</sup>, H<sub>2</sub>O; anything else (a footnote mark,
@@ -763,6 +769,8 @@ class _WikiExtractHTMLParser(HTMLParser):
                 data.replace('\r', '').replace('\t', '    ').replace('\n', '\u2028'),
             )
             return
+        # Zero-width spaces: «Pasteur\u200b;», «з. д.\ufeff / …».
+        data = data.replace('\u200b', '').replace('\ufeff', '')
         if 'data' in self.tables:
             data = data.replace('\n', ' ')
             self.table_chars += len(data.strip())
@@ -1809,6 +1817,13 @@ def _tidy_pronunciation_gaps(text: str) -> str:
     text = re.sub(r'\([ \t\u00a0]+', '(', text)
     text = re.sub(r'[ \t\u00a0]+\)', ')', text)
     text = _EMPTY_PAREN_RE.sub('', text)
+    # «Apple Inc (, «Эппл»)», «Berlin (нем. Berlin,)»: the transcription
+    # and audio sit in the lead's parentheses. Further down «(,» and «,)» can
+    # be text: a smiley «;)», a matrix column A(,j), «левая скобка (,».
+    lead, sep, rest = text.partition('\n\n')
+    lead = re.sub(r'\([ \t\u00a0]*[,;][ \t\u00a0]*', '(', lead)
+    lead = re.sub(r'[ \t\u00a0]*[,;][ \t\u00a0]*\)', ')', lead)
+    text = lead + sep + rest
     # «Shakespeare, ; 26» after the pronunciation between the separators is gone.
     text = re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', text)
     text = re.sub(r'[ \t\u00a0]+([,.;:!?…])', r'\1', text)
