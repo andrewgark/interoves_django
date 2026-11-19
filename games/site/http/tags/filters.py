@@ -19,7 +19,19 @@ def auth_next(context):
     # as another host.
     if candidate.startswith('/') and url_has_allowed_host_and_scheme(candidate, allowed_hosts=None):
         return candidate
-    return request.get_full_path()
+    # Results-table view state (pinned snapshot, sort, filters, paging) gave
+    # every table variant its own login links; crawlers followed them as an
+    # endless URL space. After login the table opens fresh for its month.
+    params = request.GET.copy()
+    for key in _AUTH_NEXT_DROPPED_PARAMS:
+        params.pop(key, None)
+    query = params.urlencode()
+    return request.path + ('?' + query if query else '')
+
+
+_AUTH_NEXT_DROPPED_PARAMS = (
+    'snapshot', 'snapshot_view', 'sort', 'actors', 'page', 'anchor', 'loaded', 'limit', 'partial',
+)
 
 
 @register.filter

@@ -434,6 +434,7 @@ MIDDLEWARE = [
     'games.site.http.middleware.auth_session_observability.AuthenticatedRequestAuditMiddleware',
     'games.site.http.middleware.session_refresh.SlidingSessionRefreshMiddleware',
     'games.site.http.middleware.anonymous_identity.AnonymousIdentityMiddleware',
+    'games.site.http.middleware.crawl_probe.CrawlProbeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 

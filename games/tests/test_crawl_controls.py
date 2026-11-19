@@ -30,3 +30,37 @@ class CrawlControlTests(TestCase):
         self.assertNotIn('content="noindex,nofollow"', plain)
         variant = self.client.get('/?sort=time').content.decode()
         self.assertIn('<meta name="robots" content="noindex,nofollow">', variant)
+
+
+class AuthNextTests(TestCase):
+    def _auth_next(self, path):
+        from django.template import Context, Template
+        from django.test import RequestFactory
+
+        request = RequestFactory().get(path)
+        return Template('{% load filters %}{% auth_next %}').render(Context({'request': request}))
+
+    def test_results_view_state_is_not_carried_into_login_links(self):
+        self.assertEqual(
+            self._auth_next(
+                '/censorly/results/?month=2026-11&snapshot=abc&sort=time&actors=user&page=3',
+            ),
+            '/censorly/results/?month=2026-11',
+        )
+        self.assertEqual(self._auth_next('/ladder/results/?snapshot=abc'), '/ladder/results/')
+
+
+class CrawlProbeTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_login_modal_deps()
+
+    def test_logs_only_crawl_space_requests(self):
+        with self.assertLogs('games.crawl_probe', level='INFO') as logs:
+            self.client.get(
+                '/?snapshot=abc', HTTP_USER_AGENT='TestBot/1.0', HTTP_X_FORWARDED_FOR='203.0.113.7',
+            )
+        self.assertIn('"ua":"TestBot/1.0"', logs.output[0])
+        self.assertIn('"ip":"203.0.113.7"', logs.output[0])
+        with self.assertNoLogs('games.crawl_probe', level='INFO'):
+            self.client.get('/')
