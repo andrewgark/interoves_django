@@ -64,3 +64,21 @@ class CrawlProbeTests(TestCase):
         self.assertIn('"ip":"203.0.113.7"', logs.output[0])
         with self.assertNoLogs('games.crawl_probe', level='INFO'):
             self.client.get('/')
+
+
+class CookieCsrfTokenTests(TestCase):
+    """page_csrf.js sends the csrftoken cookie's value; Django must accept it."""
+
+    def test_cookie_value_is_a_valid_csrf_token(self):
+        from django.middleware.csrf import get_token
+        from django.test import Client, RequestFactory
+
+        client = Client(enforce_csrf_checks=True)
+        request = RequestFactory().get('/')
+        get_token(request)
+        secret = request.META['CSRF_COOKIE']  # what the csrftoken cookie holds
+        client.cookies['csrftoken'] = secret
+        response = client.post('/robots.txt', HTTP_X_CSRFTOKEN=secret)
+        self.assertNotEqual(response.status_code, 403)
+        rejected = client.post('/robots.txt', HTTP_X_CSRFTOKEN='x' * 32)
+        self.assertEqual(rejected.status_code, 403)

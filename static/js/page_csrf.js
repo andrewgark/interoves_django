@@ -16,9 +16,24 @@
   var FORM_ID = 'interoves-page-csrf';
   var FIELD = 'csrfmiddlewaretoken';
 
+  // The live csrftoken cookie wins over the token rendered into the page:
+  // when the browser's cookie changes (another tab, sign-in/out, Safari
+  // dropping cookies) a page left open kept sending its old token and every
+  // POST failed with 403 until reload (2026-11-19: one iOS player's Salad
+  // answers and timer for an hour). Django accepts the cookie's secret.
+  function cookieToken(doc) {
+    var raw = doc && typeof doc.cookie === 'string' ? doc.cookie : '';
+    var m = raw.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (!m) return '';
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+  }
+
   function pageToken(doc) {
     doc = doc || global.document;
-    if (!doc || typeof doc.getElementById !== 'function') return '';
+    if (!doc) return '';
+    var fromCookie = cookieToken(doc);
+    if (fromCookie) return fromCookie;
+    if (typeof doc.getElementById !== 'function') return '';
     var form = doc.getElementById(FORM_ID);
     var el = form ? form.querySelector('input[name="' + FIELD + '"]') : null;
     return el && el.value ? String(el.value) : '';

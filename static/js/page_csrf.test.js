@@ -33,6 +33,11 @@ require('./page_csrf.js');
 var csrf = global.InterovesPageCsrf;
 assert.strictEqual(csrf.pageToken(), 'page-token');
 
+// A rotated cookie wins over the token rendered into an open page.
+global.document.cookie = 'sessionid=x; csrftoken=cookie-secret; other=1';
+assert.strictEqual(csrf.pageToken(), 'cookie-secret');
+global.document.cookie = '';
+
 var fd = {
   value: 'teammate-token',
   set: function (name, value) {
