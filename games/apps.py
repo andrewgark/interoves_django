@@ -10,10 +10,20 @@ class GamesConfig(AppConfig):
         from games.site.http import auth_observability
 
         auth_observability.log_startup_auth_configuration()
+        from allauth.socialaccount.models import SocialApp
+        from django.db.models.signals import m2m_changed, post_delete, post_save
         from health_check.plugins import plugin_dir
 
         import games.club.billing.tribute.checks  # noqa: F401
         import games.daily.timing.signals  # noqa: F401 — public statistics eligibility cache
+        from games.identity.allauth import clear_social_apps_cache
+
+        # Admin edits of OAuth credentials reach this process's lookup cache.
+        post_save.connect(clear_social_apps_cache, sender=SocialApp, dispatch_uid='social-apps-cache-save')
+        post_delete.connect(clear_social_apps_cache, sender=SocialApp, dispatch_uid='social-apps-cache-delete')
+        m2m_changed.connect(
+            clear_social_apps_cache, sender=SocialApp.sites.through, dispatch_uid='social-apps-cache-sites',
+        )
         import games.ops.analytics.identity  # noqa: F401 — logout rotation receiver
         import games.ops.social.instagram.models  # noqa: F401
         import games.ops.social.models  # noqa: F401

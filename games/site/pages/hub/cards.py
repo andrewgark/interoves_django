@@ -120,8 +120,10 @@ def _build_hub_section_cards(request, *, team):
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     by_id = {}
     if project:
-        for game_id in (*HUB_DAILY_SECTION_IDS, *HUB_FROM_DESYATOCHKI_SECTION_IDS):
-            game = Game.objects.filter(id=game_id, project=project).first()
+        card_ids = (*HUB_DAILY_SECTION_IDS, *HUB_FROM_DESYATOCHKI_SECTION_IDS)
+        games_by_id = Game.objects.filter(id__in=card_ids, project=project).in_bulk()
+        for game_id in card_ids:
+            game = games_by_id.get(game_id)
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
             if is_scheduled_game(game_id):

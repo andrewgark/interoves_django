@@ -357,6 +357,7 @@ class Profile(models.Model):
 
     def save(self, *args, **kwargs):
         _ensure_public_id(self, kwargs)
+        self._primary_team_repaired = False
         super().save(*args, **kwargs)
         if self.team_on_id:
             ProfileTeamMembership.objects.get_or_create(profile=self, team_id=self.team_on_id)

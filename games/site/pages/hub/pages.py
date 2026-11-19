@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from games.club.next_game_autumn import PHASE_CLOSED, campaign_phase
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID, get_ladder_hub_context
-from games.daily.timing.transitions import next_daily_content_transition_for_games
 from games.models import Game, Project
 from games.sections.hub import get_desyatochki_hub_context
 from games.site.http.middleware.request_timing import timing_phase
@@ -21,6 +20,7 @@ from games.site.pages.game.visible_games import (
     mark_archive_locks,
     project_games_list,
 )
+from games.site.pages.hub import link_cache as hub_link_cache
 from games.site.pages.hub.actor import team_for_user
 from games.site.pages.hub.cards import (
     _build_hub_section_cards,
@@ -55,7 +55,7 @@ def hub(request):
     with timing_phase(request, 'hub_daily_cards'):
         hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
     with timing_phase(request, 'hub_next_transition'):
-        live_next_transition_at = next_daily_content_transition_for_games(
+        live_next_transition_at = hub_link_cache.next_content_transition(
             card.get('game') for card in hub_groups['daily_hub_cards']
         )
     with timing_phase(request, 'hub_friends_today'):

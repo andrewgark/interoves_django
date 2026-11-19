@@ -56,7 +56,46 @@ class AccountAdapter(DefaultAccountAdapter):
         return url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()})
 
 
+_social_apps_cache = {}
+
+
+def _social_apps_ttl():
+    from django.conf import settings
+
+    return float(getattr(settings, 'SOCIAL_APPS_CACHE_SECONDS', 60))
+
+
+def clear_social_apps_cache(*_args, **_kwargs):
+    _social_apps_cache.clear()
+
+
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
+    def list_apps(self, request, provider=None, client_id=None):
+        """SocialApp rows per site, kept for a minute in the process.
+
+        Every page renders the login modal: three SocialApp queries per view.
+        The rows change only when an admin edits OAuth credentials.
+        """
+        import time
+
+        from django.contrib.sites.shortcuts import get_current_site
+
+        try:
+            site_id = get_current_site(request).pk if request is not None else None
+        except Exception:
+            return super().list_apps(request, provider=provider, client_id=client_id)
+        ttl = _social_apps_ttl()
+        if ttl <= 0:
+            return super().list_apps(request, provider=provider, client_id=client_id)
+        key = (site_id, provider, client_id)
+        now = time.monotonic()
+        hit = _social_apps_cache.get(key)
+        if hit is not None and hit[0] > now:
+            return list(hit[1])
+        apps = super().list_apps(request, provider=provider, client_id=client_id)
+        _social_apps_cache[key] = (now + ttl, tuple(apps))
+        return list(apps)
+
     def pre_social_login(self, request, sociallogin):
         if _oauth_next_targets_glowbyte(sociallogin):
             provider = sociallogin.account.provider

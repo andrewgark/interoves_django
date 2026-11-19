@@ -30,3 +30,6 @@ DAILY_DEFAULT_AUTHOR_USER_ID = None
 # The hub's process-local link cache would carry placements across tests that
 # reuse game ids; its own tests enable it with override_settings.
 HUB_LINK_CACHE_SECONDS = 0
+
+# Process-level SocialApp lookups would leak OAuth apps between tests.
+SOCIAL_APPS_CACHE_SECONDS = 0

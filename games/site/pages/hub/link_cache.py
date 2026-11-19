@@ -54,6 +54,31 @@ def game_links(game):
     return cached(('links', str(game.id)), lambda: tuple(_game_task_group_links(game)))
 
 
+def release_numbers(game):
+    """Every placement number of a game (deferred too), shared like the links."""
+    from games.models import GameTaskGroup
+
+    return cached(
+        ('numbers', str(game.id)),
+        lambda: tuple(GameTaskGroup.objects.filter(game=game).values_list('number', flat=True)),
+    )
+
+
+def next_content_transition(games):
+    """``next_daily_content_transition_for_games`` over the cached numbers."""
+    from django.utils import timezone
+
+    from games.daily.timing.transitions import next_daily_content_transition
+
+    now = timezone.now()
+    transitions = [
+        next_daily_content_transition(game, release_numbers(game), now=now)
+        for game in games if game is not None
+    ]
+    transitions = [value for value in transitions if value is not None]
+    return min(transitions) if transitions else None
+
+
 def visible_game_links(game):
     """Released placements, newest first (as ``_player_visible_task_group_links``)."""
     from games.daily.page.section import filter_published_links, is_scheduled_game
