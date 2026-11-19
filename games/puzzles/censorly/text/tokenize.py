@@ -24,6 +24,7 @@ from games.puzzles.censorly.lexical.context import (
     SEE_REF,
     STREET_ABBR,
     TELE_PREFIX,
+    TIME_UNITS,
     TOM_VOLUME,
     YEAR_ABBR,
     initial_context,
@@ -699,6 +700,31 @@ def _is_century_number(tok: dict[str, Any]) -> bool:
     return surface.isdigit() or bool(_ROMAN_NUMERAL_RE.fullmatch(surface))
 
 
+# Signs between units in «км/ч», «Кл × В × с», «Н·м».
+_UNIT_OPERATORS = frozenset({'/', '×', '·', '⋅', '∙'})
+
+
+def _is_unit_position(tokens: list[dict[str, Any]], previous: int, following: int) -> bool:
+    """After a unit operator, or after a number with no word after it."""
+    if previous < 0:
+        return False
+    before = tokens[previous].get('surface') or ''
+    if before in _UNIT_OPERATORS:
+        return True
+    if not before[-1:].isdigit():
+        return False
+    if following >= len(tokens):
+        return True
+    after = tokens[following]
+    after_surface = after.get('surface') or ''
+    # «3 ч 20 мин», «34 мин и 13 с»: a number or «и» may follow; another
+    # word («5 мин были…») may not.
+    return (
+        after.get('kind') in {'punct', 'block'} or after_surface[:1].isdigit()
+        or after_surface in _UNIT_OPERATORS or after_surface == 'и'
+    )
+
+
 def _set_context(tok: dict[str, Any], context) -> None:
     """Mark one occurrence with an article context (see ``lexical.context``)."""
     tok['lemma'] = context.marker
@@ -712,7 +738,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
     for index, tok in enumerate(tokens):
         surface = tok.get('surface') or ''
         if tok.get('kind') != 'content' and not (
-            tok.get('kind') == 'stop' and normalize_surface(surface) == 'в'
+            tok.get('kind') == 'stop' and normalize_surface(surface) in {'в', 'с'}
         ):
             continue
         word = normalize_surface(surface)
@@ -739,6 +765,16 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             _set_context(tok, CENTURY_ABBR)
             tok['length'] = 1
             tok['stem_length'] = 1
+            continue
+
+        unit = TIME_UNITS.get(word)
+        if unit and surface == surface.lower() and _is_unit_position(tokens, previous, after_word):
+            tok['kind'] = 'content'
+            _set_context(tok, unit)
+            tok['length'] = tok['stem_length'] = letter_length(surface)
+            tok.pop('ending', None)
+            continue
+        if tok.get('kind') == 'stop':
             continue
 
         if word == 'кому' and _is_coma_context(tokens, index):

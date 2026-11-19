@@ -1827,6 +1827,39 @@ class CensorlyWikiHelperTests(TestCase):
             'Apple Inc («Эппл»)\xa0— корпорация. Берлин (нем.\xa0Berlin). Пастер (фр.\xa0Louis Pasteur; 1822).',
         )
 
+    def test_clean_extract_drops_unclassed_editorial_notes_and_lead_ipa_runs(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        self.assertEqual(
+            clean_wiki_extract(
+                'Торо́нто (англ.\xa0Toronto [təˈrɒntoʊ], местн. [təˈrɒnoʊ], [ˈtrɒnoʊ], [-nə])'
+                '\xa0— город.\n\nУдаряли восемь человек[источник не указан 31 день]. '
+                'Харвуд, 1992[нет в источнике]. Он сказал: «[что] так»'
+            ),
+            'Торо́нто (англ.\xa0Toronto, местн.)\xa0— город.\n\nУдаряли восемь человек. '
+            'Харвуд, 1992. Он сказал: «[что] так»',
+        )
+
+    def test_time_units_after_numbers_open_from_the_full_word(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Скорость 9,69 км/с, 60 км/ч и 3 ч 20 мин, период 36 с.')
+        units = [(tok['surface'], tok['initially_open']) for tok in tokens if tok.get('context_reading')]
+        self.assertEqual(
+            units, [('с', False), ('ч', False), ('ч', False), ('мин', False), ('с', False)],
+        )
+        for guess, opened in (('секунда', 2), ('час', 2), ('минута', 1)):
+            with self.subTest(guess):
+                lemmas = matching_lemmas(tokens, guess)
+                self.assertEqual(sum(tok['lemma'] in lemmas for tok in tokens), opened)
+        # The preposition and the plural of «мина» stay what they are.
+        plain = tokenize_text('в 2010 с помощью; заложили 5 мин были обезврежены')
+        self.assertEqual(
+            {tok['surface']: tok['lemma'] for tok in plain if tok['surface'] in {'с', 'мин'}},
+            {'с': 'с', 'мин': 'мина'},
+        )
+
     def test_stress_marks_are_hidden_until_the_word_opens(self):
         from games.puzzles.censorly.article.redact import build_public_view
         from games.puzzles.censorly.text.tokenize import tokenize_text
@@ -1887,7 +1920,7 @@ class CensorlyWikiHelperTests(TestCase):
                 '<mphantom><mn>2</mn></mphantom><mphantom><mn>3</mn></mphantom></msubsup>'
                 '<msubsup><mrow></mrow><mn>2</mn><mn>3</mn></msubsup><mi>H</mi><mi>e</mi></mrow>'
             ),
-            'p ⟶ ₂³He',
+            'p ⟶ ³₂He',
         )
         # A bar over a bold vector letter stays on the letter.
         self.assertEqual(render('<mrow><mover><mi>𝐡</mi><mo>‾</mo></mover></mrow>'), '𝐡¯')
@@ -1896,6 +1929,20 @@ class CensorlyWikiHelperTests(TestCase):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
 
         self.assertEqual(clean_wiki_extract(r'{\displaystyle \beta = 30^{\circ}}'), 'β = 30°')
+
+    def test_tex_colon_and_lines_over_and_under_groups(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        cases = {
+            r'{\displaystyle H_{0}\colon M_{1}=M_{2}}': 'H₀: M₁ = M₂',
+            r'{\displaystyle j={\overline {1,(N+1)}}}': 'j = ‾(1,(N + 1))',
+            r'{\displaystyle z\in {\overline {\mathbb {C} }}}': 'z ∈ ℂ¯',
+            r'{\displaystyle {\underline {x}}}': 'x\u0332',
+            r'{\displaystyle G_{({\underline {5-\infty }})}}': 'G₍(_(5 −∞))₎',
+        }
+        for tex, expected in cases.items():
+            with self.subTest(tex):
+                self.assertEqual(clean_wiki_extract(tex), expected)
 
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
@@ -2833,7 +2880,7 @@ class CensorlyRandomGameTests(TestCase):
         )
         cleaned = clean_wiki_extract(raw)
         self.assertIn('Φ₍E,S₎ + qᵢ˙ + N¯ + x¨ + r⃗ + λ⃗ + vec(AB)', cleaned)
-        self.assertIn('overline(E = mc²)', cleaned)
+        self.assertIn('‾(E = mc²)', cleaned)
 
         service = {token['surface']: token['kind'] for token in tokenize_text(cleaned)}
         for symbol in ('₍', '₎', '˙', '¯', '¨'):

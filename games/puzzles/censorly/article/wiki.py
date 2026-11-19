@@ -257,9 +257,12 @@ def _mathml_to_tex(node: _MathNode) -> str:
         # an empty index is no index, not «₍₎».
         scripts = [arg(1), ''] if tag == 'msub' else ['', arg(1)] if tag == 'msup' else [arg(1), arg(2)]
         sub, sup = (script if script.strip() else '' for script in scripts)
-        return base.strip('{}') if not (sub or sup) and not base.strip('{}').strip() else (
-            base + (f'_{{{sub}}}' if sub else '') + (f'^{{{sup}}}' if sup else '')
-        )
+        sub = f'_{{{sub}}}' if sub else ''
+        sup = f'^{{{sup}}}' if sup else ''
+        if not base.strip('{}').strip():
+            # Prescripts of a nuclide: mass over charge, written ³₂He.
+            return sup + sub
+        return base + sub + sup
     if tag == 'mfrac':
         if _mathml_is_stack(node):
             # \atop under a big operator: the cleaner joins the rows with «, ».
@@ -818,7 +821,9 @@ _NUMERIC_FOOTNOTE_RE = re.compile(r'\[(\d{1,2})\]')
 _EDITORIAL_BRACKET_RE = re.compile(
     r'\[(?:'
     r'уточнить|кто\?|когда\?|где\?|какой\?|какая\?|какое\?|какие\?|сколько\?|'
-    r'источник\??|нужен\s+источник|нет\s+источника'
+    r'источник\??|нужен\s+источник|нет\s+источника|'
+    # {{Нет в источнике}}, {{Нет АИ}}: a bare <sup>[<i>…</i>]</sup>, no class.
+    r'нет\s+в\s+источнике|источник\s+не\s+указан[^\]]{0,30}|нет\s+АИ[^\]]{0,30}'
     r')\]',
     re.IGNORECASE,
 )
@@ -1000,7 +1005,7 @@ _TEX_SYMBOLS = {
     'uparrow': '↑', 'downarrow': '↓', 'updownarrow': '↕',
     'Uparrow': '⇑', 'Downarrow': '⇓', 'Updownarrow': '⇕',
     'cup': '∪', 'cap': '∩', 'land': '∧',
-    'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
+    'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅', 'colon': ':',
     'varnothing': '∅', 'nexists': '∄', 'nparallel': '∦',
     'triangle': '△', 'perp': '⊥', 'parallel': '∥', 'otimes': '⊗',
     'sim': '∼', 'subseteq': '⊆', 'mid': '∣', 'angle': '∠', 'prime': '′',
@@ -1056,8 +1061,8 @@ _BIG_OPERATOR_WITH_LIMITS_RE = re.compile(
     rf'[∑∏∫∬∭∮](?:[ {re.escape(_SCRIPT_CHARS)}]|₍[^₎]*₎|\^\([^()]*(?:\([^()]*\)[^()]*)*\))*$'
 )
 _SINGLE_SCRIPT_ATOM_RE = re.compile(
-    # Bold and other math alphanumerics (𝐡, 𝐁) are single letters too.
-    rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ\U0001D400-\U0001D7FF][{re.escape(_SCRIPT_CHARS)}]*$'
+    # Letterlike (ℂ, ℝ) and math alphanumerics (𝐡, 𝐁) are single letters too.
+    rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ\u2100-\u214F\U0001D400-\U0001D7FF][{re.escape(_SCRIPT_CHARS)}]*$'
 )
 
 
@@ -1272,7 +1277,7 @@ class _TexTextParser:
         if name in _TEX_FORMAT_COMMANDS:
             return (' ' if name in ('quad', 'qquad', ',', ';', ':', ' ') else ''), j
         if name in _TEX_GROUP_COMMANDS or name in (
-            'overline', 'bar', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde',
+            'overline', 'bar', 'underline', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde',
             'overbrace', 'underbrace',
         ):
             arg = self._argument(j)
@@ -1303,6 +1308,14 @@ class _TexTextParser:
                 return accented + hat_base[1:], arg[1]
             if name in ('overline', 'bar') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}¯', arg[1]
+            if name in ('overline', 'bar'):
+                # A bar over a group (\overline{1,N+1}, a range of indices).
+                return f'‾({arg[0]})', arg[1]
+            if name == 'underline' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
+                return f'{arg[0]}\u0332', arg[1]
+            if name == 'underline':
+                # A line under a group: an inferior ovary G₍_(5 − ∞)₎.
+                return f'_({arg[0]})', arg[1]
             if name == 'vec' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}⃗', arg[1]
             return f'{name}({arg[0]})', arg[1]
@@ -1839,17 +1852,18 @@ def _tidy_pronunciation_gaps(text: str) -> str:
     text = re.sub(r'\([ \t\u00a0]+', '(', text)
     text = re.sub(r'[ \t\u00a0]+\)', ')', text)
     text = _EMPTY_PAREN_RE.sub('', text)
-    # «Apple Inc (, «Эппл»)», «Berlin (нем. Berlin,)»: the transcription
-    # and audio sit in the lead's parentheses. Further down «(,» and «,)» can
-    # be text: a smiley «;)», a matrix column A(,j), «левая скобка (,».
-    lead, sep, rest = text.partition('\n\n')
-    lead = re.sub(r'\([ \t\u00a0]*[,;][ \t\u00a0]*', '(', lead)
-    lead = re.sub(r'[ \t\u00a0]*[,;][ \t\u00a0]*\)', ')', lead)
-    text = lead + sep + rest
     # «Shakespeare, ; 26» after the pronunciation between the separators is gone.
     text = re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', text)
     text = re.sub(r'[ \t\u00a0]+([,.;:!?…])', r'\1', text)
     text = re.sub(r'[ \t\u00a0]{2,}', ' ', text)
+    # «Apple Inc (, «Эппл»)», «Berlin (нем. Berlin,)», «местн. [..], [..])»:
+    # the transcriptions and audio sit in the lead's parentheses. Further
+    # down «(,» and «,)» can be text: a smiley «;)», a matrix column A(,j),
+    # «левая скобка (,».
+    lead, sep, rest = text.partition('\n\n')
+    lead = re.sub(r'\([ \t\u00a0]*[,;][ \t\u00a0]*', '(', lead)
+    lead = re.sub(r'[ \t\u00a0]*[,;][ \t\u00a0]*\)', ')', lead)
+    text = lead + sep + rest
     text = _EMPTY_PAREN_RE.sub('', text)
     return text
 

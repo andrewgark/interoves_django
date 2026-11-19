@@ -60,6 +60,7 @@
 |---|---|
 | разбор пары | `review.explain_pair A B` или `--pairs-file` |
 | однобуквенные слова: буква или служебное, с контекстом (diff двух прогонов; `--suspicious` — вероятные пропуски; `--db` через `with_rds.sh --raw` — сыгранные статьи) | `review.letter_audit --out /tmp/letters.tsv` (~20 с) |
+| служебные пометки и остатки парсера в текстах статей (`[кем?]`, `[…]`, `₍₎`, `^(∘)`, `fcolon`; шаблоны в `article/junk.py`); `--corpus` — кэш корпуса, `--corpus --refetch before.tsv` — те же статьи текущим парсером, `--db` через `with_rds.sh --raw` — сыгранные | `review.junk_audit --corpus --out /tmp/junk.tsv` |
 | метрика покрытия и дыры по трекам (`SUMMARY rooted_russian_tokens=…`) | `coverage_report --gaps /tmp/gaps.tsv` (~1 мин) |
 | та же метрика на отложенной выборке (очереди её не читают) | `coverage_report --holdout` (~1 мин) |
 | набор метрик: покрытие по группам слов на обоих корпусах, правильность по размеченным выборкам и по `bee.roots.json` | `metrics` (~5 мин, с `linked`); `metrics draw --per-group 30 --extra 100 --seed N` — новая выборка для разметки; `metrics orphans` — частые слова с корнем, которые ничто не открывает |
