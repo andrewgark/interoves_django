@@ -24,9 +24,9 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.puzzles.raddle.concurrency import (
-    RADDLE_DEADLOCK_ATTEMPTS,
-    run_raddle_atomic_with_deadlock_retry,
+from games.realtime.db import (
+    LOCK_RETRY_ATTEMPTS,
+    run_atomic_with_lock_retry,
 )
 
 LONG_LADDER = {
@@ -93,7 +93,7 @@ class RaddleUiSyncTests(TestCase):
 
         with self.assertLogs('games.raddle_concurrency', level='WARNING') as logs:
             self.assertEqual(
-                run_raddle_atomic_with_deadlock_retry(flaky, label='test'),
+                run_atomic_with_lock_retry(flaky, label='test'),
                 'ok',
             )
         self.assertEqual(calls['count'], 2)
@@ -107,8 +107,8 @@ class RaddleUiSyncTests(TestCase):
             raise OperationalError(1205, 'Lock wait timeout exceeded')
 
         with self.assertRaises(OperationalError):
-            run_raddle_atomic_with_deadlock_retry(timeout, label='test')
-        self.assertEqual(calls['count'], RADDLE_DEADLOCK_ATTEMPTS)
+            run_atomic_with_lock_retry(timeout, label='test')
+        self.assertEqual(calls['count'], LOCK_RETRY_ATTEMPTS)
 
     def test_deadlock_retry_is_bounded(self):
         calls = {'count': 0}
@@ -118,8 +118,8 @@ class RaddleUiSyncTests(TestCase):
             raise OperationalError(1213, 'Deadlock found when trying to get lock')
 
         with self.assertRaises(OperationalError):
-            run_raddle_atomic_with_deadlock_retry(deadlock, label='test')
-        self.assertEqual(calls['count'], RADDLE_DEADLOCK_ATTEMPTS)
+            run_atomic_with_lock_retry(deadlock, label='test')
+        self.assertEqual(calls['count'], LOCK_RETRY_ATTEMPTS)
 
     def test_draft_and_clue_mark_persist_without_task_html(self):
         first = self._client('raddle_ui_one')

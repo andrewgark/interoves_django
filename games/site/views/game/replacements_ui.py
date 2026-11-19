@@ -6,10 +6,6 @@ from django.views.decorators.http import require_POST
 
 from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, official_game_completed
 from games.models import Attempt, ReplacementsUiState
-from games.puzzles.raddle.concurrency import (
-    lock_or_create_raddle_state,
-    run_raddle_atomic_with_deadlock_retry,
-)
 from games.puzzles.replacements.lines import (
     parse_replacements_lines_text,
     replacements_solved_slots_from_state,
@@ -20,6 +16,10 @@ from games.puzzles.replacements.lines.ui_state import (
     replacements_ui_payload,
     task_revision,
     ui_state_lookup,
+)
+from games.realtime.db import (
+    lock_or_create_state_row,
+    run_atomic_with_lock_retry,
 )
 from games.realtime.track_compat import track_actor_task_change
 from games.site.http.exceptions import NoGameAccessException
@@ -70,7 +70,7 @@ def process_send_replacements_ui(request, task_id):
     saved = {}
 
     def _save_ui_state():
-        row = lock_or_create_raddle_state(
+        row = lock_or_create_state_row(
             queryset=ReplacementsUiState.objects.filter(**lookup),
             task=task,
             lookup=lookup,
@@ -87,7 +87,7 @@ def process_send_replacements_ui(request, task_id):
         saved['guesses'] = row.guesses
         saved['revision'] = row.revision
 
-    run_raddle_atomic_with_deadlock_retry(_save_ui_state, label='replacements_ui')
+    run_atomic_with_lock_retry(_save_ui_state, label='replacements_ui')
 
     payload = replacements_ui_payload(task.id, saved['guesses'], saved['revision'])
     if replay_slot is None:
