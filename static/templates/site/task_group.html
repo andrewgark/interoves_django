@@ -15,6 +15,9 @@
 {% block body_attrs %}{% if ladder_tutorial %}data-disable-track="1" {% endif %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "site/_18plus_gate_early.html" %}
+  {% if replacements_lines_data %}
+    <link rel="stylesheet" href="{% static 'css/replacements.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  {% endif %}
   {% if html_forms_data %}
     <link rel="stylesheet" href="{% static 'css/html_forms_graph_demo.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}-layout-v14">
     <script src="{% static 'js/html_forms_graph_demo.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-layout-v10" defer></script>
@@ -301,6 +304,7 @@
 </script>
 {% endif %}
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
+<script src="{% static 'js/replacements_board.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/fetch_json.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>

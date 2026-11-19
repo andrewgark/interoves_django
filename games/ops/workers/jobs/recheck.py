@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from games.models import CHAIN_TASK_TYPES, Attempt, ChainTaskState, Game, GameTaskGroup, Team
-from games.puzzles.raddle.concurrency import lock_or_create_raddle_state
+from games.realtime.db import lock_or_create_state_row
 from games.realtime.track_compat import track_actor_task_change, track_attempt_change
 from games.site.views.game.attempt import check_attempt
 
@@ -219,7 +219,7 @@ def recheck_chain_task(
                 task=task, game=game, game_mode=mode,
                 replay_slot=replay_slot, actor_key=actor_key,
             )
-            lock_or_create_raddle_state(
+            lock_or_create_state_row(
                 queryset=ChainTaskState.objects.filter(**lookup),
                 task=task,
                 lookup=lookup,
@@ -718,7 +718,7 @@ def recheck_word_salad_actor(
                 task=task, game=game, game_mode=mode,
                 replay_slot=replay_slot, actor_key=actor_key,
             )
-            lock_or_create_raddle_state(
+            lock_or_create_state_row(
                 queryset=ChainTaskState.objects.filter(**lookup),
                 task=task,
                 lookup=lookup,
@@ -904,7 +904,7 @@ def sync_word_salad_finds(
             'team': team, 'user': user, 'anon_key': anon_key,
             'task': task, 'game': game, 'game_mode': mode, 'replay_slot': replay_slot,
         }
-        row = lock_or_create_raddle_state(
+        row = lock_or_create_state_row(
             queryset=ChainTaskState.objects.filter(**lookup),
             task=task,
             lookup=lookup,

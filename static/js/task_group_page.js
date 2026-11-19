@@ -619,21 +619,7 @@
     return ReplParse.parseReplLineAnswersSmart(container, raw, nSlots);
   }
   function buildFullAnswerLineFromWordsRow(row) {
-    var container = row.querySelector('[data-repl-words-wrap]');
-    if (!container) return '';
-    var parts = [];
-    var children = container.children;
-    for (var i = 0; i < children.length; i++) {
-      var el = children[i];
-      if (el.classList && el.classList.contains('new-replacements-static')) {
-        parts.push(normPasteText(el.textContent || ''));
-      } else if (el.classList && el.classList.contains('new-replacements-partial-answer')) {
-        parts.push(normPasteText(el.textContent || ''));
-      } else if (el.tagName === 'INPUT' && el.name === 'answers[]') {
-        parts.push(el.value || '');
-      }
-    }
-    return parts.join('');
+    return window.ReplacementsBoard ? window.ReplacementsBoard.lineText(row) : '';
   }
   function forEachReplUnsolvedRow(taskRoot, fn) {
     taskRoot.querySelectorAll('tr.new-replacements-row:not(.new-replacements-row--solved)').forEach(fn);
@@ -645,37 +631,20 @@
     });
     return out;
   }
-  /** В режиме «по строкам» проверку разрешаем только если значения уже в полях answers[] (после «Подставить» или ввода в «по словам»), а не только в строке ввода. */
+  /** В режиме «по строкам» проверку разрешаем только если все нерешённые места строки уже заполнены (после «Подставить» или в «По словам»). */
   function replRowAllEditableWordSlotsFilled(row) {
-    if (!row) return false;
-    var hasEditable = false;
-    var ok = true;
-    row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
-      if (inp.type === 'hidden') return;
-      hasEditable = true;
-      if (!(inp.value || '').trim()) ok = false;
-    });
-    return hasEditable && ok;
+    return !!(window.ReplacementsBoard && window.ReplacementsBoard.editableSlotsFilled(row));
   }
   function syncLinePasteFromWords(row) {
     var parts = collectRowAnswersInOrder(row);
     var pf = row.querySelector('[data-line-paste]');
     if (pf) pf.value = parts.join('\t');
   }
-  function syncWordsFromLinePaste(row) {
-    var pf = row.querySelector('[data-line-paste]');
-    var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
-    var container = row.querySelector('[data-repl-words-wrap]');
-    var parsed = parseReplLineAnswersSmart(container, pf ? pf.value : '', n);
-    if (!parsed) return;
-    fillRowWordInputsFromParsed(row, parsed);
-  }
   function fillRowWordInputsFromParsed(row, parsed) {
-    if (!parsed || !row) return false;
-    var inputs = row.querySelectorAll('input[name="answers[]"]');
-    for (var i = 0; i < Math.min(inputs.length, parsed.length); i++) {
-      inputs[i].value = parsed[i];
-    }
+    if (!parsed || !row || !window.ReplacementsBoard) return false;
+    var lineIndex = parseInt(row.getAttribute('data-line-index'), 10);
+    if (isNaN(lineIndex)) return false;
+    window.ReplacementsBoard.setLineValues(row.getAttribute('data-task-id'), lineIndex, parsed);
     return true;
   }
   function replacementsApplyFillOneLineRow(row, taskRoot) {
@@ -693,10 +662,6 @@
       return;
     }
     fillRowWordInputsFromParsed(row, parsed);
-    row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
-      inp.dispatchEvent(new Event('change', { bubbles: true }));
-    });
     saveReplLinePastesDraft(taskRoot);
     if (msg) {
       msg.style.display = 'block';
@@ -736,12 +701,6 @@
       );
       return;
     }
-    forEachReplUnsolvedRow(taskRoot, function (row) {
-      row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-    });
     try {
       localStorage.setItem(replUiModeKey(taskRoot.getAttribute('data-task-id')), 'words');
     } catch (e) {}
@@ -788,9 +747,6 @@
   }
   function applyReplModeVisibility(taskRoot) {
     var mode = taskRoot.getAttribute('data-ui-mode') || 'words';
-    taskRoot.querySelectorAll('[data-repl-words-wrap]').forEach(function (el) {
-      el.hidden = mode !== 'words';
-    });
     taskRoot.querySelectorAll('[data-repl-lines-only]').forEach(function (el) {
       el.hidden = mode !== 'lines';
     });
@@ -842,11 +798,6 @@
       syncWholeTextareaFromLinePastes(taskRoot);
     } else if (old === 'lines' && newMode === 'whole') {
       syncWholeTextareaFromLinePastes(taskRoot);
-    } else if (old === 'lines' && newMode === 'words') {
-      forEachReplUnsolvedRow(taskRoot, syncWordsFromLinePaste);
-    } else if (old === 'whole' && newMode === 'words') {
-      syncLinePastesFromWhole(taskRoot);
-      forEachReplUnsolvedRow(taskRoot, syncWordsFromLinePaste);
     } else if (old === 'whole' && newMode === 'lines') {
       syncLinePastesFromWhole(taskRoot);
     }
@@ -938,26 +889,6 @@
         pf.addEventListener('input', function () { saveReplLinePastesDraft(taskRoot); });
         pf.addEventListener('change', function () { saveReplLinePastesDraft(taskRoot); });
       });
-      taskRoot.addEventListener('paste', function (e) {
-        if ((taskRoot.getAttribute('data-ui-mode') || 'words') !== 'words') return;
-        var t = e.target;
-        if (!t || !t.closest || !t.closest('[data-repl-words-wrap]')) return;
-        if (t.tagName !== 'INPUT' || !t.classList.contains('new-replacements-input')) return;
-        var row = t.closest('tr');
-        var container = row && row.querySelector('[data-repl-words-wrap]');
-        if (!row || !container) return;
-        var clip = e.clipboardData && e.clipboardData.getData('text/plain');
-        if (!clip || !String(clip).trim()) return;
-        var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
-        var parsed = parseReplLineAnswersSmart(container, clip, n);
-        if (!parsed) return;
-        e.preventDefault();
-        row.querySelectorAll('input[name="answers[]"]').forEach(function (inp, idx) {
-          if (idx < parsed.length) inp.value = parsed[idx];
-          inp.dispatchEvent(new Event('input', { bubbles: true }));
-          inp.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-      }, true);
     });
   }
   window.initReplacementsLinesUi = initReplacementsLinesUi;
@@ -992,23 +923,7 @@
 
   function buildReplacementsLinePreviewFromForm(form) {
     var row = form && form.closest ? form.closest('tr') : null;
-    if (!row) return '';
-    var container = row.querySelector('.new-replacements-line__inputs');
-    if (!container) return '';
-    var parts = [];
-    var children = container.children;
-    for (var i = 0; i < children.length; i++) {
-      var el = children[i];
-      if (el.classList && el.classList.contains('new-replacements-static')) {
-        parts.push(el.textContent || '');
-      } else if (el.classList && el.classList.contains('new-replacements-partial-answer')) {
-        parts.push(el.textContent || '');
-      } else if (el.tagName === 'INPUT' && el.name === 'answers[]') {
-        if (el.type === 'hidden') continue;
-        parts.push(el.value || '');
-      }
-    }
-    return parts.join('');
+    return row ? buildFullAnswerLineFromWordsRow(row) : '';
   }
   function closeReplLineConfirmModal() {
     var modal = document.getElementById('new-repl-line-confirm-modal');
@@ -3481,53 +3396,40 @@
     }, e.submitter);
   }, true);
 
-  function initReplacementsLinesStorage(root) {
-    var scope = root || document;
-    var STORAGE_PREFIX = 'replacements_lines_';
-    function key(taskId, lineIndex) {
-      return STORAGE_PREFIX + 'v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy') + '_' + lineIndex;
-    }
-    scope.querySelectorAll('form.new-replacements-line-form').forEach(function (form) {
-      if (form.getAttribute('data-repl-lines-storage-bound') === '1') return;
-      form.setAttribute('data-repl-lines-storage-bound', '1');
-      var taskId = form.getAttribute('data-task-id');
-      var lineIndex = form.getAttribute('data-line-index');
-      if (!taskId || lineIndex === null) return;
-      var inputs = form.id
-        ? scope.querySelectorAll('input.new-replacements-input[form="' + form.id + '"]')
-        : form.querySelectorAll('input.new-replacements-input');
-      try {
-        var saved = localStorage.getItem(key(taskId, lineIndex));
-        if (saved) {
-          var parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            // Устаревший формат (массив по порядку DOM мог сдвинуться после частичных подстановок).
-            // Не восстанавливаем, чтобы не портить соответствие слот->инпут.
-            try { localStorage.removeItem(key(taskId, lineIndex)); } catch (e) {}
-          } else if (parsed && typeof parsed === 'object') {
-            inputs.forEach(function (inp) {
-              var slot = inp.getAttribute('data-slot');
-              if (!slot) return;
-              if (parsed[slot] !== undefined && parsed[slot] !== null) inp.value = parsed[slot];
-            });
-          }
-        }
-      } catch (e) {}
-      function save() {
-        var obj = {};
-        inputs.forEach(function (inp) {
-          var slot = inp.getAttribute('data-slot');
-          if (!slot) return;
-          obj[slot] = inp.value;
-        });
-        try { localStorage.setItem(key(taskId, lineIndex), JSON.stringify(obj)); } catch (e) {}
-      }
-      inputs.forEach(function (inp) {
-        inp.addEventListener('input', save);
-        inp.addEventListener('change', save);
-      });
+  // Замены: guesses are shared with teammates through /send_replacements_ui/.
+  function postReplacementsUi(taskId, changes) {
+    var params = new URLSearchParams();
+    params.set('game_id', PAGE.gameId);
+    if (anonKey) params.set('anon_key', anonKey);
+    params.set('changes', JSON.stringify(changes || {}));
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params);
+    var headers = anonFetchHeaders({
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
     });
+    var context = gameplayContextForTask(taskId);
+    if (context) headers['X-Interoves-Gameplay-Context'] = context;
+    return fetch('/send_replacements_ui/' + taskId + '/', {
+      method: 'POST',
+      headers: headers,
+      body: params.toString(),
+      credentials: 'same-origin',
+    }).then(parseFetchJson).then(function (data) {
+      if (data && data.context_mismatch) showGameplayContextMismatch(null, data.context_mismatch);
+      else if (data && data.error === 'stale_replay') window.location.reload();
+      else if (data && data.error === 'replay_required' && typeof window.revealReplayControl === 'function') {
+        window.revealReplayControl();
+      }
+      return data;
+    }).catch(function () { return null; });
   }
+  function initReplacementsLinesStorage(root) {
+    if (!window.ReplacementsBoard) return;
+    window.ReplacementsBoard.init(root || document, { post: postReplacementsUi });
+  }
+  window.applyReplacementsUiState = function (uiMap) {
+    if (window.ReplacementsBoard) window.ReplacementsBoard.applyRemote(uiMap);
+  };
+
   initReplacementsLinesStorage(document);
   initReplacementsLinesUi(document);
 

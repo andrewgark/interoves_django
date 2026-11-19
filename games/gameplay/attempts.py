@@ -16,11 +16,11 @@ from games.models import (
 from games.puzzles import get_puzzle
 from games.puzzles.core.check_runtime import CheckerFactory
 from games.puzzles.core.quota import revision_quota_message
-from games.puzzles.raddle.concurrency import (
-    lock_or_create_raddle_state,
-    run_raddle_atomic_with_deadlock_retry,
-)
 from games.puzzles.replacements.grid_puzzle import grid_checker_id
+from games.realtime.db import (
+    lock_or_create_state_row,
+    run_atomic_with_lock_retry,
+)
 from games.realtime.track_compat import track_actor_task_change
 from games.site.http.exceptions import (
     DuplicateAttemptException,
@@ -139,7 +139,7 @@ def check_attempt(
                 'actor_key': chain_actor_key,
             }
             with timing_phase(timing_request, 'chain_state_ensure'):
-                chain_state_row = lock_or_create_raddle_state(
+                chain_state_row = lock_or_create_state_row(
                     queryset=ChainTaskState.objects.filter(**chain_lookup),
                     task=task,
                     lookup=chain_lookup,
@@ -276,7 +276,7 @@ def check_attempt(
     # by the failed attempt before we evaluate the answer again.
     try:
         if is_chain_task:
-            persisted = run_raddle_atomic_with_deadlock_retry(
+            persisted = run_atomic_with_lock_retry(
                 _run, label='check_attempt',
             )
         else:

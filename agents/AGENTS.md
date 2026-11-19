@@ -293,7 +293,7 @@ If the resolved version is empty, the client check is skipped.
 | Product analytics persistence | `games.ops.analytics.persistence` | — |
 | Social queue / Instagram API | `games.ops.social.{models,publish,views,instagram.*}` | — |
 | Raddle engine helpers | `games.puzzles.raddle.engine` | — |
-| Raddle DB locks | `games.puzzles.raddle.concurrency` | — |
+| State-row locks, MySQL lock retries (`lock_or_create_state_row`, `run_atomic_with_lock_retry`) | `games.realtime.db` | logger `games.raddle_concurrency` |
 | Admin bulk recheck actions | `games.ops.workers.jobs.bulk` | — |
 | Product analytics | `games.ops.analytics.{events,identity,persistence}` | — |
 | Ticket billing service | `games.club.billing.tickets` | — |

@@ -10,10 +10,6 @@ from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, official_game_com
 from games.models import Attempt, ChainTaskState, RaddleUiState
 from games.ops.analytics.events import is_task_completion_state
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.raddle.concurrency import (
-    lock_or_create_raddle_state,
-    run_raddle_atomic_with_deadlock_retry,
-)
 from games.puzzles.raddle.engine import (
     apply_assist_tier,
     dump_raddle_state,
@@ -23,6 +19,10 @@ from games.puzzles.raddle.engine import (
     parse_raddle_data,
     raddle_ui_payload,
     serialize_raddle_attempt_text,
+)
+from games.realtime.db import (
+    lock_or_create_state_row,
+    run_atomic_with_lock_retry,
 )
 from games.realtime.track_compat import track_actor_task_change
 from games.site.http.auth_observability import log_gameplay_attempt_created
@@ -377,7 +377,7 @@ def process_send_raddle_ui(request, task_id):
         # Compute the legacy fallback only after the first-row parent lock. A
         # concurrent answer submission may create ChainTaskState while we wait.
         with timing_phase(request, 'raddle_ui_state_lock'):
-            ui_row = lock_or_create_raddle_state(
+            ui_row = lock_or_create_state_row(
                 queryset=RaddleUiState.objects.filter(**lookup),
                 task=task,
                 lookup=lookup,
@@ -415,7 +415,7 @@ def process_send_raddle_ui(request, task_id):
             ])
         revision = ui_row.revision
 
-    run_raddle_atomic_with_deadlock_retry(_save_ui_state, label='ui_state')
+    run_atomic_with_lock_retry(_save_ui_state, label='ui_state')
 
     payload = {'raddle_ui': raddle_ui_payload(state, task.id, revision=revision)}
     if stale:

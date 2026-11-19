@@ -44,6 +44,7 @@ The same mechanism covers site changes that become relevant while a page is open
 - After a teammate solves one replacements line, the other member can submit another line without F5 or «Ошибка сети».
 - An in-flight raddle submit still converges after the teammate's live HTML replace; a client abort is retried only with the same `client_event_id`, so the server answers the resend with the move it already recorded.
 - Raddle middle-row drafts and unused-clue strikethrough converge on the teammate page without replacing the ladder HTML.
+- Замены guesses (`ReplacementsUiState`, `/send_replacements_ui/`) converge on the teammate page without replacing the task card; a later card redraw renders the same shared guesses ([`replacements-redesign.md`](replacements-redesign.md)).
 - Changing a team's visible name does not interrupt its existing game subscriptions.
 - DB locking prevents the main duplicate/chain-state races during simultaneous submissions.
 - Older delivered messages do not overwrite newer HTML in the new UI.
@@ -126,6 +127,7 @@ a different mode as a defense in depth.
 | Teammate advances raddle from either end | Both ladders converge; active draft and intentional focus survive | Playwright |
 | In-flight raddle submit during teammate HTML replace | Held POST still solves its word; no «Ошибка сети» | Playwright |
 | Teammate types a raddle middle draft or strikes an unused clue | Other browser shows the letters/mark without HTML replace or reload | Playwright |
+| Teammate saves a Замены guess | Other browser shows the guess in the slot and the word list without HTML replace or reload | Playwright |
 | Simultaneous same answer | One authoritative progression; both browsers converge | Playwright |
 | Pending becomes Ok/Wrong | All actor pages show final verdict and points | Playwright, both verdicts |
 | Task/checker edited and rechecked | Open pages receive new text and recalculated state | Playwright + publisher tests |

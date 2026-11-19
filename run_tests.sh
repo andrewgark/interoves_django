@@ -12,6 +12,8 @@ if command -v node >/dev/null 2>&1; then
   "$PYTHON" scripts/check_inline_js_syntax.py static/templates/site/task_group.html
   node --check static/js/task_group_page.js
   node --check static/js/alphabetty_page.js
+  node --check static/js/replacements_board.js
+  node static/js/replacements_board.test.js
 fi
 TEST_SETTINGS="${DJANGO_TEST_SETTINGS:-interoves_django.test_settings}"
 exec "$PYTHON" manage.py test --settings="$TEST_SETTINGS" --keepdb "$@"
