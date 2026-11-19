@@ -146,33 +146,67 @@ def _build_daily_statistics_observed(game, task_group, *, published_at=None):
     return result
 
 
-def _previous_revision_payload(cache, game_id, task_group_id, revision, published_at):
-    """Return the last completed generation for a short stale-while-build read."""
-    if revision <= 0:
-        return None
-    key = _versioned_cache_key(
-        game_id, task_group_id, revision - 1, published_at,
+def _latest_key(game_id, task_group_id, published_at=None):
+    publication = published_at.isoformat() if published_at is not None else 'none'
+    return '{}:latest:{}'.format(cache_key(game_id, task_group_id), publication)
+
+
+def _store_generation(cache, game_id, task_group_id, revision, published_at, result):
+    """Cache one generation and remember it as the newest one built."""
+    cache.set(
+        _versioned_cache_key(game_id, task_group_id, revision, published_at),
+        result, CACHE_TIMEOUT,
     )
-    payload = cache.get(key)
-    if payload is None:
+    latest_key = _latest_key(game_id, task_group_id, published_at)
+    current = cache.get(latest_key)
+    if not isinstance(current, dict) or int(current.get('revision', -1)) <= int(revision):
+        cache.set(latest_key, {'revision': int(revision), 'payload': result}, CACHE_TIMEOUT)
+
+
+def _latest_stale_payload(cache, game_id, task_group_id, revision, published_at):
+    """The newest older generation, marked stale, for a page request.
+
+    Every completion advances the revision and queues a background refresh,
+    so during active play the exact previous revision is often not the one
+    that was built. Page requests used to build synchronously then (and to
+    rebuild again when another completion landed mid-build): bursts of
+    5-12 s requests. They now show the newest built generation instead.
+    """
+    entry = cache.get(_latest_key(game_id, task_group_id, published_at))
+    if not isinstance(entry, dict) or int(entry.get('revision', -1)) >= int(revision):
         return None
-    # Existing clients ignore unknown JSON fields. This marks the bounded,
-    # previous generation returned only while its replacement is building.
+    floor = cache.get(_stale_floor_key(game_id, task_group_id))
+    if floor is not None and int(entry['revision']) < int(floor):
+        return None
+    payload = entry.get('payload')
     if isinstance(payload, dict):
         payload = dict(payload)
         payload['_stale'] = True
     return payload
 
 
-def invalidate_daily_statistics(game_id, task_group_id):
+def invalidate_daily_statistics(game_id, task_group_id, *, allow_stale=False):
+    """Start a new statistics generation.
+
+    ``allow_stale`` is for new or rechecked completions: pages may keep
+    showing the newest built generation until the background refresh lands.
+    Every other change (hidden profiles, authorship, resets) can remove a
+    person from the statistics, so older generations stop being shown.
+    """
     if not game_id or not task_group_id:
         return
     transaction.on_commit(
-        lambda: _advance_daily_statistics_revision(game_id, task_group_id),
+        lambda: _advance_daily_statistics_revision(
+            game_id, task_group_id, allow_stale=allow_stale,
+        ),
     )
 
 
-def _advance_daily_statistics_revision(game_id, task_group_id):
+def _stale_floor_key(game_id, task_group_id):
+    return '{}:stale-floor'.format(cache_key(game_id, task_group_id))
+
+
+def _advance_daily_statistics_revision(game_id, task_group_id, *, allow_stale=False):
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game_id, task_group_id)
     revision = None
@@ -192,6 +226,8 @@ def _advance_daily_statistics_revision(game_id, task_group_id):
         if revision is None:
             revision = int(cache.get(revision_key, 0) or 0)
         cache.touch(revision_key, REVISION_TIMEOUT)
+        if not allow_stale:
+            cache.set(_stale_floor_key(game_id, task_group_id), revision, REVISION_TIMEOUT)
     except Exception:
         # Cache is an optimization. A cache outage must not fail game completion.
         logger.warning(
@@ -1097,6 +1133,20 @@ def build_daily_statistics(game, task_group, *, published_at=None, require_publi
                 return _build_daily_statistics_observed(game, task_group, published_at=published_at)
             continue
 
+        if not require_published:
+            try:
+                stale = _latest_stale_payload(
+                    cache, game.id, task_group.id, revision, published_at,
+                )
+            except Exception:
+                stale = None
+                logger.warning(
+                    'daily_statistics_stale_read_failed game=%s task_group=%s',
+                    game.id, task_group.id, exc_info=True,
+                )
+            if stale is not None:
+                return stale
+
         lock_key = '{}:build-lock'.format(result_key)
         lock_token = uuid.uuid4().hex
         try:
@@ -1127,7 +1177,7 @@ def build_daily_statistics(game, task_group, *, published_at=None, require_publi
                         if int(cache.get(revision_key, 0) or 0) == revision:
                             return cached
                     if not require_published:
-                        stale = _previous_revision_payload(
+                        stale = _latest_stale_payload(
                             cache, game.id, task_group.id, revision, published_at,
                         )
                         if stale is not None:
@@ -1164,9 +1214,17 @@ def build_daily_statistics(game, task_group, *, published_at=None, require_publi
                 )
                 try:
                     if int(cache.get(revision_key, 0) or 0) != revision:
-                        continue
+                        if require_published:
+                            continue
+                        # A page shows what it built rather than starting over.
+                        _store_generation(
+                            cache, game.id, task_group.id, revision, published_at, result,
+                        )
+                        return result
                     if require_published and cache.get(result_key) is None:
-                        cache.set(result_key, result, CACHE_TIMEOUT)
+                        _store_generation(
+                            cache, game.id, task_group.id, revision, published_at, result,
+                        )
                 except Exception:
                     logger.warning(
                         'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
@@ -1184,9 +1242,13 @@ def build_daily_statistics(game, task_group, *, published_at=None, require_publi
             # a result that was already obsolete when the request finished.
             try:
                 current_revision = int(cache.get(revision_key, 0) or 0)
-                if current_revision != revision:
+                if current_revision != revision and require_published:
                     continue
-                cache.set(result_key, result, CACHE_TIMEOUT)
+                # A page request returns what it built even if a completion
+                # landed meanwhile; the queued refresh builds the newer one.
+                _store_generation(
+                    cache, game.id, task_group.id, revision, published_at, result,
+                )
             except Exception:
                 logger.warning(
                     'daily_statistics_cache_write_failed game=%s task_group=%s',

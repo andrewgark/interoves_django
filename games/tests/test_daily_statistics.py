@@ -19,6 +19,7 @@ from games.daily.timing.statistics import (
     RANKING_KEY,
     REVISION_TIMEOUT,
     _release_build_lock,
+    _store_generation,
     _versioned_cache_key,
     build_attempt_histogram,
     build_daily_statistics,
@@ -252,11 +253,7 @@ class DailyStatisticsTests(TestCase):
         daily_cache = caches['daily_statistics']
         revision_key = '{}:revision'.format(cache_key(self.game.id, tg.id))
         daily_cache.set(revision_key, 1, timeout=REVISION_TIMEOUT)
-        daily_cache.set(
-            _versioned_cache_key(self.game.id, tg.id, 0),
-            {'kind': 'alphabet', 'solved': 2},
-            timeout=CACHE_TIMEOUT,
-        )
+        _store_generation(daily_cache, self.game.id, tg.id, 0, None, {'kind': 'alphabet', 'solved': 2})
         result_key = _versioned_cache_key(self.game.id, tg.id, 1)
         daily_cache.set(
             '{}:build-lock'.format(result_key), 'another-builder',
@@ -272,6 +269,68 @@ class DailyStatisticsTests(TestCase):
             'kind': 'alphabet', 'solved': 2, '_stale': True,
         })
         build_payload.assert_not_called()
+
+    def test_page_shows_newest_built_generation_several_completions_behind(self):
+        tg = TaskGroup.objects.create(label='statistics far behind')
+        daily_cache = caches['daily_statistics']
+        revision_key = '{}:revision'.format(cache_key(self.game.id, tg.id))
+        _store_generation(daily_cache, self.game.id, tg.id, 3, None, {'kind': 'alphabet', 'solved': 7})
+        daily_cache.set(revision_key, 8, timeout=REVISION_TIMEOUT)
+
+        with patch('games.daily.timing.statistics._build_daily_statistics_payload') as build_payload, \
+                patch('games.daily.timing.statistics.time.sleep') as sleep:
+            result = build_daily_statistics(self.game, tg)
+
+        self.assertEqual(result, {'kind': 'alphabet', 'solved': 7, '_stale': True})
+        build_payload.assert_not_called()
+        sleep.assert_not_called()
+
+    def test_visibility_invalidation_stops_showing_older_generations(self):
+        tg = TaskGroup.objects.create(label='statistics privacy floor')
+        daily_cache = caches['daily_statistics']
+        _store_generation(daily_cache, self.game.id, tg.id, 0, None, {'kind': 'alphabet', 'solved': 7})
+        with self.captureOnCommitCallbacks(execute=True):
+            invalidate_daily_statistics(self.game.id, tg.id)
+
+        with patch(
+            'games.daily.timing.statistics._build_daily_statistics_payload',
+            return_value={'kind': 'alphabet', 'solved': 6},
+        ) as build_payload:
+            result = build_daily_statistics(self.game, tg)
+
+        self.assertEqual(result, {'kind': 'alphabet', 'solved': 6})
+        build_payload.assert_called_once()
+
+    def test_completion_invalidation_keeps_showing_the_built_generation(self):
+        tg = TaskGroup.objects.create(label='statistics completion stale')
+        daily_cache = caches['daily_statistics']
+        _store_generation(daily_cache, self.game.id, tg.id, 0, None, {'kind': 'alphabet', 'solved': 7})
+        with self.captureOnCommitCallbacks(execute=True):
+            invalidate_daily_statistics(self.game.id, tg.id, allow_stale=True)
+
+        with patch('games.daily.timing.statistics._build_daily_statistics_payload') as build_payload:
+            result = build_daily_statistics(self.game, tg)
+
+        self.assertTrue(result['_stale'])
+        build_payload.assert_not_called()
+
+    def test_page_builder_returns_its_result_when_a_completion_lands_mid_build(self):
+        tg = TaskGroup.objects.create(label='statistics mid-build completion')
+        daily_cache = caches['daily_statistics']
+        revision_key = '{}:revision'.format(cache_key(self.game.id, tg.id))
+        daily_cache.set(revision_key, 1, timeout=REVISION_TIMEOUT)
+        calls = []
+
+        def build(*_args, **_kwargs):
+            calls.append(1)
+            daily_cache.incr(revision_key)
+            return {'kind': 'alphabet', 'solved': 5}
+
+        with patch('games.daily.timing.statistics._build_daily_statistics_payload', side_effect=build):
+            result = build_daily_statistics(self.game, tg)
+
+        self.assertEqual(result, {'kind': 'alphabet', 'solved': 5})
+        self.assertEqual(len(calls), 1)
 
     def test_worker_refresh_does_not_take_the_stale_generation(self):
         # A page request holds the build lock while the worker arrives. The

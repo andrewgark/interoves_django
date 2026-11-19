@@ -456,7 +456,7 @@ def publish_completion_analytics(
 
     from games.daily.timing.statistics import invalidate_daily_statistics
     if game is not None and task_group is not None:
-        invalidate_daily_statistics(game.id, task_group.id)
+        invalidate_daily_statistics(game.id, task_group.id, allow_stale=True)
 
     goals = []
     if created and not record.is_backfilled and record.metrika_acked_at is None:
@@ -962,7 +962,7 @@ def reconcile_completed_game_after_recheck(
         changed = bool(completion_qs.delete()[0])
 
     from games.daily.timing.statistics import invalidate_daily_statistics
-    invalidate_daily_statistics(game.id, task_group.id)
+    invalidate_daily_statistics(game.id, task_group.id, allow_stale=True)
     return changed
 
 
@@ -1251,7 +1251,7 @@ def register_completed_game(
     # so the completion check reads the canonical persisted representation.
     from games.daily.timing.statistics import invalidate_daily_statistics
     with _analytics_timed_phase(_timing_phases, 'daily_statistics_invalidation_ms'):
-        invalidate_daily_statistics(game.id, task.task_group_id)
+        invalidate_daily_statistics(game.id, task.task_group_id, allow_stale=True)
 
     goals = []
     if not record.is_backfilled and record.metrika_acked_at is None:
