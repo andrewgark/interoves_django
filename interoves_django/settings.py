@@ -677,6 +677,14 @@ if 'REDIS_HOST' in os.environ:
 else:
     CACHES['support_jobs'] = CACHES['default'].copy()
 
+# Small cross-process values the per-process default LocMem cache cannot
+# share: the results visibility generation and Censorly title sets.
+if 'REDIS_HOST' in os.environ:
+    CACHES['shared'] = CACHES['track_revisions'].copy()
+    CACHES['shared']['KEY_PREFIX'] = 'interoves-shared'
+else:
+    CACHES['shared'] = CACHES['default'].copy()
+
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 

@@ -331,19 +331,29 @@ RESULTS_VISIBILITY_GENERATION_KEY = 'new_results:visibility-generation'
 RELEASE_RESULTS_TIMEOUT = 5 * 60
 
 
+def _shared_cache():
+    from django.core.cache import caches
+
+    # The default cache is per-process LocMem; a visibility change made in one
+    # process must reach every web process's cached tables.
+    return caches['shared']
+
+
 def results_visibility_generation():
     try:
-        return int(cache.get(RESULTS_VISIBILITY_GENERATION_KEY) or 0)
+        return int(_shared_cache().get(RESULTS_VISIBILITY_GENERATION_KEY) or 0)
     except Exception:
         return 0
 
 
 def bump_results_visibility_generation():
     """Hidden teams/profiles/anonymous keys and authorship change who is shown."""
+    shared = _shared_cache()
     try:
-        cache.incr(RESULTS_VISIBILITY_GENERATION_KEY)
+        shared.incr(RESULTS_VISIBILITY_GENERATION_KEY)
     except ValueError:
-        cache.set(RESULTS_VISIBILITY_GENERATION_KEY, 1, None)
+        if not shared.add(RESULTS_VISIBILITY_GENERATION_KEY, 1, None):
+            shared.incr(RESULTS_VISIBILITY_GENERATION_KEY)
     except Exception:
         logger.warning('results_visibility_generation_bump_failed', exc_info=True)
 

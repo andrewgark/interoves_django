@@ -286,18 +286,18 @@ def _shared_key(key) -> str:
 
 def _shared_get(key):
     try:
-        from django.core.cache import cache as shared
+        from django.core.cache import caches
 
-        return shared.get(_shared_key(key))
+        return caches['shared'].get(_shared_key(key))
     except Exception:
         return None
 
 
 def _shared_set(key, value) -> None:
     try:
-        from django.core.cache import cache as shared
+        from django.core.cache import caches
 
-        shared.set(_shared_key(key), value, 24 * 60 * 60)
+        caches['shared'].set(_shared_key(key), value, 24 * 60 * 60)
     except Exception:
         pass
 

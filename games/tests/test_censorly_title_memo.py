@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.test import SimpleTestCase
 
 from games.puzzles.censorly.article import redact
@@ -9,9 +9,9 @@ from games.puzzles.censorly.article import redact
 class TitleOpeningMemoTests(SimpleTestCase):
     def setUp(self):
         redact._title_opening_memo.clear()
-        cache.clear()
+        caches['shared'].clear()
         self.addCleanup(redact._title_opening_memo.clear)
-        self.addCleanup(cache.clear)
+        self.addCleanup(caches['shared'].clear)
 
     def _payload(self, title):
         return {

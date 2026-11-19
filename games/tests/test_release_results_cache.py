@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.test import TestCase
 
 from games.models import DailyResultProjectionState, Game, GameTaskGroup, Project, TaskGroup
@@ -24,7 +24,9 @@ class ReleaseResultsCacheTests(TestCase):
 
     def setUp(self):
         cache.clear()
+        caches['shared'].clear()
         self.addCleanup(cache.clear)
+        self.addCleanup(caches['shared'].clear)
 
     def _compute(self):
         return compute._new_results_compute(self.game, 'general', task_group_number='7')
