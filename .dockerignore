@@ -11,7 +11,11 @@ db.sqlite3
 media
 tmp
 var
-static
+# Static assets stay out of worker images, but the site templates live in
+# static/templates: without them worker jobs that render HTML (live task
+# card updates after a recheck) failed with TemplateDoesNotExist.
+static/*
+!static/templates
 nutrimatic_bundle
 reports
 __pycache__
