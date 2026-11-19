@@ -48,7 +48,10 @@ def _http_application_with_admission(app):
     )
 
 
-http_asgi_app = _http_application_with_admission(django_asgi_app)
+from games.realtime.crawler_guard import CrawlerGuardASGIMiddleware  # noqa: E402
+
+# Outermost: refused crawls must not take an admission permit.
+http_asgi_app = CrawlerGuardASGIMiddleware(_http_application_with_admission(django_asgi_app))
 
 import django  # noqa: E402
 from channels.auth import AuthMiddlewareStack  # noqa: E402
