@@ -190,7 +190,7 @@
 
   var document = global.document;
   var boards = Object.create(null);
-  var settings = { post: null, parseLinePaste: null };
+  var settings = { post: null, parseLinePaste: null, onRender: null };
   var editor = null;
   var editorEl = null;
 
@@ -288,6 +288,7 @@
       renderSlot(el, b.guesses[el.getAttribute('data-repl-slot-key')] || '');
     });
     renderChips(b, boardSlots(b));
+    if (typeof settings.onRender === 'function') settings.onRender(b.root);
     if (editor && editor.taskId === b.taskId) refreshEditor();
   }
 
@@ -443,7 +444,28 @@
       if (e.key === 'Escape') {
         e.preventDefault();
         closeEditor(true);
+        return;
       }
+      if (e.key === 'Tab') {
+        // Tabbing past either end of the editor returns to its slot instead
+        // of leaving it open while focus wanders off to the page footer.
+        var focusable = Array.prototype.filter.call(
+          editorEl.querySelectorAll('input, button'),
+          function (el) { return !el.disabled && el.offsetParent !== null; },
+        );
+        var edge = e.shiftKey ? focusable[0] : focusable[focusable.length - 1];
+        if (edge && document.activeElement === edge) {
+          e.preventDefault();
+          closeEditor(true);
+        }
+      }
+    });
+    editorEl.addEventListener('focusout', function (e) {
+      var next = e.relatedTarget;
+      // null: the window lost focus (another tab or app); keep the editor.
+      if (!next || editorEl.contains(next)) return;
+      if (next.closest && next.closest('button[data-repl-slot], .repl-chip__part')) return;
+      closeEditor(false);
     });
     document.addEventListener('mousedown', onOutsidePointer, true);
     document.addEventListener('touchstart', onOutsidePointer, { capture: true, passive: true });
@@ -714,6 +736,7 @@
   function init(root, opts) {
     if (opts && typeof opts.post === 'function') settings.post = opts.post;
     if (opts && typeof opts.parseLinePaste === 'function') settings.parseLinePaste = opts.parseLinePaste;
+    if (opts && typeof opts.onRender === 'function') settings.onRender = opts.onRender;
     var scope = root || document;
     var roots = [];
     if (scope.matches && scope.matches('.repl-board[data-task-id]')) roots.push(scope);

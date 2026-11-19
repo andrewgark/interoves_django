@@ -599,10 +599,10 @@
     return 'replacements_lines_ui_mode_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   function replWholeDraftKey(taskId) {
-    return 'replacements_lines_whole_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
+    return 'replacements_lines_whole_v3_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   function replLinePastesKey(taskId) {
-    return 'replacements_lines_linepaste_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
+    return 'replacements_lines_linepaste_v3_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   var ReplParse = window.ReplacementsInputParse;
   if (!ReplParse) {
@@ -663,11 +663,6 @@
   function replRowAllEditableWordSlotsFilled(row) {
     return !!(window.ReplacementsBoard && window.ReplacementsBoard.editableSlotsFilled(row));
   }
-  function syncLinePasteFromWords(row) {
-    var parts = collectRowAnswersInOrder(row);
-    var pf = row.querySelector('[data-line-paste]');
-    if (pf) pf.value = parts.join('\t');
-  }
   function fillRowWordInputsFromParsed(row, parsed) {
     if (!parsed || !row || !window.ReplacementsBoard) return false;
     var lineIndex = parseInt(row.getAttribute('data-line-index'), 10);
@@ -690,7 +685,8 @@
       return;
     }
     fillRowWordInputsFromParsed(row, parsed);
-    saveReplLinePastesDraft(taskRoot);
+    replMirrorField(pf, replLineTextFromGuesses(row), true);
+    syncReplDraftFieldsFromGuesses(taskRoot, false);
     if (msg) {
       msg.style.display = 'block';
       msg.textContent = 'Подставлено. Нажмите ✓ для проверки.';
@@ -733,9 +729,7 @@
       localStorage.setItem(replUiModeKey(taskRoot.getAttribute('data-task-id')), 'words');
     } catch (e) {}
     setReplUiMode(taskRoot, 'words', true);
-    forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
-    saveReplLinePastesDraft(taskRoot);
-    saveReplWholeDraft(taskRoot);
+    syncReplDraftFieldsFromGuesses(taskRoot, true);
     setMsg('Ответы перенесены в поля по словам. Нажмите ✓ у нужных строк.', false);
   }
   function syncWholeTextareaFromLinePastes(taskRoot) {
@@ -772,6 +766,55 @@
       var pf = row.querySelector('[data-line-paste]');
       if (pf) pf.value = lines[r] !== undefined ? lines[r] : '';
     }
+  }
+  /*
+   * The «по строкам» fields and the «весь текст» textarea mirror the shared
+   * guesses, so a teammate's words show up there too. A field the player
+   * edited and did not apply yet («Подставить») is left alone: it differs
+   * from the text it last mirrored.
+   */
+  function replMirrorField(field, text, force) {
+    if (!field) return;
+    var mirrored = field.getAttribute('data-repl-mirrored');
+    var dirty = mirrored === null
+      ? !!field.value && field.value !== text
+      : field.value !== mirrored;
+    if (force || !dirty) field.value = text;
+    field.setAttribute('data-repl-mirrored', text);
+  }
+  function replWholeTextFromGuesses(taskRoot) {
+    var parts = [];
+    taskRoot.querySelectorAll('tr.new-replacements-row').forEach(function (row) {
+      var filled = !row.classList.contains('new-replacements-row--solved') &&
+        collectRowEditableValues(row).some(function (v) { return !!v; });
+      parts.push(filled ? buildFullAnswerLineFromWordsRow(row) : '');
+    });
+    while (parts.length && !parts[parts.length - 1]) parts.pop();
+    return parts.join('\n');
+  }
+  function collectRowEditableValues(row) {
+    var out = [];
+    row.querySelectorAll('input[name="answers[]"][data-repl-editable]').forEach(function (inp) {
+      out.push((inp.value || '').trim());
+    });
+    return out;
+  }
+  function replLineTextFromGuesses(row) {
+    var parts = collectRowAnswersInOrder(row);
+    return collectRowEditableValues(row).some(function (v) { return !!v; }) ? parts.join('\t') : '';
+  }
+  function syncReplDraftFieldsFromGuesses(taskRoot, force) {
+    if (!taskRoot) return;
+    forEachReplUnsolvedRow(taskRoot, function (row) {
+      replMirrorField(row.querySelector('[data-line-paste]'), replLineTextFromGuesses(row), force);
+    });
+    replMirrorField(
+      taskRoot.querySelector('.new-replacements-whole__textarea'),
+      replWholeTextFromGuesses(taskRoot),
+      force,
+    );
+    saveReplLinePastesDraft(taskRoot);
+    saveReplWholeDraft(taskRoot);
   }
   function applyReplModeVisibility(taskRoot) {
     var mode = taskRoot.getAttribute('data-ui-mode') || 'words';
@@ -819,16 +862,15 @@
     }
     var old = taskRoot.getAttribute('data-ui-mode') || 'words';
     if (old === newMode) return;
-    if (old === 'words' && newMode === 'lines') {
-      forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
-    } else if (old === 'words' && newMode === 'whole') {
-      forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
-      syncWholeTextareaFromLinePastes(taskRoot);
-    } else if (old === 'lines' && newMode === 'whole') {
+    // From «по словам» nothing to carry over: the fields already mirror the
+    // shared guesses (and keep any edit not applied yet).
+    if (old === 'lines' && newMode === 'whole') {
       syncWholeTextareaFromLinePastes(taskRoot);
     } else if (old === 'whole' && newMode === 'lines') {
       syncLinePastesFromWhole(taskRoot);
     }
+    saveReplLinePastesDraft(taskRoot);
+    saveReplWholeDraft(taskRoot);
     setReplUiMode(taskRoot, newMode, false);
   }
   function saveReplWholeDraft(taskRoot) {
@@ -836,7 +878,12 @@
     var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
     if (!tid || !ta) return;
     try {
-      localStorage.setItem(replWholeDraftKey(tid), ta.value);
+      // Only an edit not applied yet; the rest comes from the shared guesses.
+      if (ta.value !== ta.getAttribute('data-repl-mirrored')) {
+        localStorage.setItem(replWholeDraftKey(tid), ta.value);
+      } else {
+        localStorage.removeItem(replWholeDraftKey(tid));
+      }
     } catch (e) {}
   }
   function saveReplLinePastesDraft(taskRoot) {
@@ -847,10 +894,11 @@
       var row = pf.closest('tr');
       if (!row || row.classList.contains('new-replacements-row--solved')) return;
       var idx = row.getAttribute('data-line-index');
-      if (idx !== null) o[idx] = pf.value;
+      if (idx !== null && pf.value !== pf.getAttribute('data-repl-mirrored')) o[idx] = pf.value;
     });
     try {
-      localStorage.setItem(replLinePastesKey(tid), JSON.stringify(o));
+      if (Object.keys(o).length) localStorage.setItem(replLinePastesKey(tid), JSON.stringify(o));
+      else localStorage.removeItem(replLinePastesKey(tid));
     } catch (e) {}
   }
   function restoreReplLinePastesDraft(taskRoot) {
@@ -886,6 +934,7 @@
       var tid = taskRoot.getAttribute('data-task-id');
       restoreReplLinePastesDraft(taskRoot);
       restoreReplWholeDraft(taskRoot);
+      syncReplDraftFieldsFromGuesses(taskRoot, false);
       var mode = 'words';
       try {
         mode = localStorage.getItem(replUiModeKey(tid)) || 'words';
@@ -3463,6 +3512,13 @@
     window.ReplacementsBoard.init(root || document, {
       post: postReplacementsUi,
       parseLinePaste: parseReplLinePasteStrict,
+      onRender: function (boardRoot) {
+        // Before initReplacementsLinesUi restores unsent edits, mirroring
+        // would mark them as stale; it mirrors once itself after restoring.
+        if (boardRoot.getAttribute('data-repl-ui-bound') === '1') {
+          syncReplDraftFieldsFromGuesses(boardRoot, false);
+        }
+      },
     });
   }
   window.applyReplacementsUiState = function (uiMap) {

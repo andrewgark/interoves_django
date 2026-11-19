@@ -1199,6 +1199,66 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         expect(first.locator(f'{row} button[data-repl-slot] .unsubmitted-replacement').first).to_have_text('uno')
         self.assertEqual(guesses(first), ['uno', 'dos'])
 
+    def test_replacements_line_fields_follow_teammate_guesses(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        first.goto(url)
+        second.goto(url)
+        card = f'#new-task-{self.replacements_task.pk}'
+        first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+        second_row = f'{card} tr.new-replacements-row[data-line-index="1"]'
+        first.locator(f'{card} [data-repl-mode-btn="lines"]').click()
+        first_field = first.locator(f'{first_row} [data-line-paste]')
+        second_field = first.locator(f'{second_row} [data-line-paste]')
+
+        # A teammate's word shows up in the «по строкам» field.
+        self.fill_replacement(second, first_row, 'theirs')
+        expect(first_field).to_have_value('theirs', timeout=10_000)
+
+        # A line typed and not applied yet is not replaced by a teammate's word.
+        second_field.fill('mine')
+        self.fill_replacement(second, second_row, 'other')
+        expect(first.locator(
+            f'{second_row} button[data-repl-slot] .unsubmitted-replacement'
+        )).to_have_text('other', timeout=10_000)
+        expect(second_field).to_have_value('mine')
+
+        # «Подставить» applies it for both players.
+        first.locator(f'{second_row} [data-repl-fill-line]').click()
+        expect(second.locator(
+            f'{second_row} button[data-repl-slot] .unsubmitted-replacement'
+        )).to_have_text('mine', timeout=10_000)
+        expect(second_field).to_have_value('mine')
+
+        # «Весь текст» mirrors the shared guesses too.
+        first.locator(f'{card} [data-repl-mode-btn="whole"]').click()
+        expect(first.locator(f'{card} .new-replacements-whole__textarea')).to_have_value('theirs\nmine')
+
+    def test_replacements_editor_closes_when_tabbing_out(self):
+        from playwright.sync_api import expect
+
+        page = self.browser_page_for(self.user_one)
+        page.goto(f'{self.live_server_url}/games/{self.game.pk}/3/')
+        card = f'#new-task-{self.replacements_task.pk}'
+        slot = page.locator(f'{card} tr.new-replacements-row[data-line-index="0"] button[data-repl-slot]')
+        editor = page.locator('.repl-editor')
+
+        slot.click()
+        expect(editor).to_be_visible()
+        page.keyboard.press('Shift+Tab')
+        expect(editor).to_be_hidden()
+        expect(slot).to_be_focused()
+
+        slot.click()
+        expect(editor).to_be_visible()
+        for _ in range(3):  # input -> OK -> Стереть -> out
+            page.keyboard.press('Tab')
+        expect(editor).to_be_hidden()
+        expect(slot).to_be_focused()
+
     def test_teammate_can_submit_next_replacements_line_after_live_update(self):
         from playwright.sync_api import expect
 
