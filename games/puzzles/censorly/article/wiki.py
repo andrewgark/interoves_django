@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
+import json
 import re
 import unicodedata
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -368,6 +371,11 @@ class _WikiExtractHTMLParser(HTMLParser):
     _DETAILS_DIV_CLASS = 'ts-Скрытый_блок'
     _SUMMARY_DIV_CLASS = 'ts-Скрытый_блок-title'
     _DETAILS_CONTENT_DIV_CLASS = 'mw-collapsible-content'
+    _PHONOS_BUTTON_CLASS = 'ext-phonos-PhonosButton'
+    _PHONOS_LABEL_CLASS = 'oo-ui-labelElement-label'
+    _PHONOS_GENERIC_LABELS = frozenset({
+        'произношение', 'слушать', 'прослушать', 'аудио', 'listen', 'pronunciation',
+    })
     _VOID_TAGS = {
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
         'link', 'meta', 'param', 'source', 'track', 'wbr',
@@ -485,8 +493,13 @@ class _WikiExtractHTMLParser(HTMLParser):
                 r'(?:^|;)\s*display\s*:\s*none\b', attrs.get('style') or '', re.IGNORECASE,
             ))
         )
+        # An audio button (Phonos) is «noexcerpt», but its label is the
+        # foreign word itself: «(швед. Sverige)», «(арм. Երևան)».
+        skipped_classes = classes & self._SKIP_CLASSES
+        if self._PHONOS_BUTTON_CLASS in classes:
+            skipped_classes = skipped_classes - {'noexcerpt'}
         if (
-            tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES
+            tag in self._SKIP_TAGS or skipped_classes
             or skipped_div or skipped_table or skipped_row or hidden
         ):
             if tag not in self._VOID_TAGS:
@@ -566,6 +579,8 @@ class _WikiExtractHTMLParser(HTMLParser):
             return
         elif tag in {'sup', 'sub'}:
             self.scripts.append((tag, len(self.parts), None))
+        elif tag == 'span' and self._PHONOS_LABEL_CLASS in classes:
+            self.scripts.append(('phonos', len(self.parts), None))
         elif tag == 'span':
             stacked = 'inline-block' in (attrs.get('style') or '').replace(' ', '')
             self.scripts.append(('span', len(self.parts), None) if stacked else None)
@@ -651,7 +666,12 @@ class _WikiExtractHTMLParser(HTMLParser):
             return
         if tag in {'sup', 'sub', 'span'} and self.scripts:
             script = self.scripts.pop()
-            if script:
+            if script and script[0] == 'phonos':
+                # A button labelled «произношение» or «(слушать)» names no word.
+                label = ''.join(self.parts[script[1]:]).strip(' \u00a0()[]').casefold()
+                if label in self._PHONOS_GENERIC_LABELS:
+                    del self.parts[script[1]:]
+            elif script:
                 self._close_script(*script)
         closes_quote = tag == 'blockquote'
         if tag == 'div' and self.div_roles:
@@ -833,14 +853,36 @@ _EDITORIAL_BRACKET_RE = re.compile(
 _PRONUNCIATION_LABEL_RE = re.compile(
     r'(?:,[ \t\u00a0]*)?'
     r'(?:'
-    r'\bМФА\b'
+    # «МФА (англ.)»: the language of the transcription.
+    r'\bМФА\b(?:[ \t\u00a0]*\([^()\n]{1,20}\))?'
     r'|'
     r'(?:\b[А-Яа-яЁё\-]*(?:ое|ее|ая|ый|ий|ой)\b[ \t\u00a0]+)?'
     r'\bпроизношение\b'
     r')'
-    r'[ \t\u00a0]*:[ \t\u00a0]*'
-    r'(?:\[[^\]]*\])?',
+    # A colon, or a transcription right after the label (left to the IPA
+    # bracket pass), so a bare «МФА» in prose stays.
+    r'(?:[ \t\u00a0]*:[ \t\u00a0]*(?:\[[^\]]*\])?|(?=[ \t\u00a0]*\[))',
     re.IGNORECASE,
+)
+# A transcription between slashes, /stəˈloʊn/ (lead only: θ, β and χ are
+# also Greek letters in formulas).
+_IPA_SLASHES_RE = re.compile(r'[ \t\u00a0]*/[^/\n]{1,60}/')
+# Language and pronunciation labels whose word or transcription is gone:
+# «(швед.)», «итал.;», «местн., окс. Tolosa». A pronunciation qualifier goes
+# before a comma too; a language label before a comma heads a shared word
+# («пол., словац. и чеш. Karpaty»).
+_LEAD_LANGUAGE_LABELS = (
+    'англ|амер|брит|нем|фр|франц|исп|итал|ит|порт|лат|греч|кит|яп|кор|араб|ивр|перс|тур|'
+    'укр|белор|бел|пол|чеш|словац|венг|рум|болг|серб|хорв|словен|босн|макед|алб|лит|литов|'
+    'латыш|эст|фин|швед|норв|дат|исл|нидерл|голл|ирл|шотл|валл|кат|баск|галис|окс|арм|груз|'
+    'азерб|каз|узб|кирг|тадж|туркм|монг|тат|башк|чуваш|якут|хинди|санскр|бенг|урду|там|'
+    'вьет|малайск|тайск|суахили|амхар|африк|афр|эсп|рус|русин|идиш'
+)
+_PRONUNCIATION_QUALIFIERS = 'местн|произн|австрал|канад|амер|брит'
+_DANGLING_LABEL_RE = re.compile(
+    r'[,;]?[ \t\u00a0]*'
+    rf'(?:\b(?:{_LEAD_LANGUAGE_LABELS})\.(?=[ \t\u00a0]*[;)])'
+    rf'|\b(?:{_PRONUNCIATION_QUALIFIERS})\.(?=[ \t\u00a0]*[,;)]))'
 )
 # IPA signs that do not show up in ordinary Russian prose or in [100]/[010].
 _IPA_CHAR_RE = re.compile(
@@ -1502,7 +1544,10 @@ class _TexTextParser:
         rendered = re.sub(r'\s+₎', '₎', rendered)
         scripts = re.escape(_SCRIPT_CHARS)
         rendered = re.sub(r'([=+−×·≤≥≠≈≡<>])\s+(\^\{)', r'\1\2', rendered)
-        rendered = re.sub(rf'([=+−×·≤≥≠≈≡<>])\s+([{scripts}]+)', r'\1\2', rendered)
+        # «=ᵈᵉᶠ» keeps its mark; «+ ⁴₂He» is a nuclide's prescripts, not one.
+        rendered = re.sub(
+            rf'([=+−×·≤≥≠≈≡<>])\s+([{scripts}]+)(?![{scripts}A-Za-zА-Яа-яЁё])', r'\1\2', rendered,
+        )
         rendered = re.sub(rf'([∫∬∭∮])\s+([{scripts}]+)', r'\1\2', rendered)
         rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω0-9])', r'\1 ', rendered)
         rendered = re.sub(
@@ -1784,6 +1829,18 @@ def _collapse_extract_whitespace(text: str) -> str:
             and match.group(2).isupper()
         ):
             return match.group(0)
+        # The same for a paragraph that ends without a full stop: «(К. Харвуд,
+        # 1992)», a caption, a quoted reply. Only a comma, colon or dash leaves
+        # a sentence open across the break.
+        if (
+            '\n\n' in match.group(0)
+            and match.group(2).isupper()
+            and (
+                previous_line.rstrip()[-1:].isalnum()
+                or previous_line.rstrip().endswith((')', '»', '"'))
+            )
+        ):
+            return match.group(0)
         # A quotation is its own block, and its stanzas stay apart inside it.
         # So are a table, a collapsed block (and its title) and a listing.
         if previous_line.endswith(_BLOCK_CLOSERS) or (
@@ -1852,8 +1909,11 @@ def _tidy_pronunciation_gaps(text: str) -> str:
     text = re.sub(r'\([ \t\u00a0]+', '(', text)
     text = re.sub(r'[ \t\u00a0]+\)', ')', text)
     text = _EMPTY_PAREN_RE.sub('', text)
-    # «Shakespeare, ; 26» after the pronunciation between the separators is gone.
-    text = re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', text)
+    # «Shakespeare, ; 26» after the pronunciation between the separators is
+    # gone; «San José, [..], [..]; исп.» leaves a run of them.
+    merged = None
+    while merged != text:
+        merged, text = text, re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', text)
     text = re.sub(r'[ \t\u00a0]+([,.;:!?…])', r'\1', text)
     text = re.sub(r'[ \t\u00a0]{2,}', ' ', text)
     # «Apple Inc (, «Эппл»)», «Berlin (нем. Berlin,)», «местн. [..], [..])»:
@@ -1861,6 +1921,8 @@ def _tidy_pronunciation_gaps(text: str) -> str:
     # down «(,» and «,)» can be text: a smiley «;)», a matrix column A(,j),
     # «левая скобка (,».
     lead, sep, rest = text.partition('\n\n')
+    lead = _DANGLING_LABEL_RE.sub('', lead)
+    lead = re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', lead)
     lead = re.sub(r'\([ \t\u00a0]*[,;][ \t\u00a0]*', '(', lead)
     lead = re.sub(r'[ \t\u00a0]*[,;][ \t\u00a0]*\)', ')', lead)
     text = lead + sep + rest
@@ -1874,7 +1936,9 @@ def _strip_pronunciations(text: str) -> str:
         return text
     text = _PRONUNCIATION_LABEL_RE.sub('', text)
     text = _strip_ipa_brackets(text)
-    return _tidy_pronunciation_gaps(text)
+    lead, sep, rest = text.partition('\n\n')
+    lead = _IPA_SLASHES_RE.sub(lambda match: '' if _IPA_CHAR_RE.search(match.group(0)) else match.group(0), lead)
+    return _tidy_pronunciation_gaps(lead + sep + rest)
 
 
 def _strip_bracket_notes(text: str) -> str:
@@ -2059,11 +2123,14 @@ def fetch_article(
     session: Optional[requests.Session] = None,
     timeout: int = 30,
     revid: int | None = None,
+    html_cache_dir: Path | None = None,
 ) -> WikiArticle:
     """Load the article text for a Russian Wikipedia title.
 
     With ``revid`` the text of that revision is parsed instead of the current
-    one: re-parsing a saved puzzle keeps the article its players saw.
+    one: re-parsing a saved puzzle keeps the article its players saw. A
+    revision never changes, so offline tools pass ``html_cache_dir`` to keep
+    its API response on disk and re-parse without Wikipedia.
     """
     title = title_from_user_input(title)
     sess = session or requests.Session()
@@ -2082,19 +2149,26 @@ def fetch_article(
     if revid:
         del params['redirects'], params['page']
         params['oldid'] = int(revid)
-    try:
-        resp = sess.get(
-            WIKI_API,
-            params=params,
-            headers={'User-Agent': USER_AGENT},
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except requests.RequestException as exc:
-        raise WikipediaRequestFailed(f'Не удалось загрузить статью: {exc}') from exc
-    except ValueError as exc:
-        raise WikipediaRequestFailed('Некорректный ответ Wikipedia API') from exc
+    cache_path = Path(html_cache_dir) / f'{int(revid)}.json.gz' if revid and html_cache_dir else None
+    if cache_path is not None and cache_path.exists():
+        data = json.loads(gzip.decompress(cache_path.read_bytes()))
+    else:
+        try:
+            resp = sess.get(
+                WIKI_API,
+                params=params,
+                headers={'User-Agent': USER_AGENT},
+                timeout=timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.RequestException as exc:
+            raise WikipediaRequestFailed(f'Не удалось загрузить статью: {exc}') from exc
+        except ValueError as exc:
+            raise WikipediaRequestFailed('Некорректный ответ Wikipedia API') from exc
+        if cache_path is not None and isinstance(data, dict) and isinstance(data.get('parse'), dict):
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(gzip.compress(json.dumps(data, ensure_ascii=False).encode('utf-8')))
 
     if not isinstance(data, dict):
         raise WikipediaRequestFailed('Некорректный ответ Wikipedia API')

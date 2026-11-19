@@ -14,6 +14,7 @@ from games.puzzles.censorly.lexical.context import (
     CM_UNIT,
     DR_ANCIENT,
     LANGUAGE_LABELS,
+    LETTER_UNITS,
     LI_NAME,
     N_ERA,
     NEM_GERMAN,
@@ -1147,6 +1148,14 @@ def _close_letter_symbols(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         if _is_letter_symbol(tokens, index):
             _close_as_letter(tok)
+            unit = LETTER_UNITS.get(normalize_surface(surface))
+            previous = _previous_nonspace(tokens, index)
+            if unit and surface.isupper() and previous >= 0 and (
+                (tokens[previous].get('surface') or '')[-1:].isdigit()
+                or tokens[previous].get('surface') in _UNIT_OPERATORS
+            ):
+                # Still opened by the letter; the unit's name opens it too.
+                _set_context(tok, unit)
     return tokens
 
 

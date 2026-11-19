@@ -1836,9 +1836,104 @@ class CensorlyWikiHelperTests(TestCase):
                 '\xa0— город.\n\nУдаряли восемь человек[источник не указан 31 день]. '
                 'Харвуд, 1992[нет в источнике]. Он сказал: «[что] так»'
             ),
-            'Торо́нто (англ.\xa0Toronto, местн.)\xa0— город.\n\nУдаряли восемь человек. '
+            'Торо́нто (англ.\xa0Toronto)\xa0— город.\n\nУдаряли восемь человек. '
             'Харвуд, 1992. Он сказал: «[что] так»',
         )
+
+    def test_phonos_button_keeps_its_word_and_drops_a_generic_label(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        def button(label):
+            return (
+                '<span class="ext-phonos"><span class="noexcerpt ext-phonos-PhonosButton">'
+                '<a role="button"><span class="oo-ui-iconElement-icon"></span>'
+                f'<span class="oo-ui-labelElement-label"><i>{label}</i></span></a></span>'
+                '<sup class="ext-phonos-attribution noexcerpt"><a>о файле</a></sup></span>'
+            )
+
+        self.assertEqual(
+            _html_extract_to_text(
+                f'<p>Швеция (швед. {button("Sverige")}), Берлин (нем. Berlin {button("произношение")}), '
+                f'Месси (исп. Messi{button("(слушать)")}).</p>'
+            ),
+            'Швеция (швед. Sverige), Берлин (нем. Berlin ), Месси (исп. Messi).',
+        )
+
+    def test_clean_extract_drops_lead_transcriptions_and_their_orphan_labels(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        self.assertEqual(
+            clean_wiki_extract(
+                'Сталлоне (англ. Stallone /stəˈloʊn/; итал. [stalˈloːne]; род. 1946), '
+                'Сан-Хосе (англ. San José, [ˌsæn hoʊˈzeɪ], [ˌsæn hoʊˈseɪ]; исп. [saŋ xoˈse]), '
+                'Терон (англ. Theron, МФА (афр.) [ʃɐrˈlis], МФА (англ.) [ʃɑrˈliːz]; род. 1975), '
+                'Тулуза (фр. Toulouse, местн. [tuˈluzə], окс. Tolosa), '
+                'Карпаты (пол., словац. и чеш. Karpaty), основан в 1934 г. (с 1934 г.).'
+                '\n\nВ формуле dθ/dt /β не транскрипция.'
+            ),
+            'Сталлоне (англ. Stallone; род. 1946), Сан-Хосе (англ. San José), '
+            'Терон (англ. Theron; род. 1975), Тулуза (фр. Toulouse, окс. Tolosa), '
+            'Карпаты (пол., словац. и чеш. Karpaty), основан в 1934 г. (с 1934 г.).'
+            '\n\nВ формуле dθ/dt /β не транскрипция.',
+        )
+
+    def test_paragraph_without_full_stop_stays_apart_from_a_capitalized_one(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def clean(html):
+            return clean_wiki_extract(_html_extract_to_text(html))
+
+        self.assertEqual(
+            clean('<p>Организмов (К. Харвуд, 1992)</p><p>Геном представлен.</p>'),
+            'Организмов (К. Харвуд, 1992)\n\nГеном представлен.',
+        )
+        self.assertEqual(clean('<p>Сила равна,</p><p>Эйлеру.</p>'), 'Сила равна, Эйлеру.')
+        self.assertEqual(clean('<p>где</p><p>x — длина.</p>'), 'где x — длина.')
+
+    def test_nuclide_prescripts_after_a_plus_keep_the_space(self):
+        from games.puzzles.censorly.article.wiki import clean_wiki_extract
+
+        self.assertEqual(
+            clean_wiki_extract(r'{\displaystyle {}^{7}_{3}Li+p\to {}^{4}_{2}He+{}^{4}_{2}He}'),
+            '⁷₃Li + p → ⁴₂He + ⁴₂He',
+        )
+        self.assertEqual(clean_wiki_extract(r'{\displaystyle a\stackrel{def}{=} b}'), 'a =ᵈᵉᶠ b')
+
+    def test_capital_units_after_numbers_open_from_the_unit_name_and_the_letter(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Ток 1 А, напряжение 0,6 В для диода, 4 К, а план Б.')
+        letters = {
+            tok['surface']: tok['lemma'] for tok in tokens
+            if tok['kind'] == 'content' and tok['surface'].isalpha() and len(tok['surface']) == 1
+        }
+        self.assertEqual(letters, {
+            'А': '__censorly_ampere_unit__', 'В': '__censorly_volt_unit__',
+            'К': '__censorly_kelvin_unit__', 'Б': '__censorly_initial_б__',
+        })
+        for guess, lemma in (('ампер', 'А'), ('вольт', 'В'), ('кельвин', 'К'), ('в', 'В')):
+            with self.subTest(guess):
+                self.assertEqual(matching_lemmas(tokens, guess), {letters[lemma]})
+
+    def test_fetch_article_keeps_a_saved_revision_on_disk(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from games.puzzles.censorly.article.wiki import fetch_article
+
+        body = '<p>' + 'Текст статьи о предмете. ' * 40 + '</p>'
+        response = mock.Mock()
+        response.json.return_value = {'parse': {'title': 'Предмет', 'pageid': 7, 'revid': 42, 'text': body}}
+        session = mock.Mock()
+        session.get.return_value = response
+        with tempfile.TemporaryDirectory() as cache:
+            first = fetch_article('Предмет', revid=42, session=session, html_cache_dir=Path(cache))
+            second = fetch_article('Предмет', revid=42, session=session, html_cache_dir=Path(cache))
+            self.assertTrue((Path(cache) / '42.json.gz').exists())
+        self.assertEqual(session.get.call_count, 1)
+        self.assertEqual(first.extract, second.extract)
 
     def test_time_units_after_numbers_open_from_the_full_word(self):
         from games.puzzles.censorly.lexical.match import matching_lemmas
@@ -3481,7 +3576,7 @@ class CensorlySupportViewTests(TestCase):
         fresh = 'Старый текст про кота и дом, где живёт кот. Формула a² + b² = c².'
         calls = []
 
-        def fake_fetch(title, *, revid=None, session=None):
+        def fake_fetch(title, *, revid=None, session=None, html_cache_dir=None):
             calls.append((title, revid))
             return WikiArticle(
                 title=title, pageid=1, revid=revid, extract=body if title == 'Кот' else fresh,

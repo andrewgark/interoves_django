@@ -85,6 +85,12 @@ SECOND_UNIT = _ctx('second_unit', 'с', lemmas=('секунда',))
 MINUTE_UNIT = _ctx('minute_unit', 'мин', lemmas=('минута',))
 HOUR_UNIT = _ctx('hour_unit', 'ч', lemmas=('час',))
 TIME_UNITS = {item.surface: item for item in (SECOND_UNIT, MINUTE_UNIT, HOUR_UNIT)}
+# «1 А», «0,6 В», «4 К»: a capital letter after a number is closed as the
+# letter (``_close_letter_symbols``); these also open from the unit's name.
+AMPERE_UNIT = _ctx('ampere_unit', 'а', lemmas=('ампер',))
+VOLT_UNIT = _ctx('volt_unit', 'в', lemmas=('вольт',))
+KELVIN_UNIT = _ctx('kelvin_unit', 'к', lemmas=('кельвин',))
+LETTER_UNITS = {item.surface: item for item in (AMPERE_UNIT, VOLT_UNIT, KELVIN_UNIT)}
 SEE_REF = _ctx('see_ref', 'см', lemmas=('смотреть',), guess_lemmas=frozenset({'смотреть'}))
 # «теле-шоу»: not the noun тело. Visible like any content word.
 TELE_PREFIX = _ctx('tele_prefix', 'теле', lemmas='self', closed=False)
@@ -110,7 +116,7 @@ _REGISTRY: dict[str, TokenContext] = {
     for item in (
         NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, DR_ANCIENT, TOM_VOLUME, N_ERA,
         PO_SOFTWARE, LI_NAME, YEAR_ABBR, CITY_ABBR, PAGE_ABBR, STREET_ABBR,
-        CENTURY_ABBR, TELE_PREFIX, CM_UNIT, SEE_REF, *TIME_UNITS.values(),
+        CENTURY_ABBR, TELE_PREFIX, CM_UNIT, SEE_REF, *TIME_UNITS.values(), *LETTER_UNITS.values(),
         *LANGUAGE_LABELS.values(),
     )
 }
