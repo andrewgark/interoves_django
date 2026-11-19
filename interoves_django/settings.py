@@ -851,6 +851,9 @@ CSRF_COOKIE_SECURE = IS_PROD
 # authenticated session at most once per SESSION_REFRESH_INTERVAL instead of
 # SESSION_SAVE_EVERY_REQUEST, which would write django_session on every ping.
 SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
+# Reads go through the shared Redis cache, the database stays authoritative.
+SESSION_ENGINE = 'games.site.session.cached_db_store'
+SESSION_CACHE_ALIAS = 'shared'
 SESSION_REFRESH_INTERVAL = 24 * 60 * 60
 
 AUTHENTICATION_BACKENDS = (
