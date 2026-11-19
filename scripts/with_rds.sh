@@ -26,7 +26,7 @@ PYTHON="${PYTHON:-${REPO_ROOT}/../venv/interoves_django/bin/python}"
 ENV_FILE="${REPO_ROOT}/secrets/rds.env"
 REGION="eu-central-1"
 ENV_NAME="${GREEN_ENV_NAME:-interoves-web-green-lb}"
-TUNNEL_PORT=13306   # local port; avoids conflict with any local MySQL on 3306
+TUNNEL_PORT="${RDS_TUNNEL_PORT:-13306}"   # local port; avoids conflict with any local MySQL on 3306
 
 # ---- Parse --raw flag -------------------------------------------------------
 RAW=0
@@ -71,24 +71,49 @@ else
     echo "Warning: $ENV_FILE not found; using current environment" >&2
 fi
 
+# ---- Reuse or refuse a tunnel that already holds the port --------------------
+# A session-manager-plugin left by an earlier run keeps the port. One that
+# still forwards through the running instance works; one whose instance was
+# replaced by a deploy makes every query hang until MySQL times out.
+HOLDER_PID=""
+if command -v ss >/dev/null 2>&1; then
+    HOLDER_PID=$(ss -ltnpH "sport = :${TUNNEL_PORT}" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)
+fi
+if [[ -n "$HOLDER_PID" ]]; then
+    HOLDER_TARGET=$(tr '\0' ' ' < "/proc/${HOLDER_PID}/cmdline" 2>/dev/null | grep -o '"Target": *"i-[0-9a-f]*"' | grep -o 'i-[0-9a-f]*' || true)
+    if [[ "$HOLDER_TARGET" == "$INSTANCE_ID" ]]; then
+        echo "Reusing the tunnel already on :${TUNNEL_PORT} (pid ${HOLDER_PID})"
+    else
+        echo "Port ${TUNNEL_PORT} is held by pid ${HOLDER_PID} (target ${HOLDER_TARGET:-unknown}), not ${INSTANCE_ID}." >&2
+        echo "It is most likely a tunnel left from before a deploy; stop it (kill ${HOLDER_PID}) and retry." >&2
+        exit 1
+    fi
+fi
+
 # ---- Start SSM port-forwarding tunnel ---------------------------------------
-aws ssm start-session \
-    --region "$REGION" \
-    --target "$INSTANCE_ID" \
-    --document-name "AWS-StartPortForwardingSessionToRemoteHost" \
-    --parameters "{\"host\":[\"${RDS_HOSTNAME}\"],\"portNumber\":[\"3306\"],\"localPortNumber\":[\"${TUNNEL_PORT}\"]}" \
-    > /tmp/ssm_tunnel.log 2>&1 &
-TUNNEL_PID=$!
+TUNNEL_PID=""
+if [[ -z "$HOLDER_PID" ]]; then
+    # Own process group: the aws CLI starts session-manager-plugin as a
+    # grandchild, and killing only the CLI used to leave it holding the port.
+    setsid aws ssm start-session \
+        --region "$REGION" \
+        --target "$INSTANCE_ID" \
+        --document-name "AWS-StartPortForwardingSessionToRemoteHost" \
+        --parameters "{\"host\":[\"${RDS_HOSTNAME}\"],\"portNumber\":[\"3306\"],\"localPortNumber\":[\"${TUNNEL_PORT}\"]}" \
+        > /tmp/ssm_tunnel.log 2>&1 &
+    TUNNEL_PID=$!
+fi
 
 cleanup() {
-    kill "$TUNNEL_PID" 2>/dev/null || true
+    [[ -n "$TUNNEL_PID" ]] || return 0
+    kill -- "-$TUNNEL_PID" 2>/dev/null || kill "$TUNNEL_PID" 2>/dev/null || true
     wait "$TUNNEL_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 # Wait until the tunnel is accepting connections (up to 15 s)
 echo -n "Waiting for tunnel"
-sleep 2   # SSM session setup takes ~2-3 s before the port opens
+[[ -n "$TUNNEL_PID" ]] && sleep 2   # SSM session setup takes ~2-3 s before the port opens
 for i in $(seq 1 26); do
     if python3 -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',$TUNNEL_PORT))==0 else 1)" 2>/dev/null; then
         echo " ready"
