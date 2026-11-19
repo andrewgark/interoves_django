@@ -276,13 +276,44 @@ def _rows_digest(*rows) -> bytes:
     return hashlib.blake2b(repr(rows).encode('utf-8'), digest_size=16).digest()
 
 
+def _shared_key(key) -> str:
+    from django.conf import settings
+
+    version = getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'dev'
+    digest = hashlib.blake2b(repr(key).encode('utf-8'), digest_size=16).hexdigest()
+    return 'censorly:title-sets:{}:{}'.format(version, digest)
+
+
+def _shared_get(key):
+    try:
+        from django.core.cache import cache as shared
+
+        return shared.get(_shared_key(key))
+    except Exception:
+        return None
+
+
+def _shared_set(key, value) -> None:
+    try:
+        from django.core.cache import cache as shared
+
+        shared.set(_shared_key(key), value, 24 * 60 * 60)
+    except Exception:
+        pass
+
+
 def _memo(cache: OrderedDict, key, build):
+    """Process LRU, then the shared cache (lexical data only changes with a
+    deploy, so the deploy version scopes it), then the matcher."""
     with _memo_lock:
         hit = cache.get(key)
         if hit is not None:
             cache.move_to_end(key)
             return hit
-    value = build()
+    value = _shared_get(key)
+    if value is None:
+        value = build()
+        _shared_set(key, value)
     with _memo_lock:
         cache[key] = value
         cache.move_to_end(key)
