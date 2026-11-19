@@ -1189,6 +1189,13 @@ LOGGING = {
         }
     },
     'loggers': {
+        # Scanners sending foreign Host headers still get a 400; the full
+        # traceback Django logs for each one only buried real errors.
+        'django.security.DisallowedHost': {
+            'handlers': [],
+            'level': 'CRITICAL',
+            'propagate': False,
+        },
         'application': {
             'handlers': ['stderr'],
             'level': 'INFO',

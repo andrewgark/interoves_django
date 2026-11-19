@@ -1,4 +1,4 @@
-"""Turn AI crawlers away from the login-link / results-variant crawl space.
+"""Turn crawlers away from the login-link / results-variant crawl space.
 
 On 2026-11-19 Cloudflare analytics showed ``meta-externalagent`` (Meta's AI
 crawler) behind nearly all requests to ``/accounts/<provider>/login/`` and
@@ -11,7 +11,17 @@ from __future__ import annotations
 
 from urllib.parse import parse_qsl
 
-_BLOCKED_AGENT_MARKERS = (b'meta-externalagent', b'reflectionbot')
+# Named crawlers only: a bare "bot" substring also matches phone models
+# (e.g. Cubot) in real browsers. Seen on 2026-11-19 in Cloudflare analytics:
+# Amazonbot and GPTBot on login links, MJ12bot replaying OAuth callbacks
+# (2.7k "VK authentication failed" log lines a day).
+_BLOCKED_AGENT_MARKERS = (
+    b'meta-externalagent', b'reflectionbot', b'amazonbot', b'gptbot', b'mj12bot',
+    b'claudebot', b'anthropic-ai', b'ccbot', b'bytespider', b'petalbot',
+    b'ahrefsbot', b'semrushbot', b'dotbot', b'dataforseobot', b'blexbot',
+    b'serpstatbot', b'barkrowler', b'imagesiftbot', b'perplexitybot',
+    b'googlebot', b'bingbot', b'yandexbot', b'applebot', b'duckduckbot',
+)
 _VARIANT_PARAMS = frozenset({'snapshot', 'sort', 'actors', 'page'})
 _BODY = b'Crawling this URL space is not allowed; see /robots.txt.\n'
 

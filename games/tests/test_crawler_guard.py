@@ -37,3 +37,11 @@ class CrawlerGuardTests(SimpleTestCase):
         self.assertEqual(_run('/censorly/results/', b'month=2026-11'), (200, ['/censorly/results/']))
         self.assertEqual(_run('/ladder/')[0], 200)
         self.assertEqual(_run('/accounts/vk/login/', b'next=/x/', ua=b'Mozilla/5.0 Chrome/157')[0], 200)
+
+    def test_named_crawlers_are_refused_but_phone_models_are_not(self):
+        amazon = b'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Amazonbot/0.1)'
+        self.assertEqual(_run('/accounts/vk/login/callback/', b'code=x', ua=b'Mozilla/5.0 (compatible; MJ12bot/v2.0.7)')[0], 403)
+        self.assertEqual(_run('/accounts/vk/login/', b'next=/', ua=amazon)[0], 403)
+        cubot = b'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 Chrome/157 Mobile'
+        self.assertEqual(_run('/accounts/vk/login/', b'next=/', ua=cubot)[0], 200)
+        self.assertEqual(_run('/ladder/', b'', ua=amazon)[0], 200)
