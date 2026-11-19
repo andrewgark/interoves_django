@@ -1203,7 +1203,7 @@
       link.rel = 'noopener noreferrer';
       link.setAttribute('aria-label', 'Открыть статью на Википедии');
       link.setAttribute('data-tooltip', 'Открыть статью на Википедии');
-      link.appendChild(el('i', 'ph ph-wikipedia-logo'));
+      link.appendChild(el('i', 'ph ph-article'));
       title.appendChild(link);
     }
     title.appendChild(el('span', 'censorly__solved', '— Решено!'));

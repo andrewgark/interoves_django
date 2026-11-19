@@ -203,8 +203,8 @@ class RenderedPageAssetTests(TestCase):
 
     def test_linked_stylesheets_load_only_local_fonts_and_images(self):
         stylesheets = _collect(self._home(RU_HOST)).stylesheets
-        self.assertTrue(any('phosphor-icons-web/2.1.2/regular/style.css' in s for s in stylesheets))
-        self.assertTrue(any('phosphor-icons-web/2.1.2/fill/style.css' in s for s in stylesheets))
+        self.assertTrue(any('phosphor-icons-web/2.1.2/subset/regular/style.css' in s for s in stylesheets))
+        self.assertTrue(any('phosphor-icons-web/2.1.2/subset/fill/style.css' in s for s in stylesheets))
         for href in stylesheets:
             css_path = _local_static_path(href)
             self.assertIsNotNone(css_path, href)

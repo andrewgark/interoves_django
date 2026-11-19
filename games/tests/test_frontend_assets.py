@@ -46,6 +46,8 @@ UNUSED_LEGACY = (
 VENDOR_CSS = (
     'vendor/phosphor-icons-web/2.1.2/regular/style.css',
     'vendor/phosphor-icons-web/2.1.2/fill/style.css',
+    'vendor/phosphor-icons-web/2.1.2/subset/regular/style.css',
+    'vendor/phosphor-icons-web/2.1.2/subset/fill/style.css',
 )
 
 
@@ -101,3 +103,27 @@ class NoCdnDependencyTests(SimpleTestCase):
     def test_vendored_chart_js_is_the_pinned_version(self):
         head = (STATIC_DIR / 'vendor/chart.js/4.4.4/chart.umd.js').read_text(encoding='utf-8')[:200]
         self.assertIn('Chart.js v4.4.4', head)
+
+
+class PhosphorSubsetTests(SimpleTestCase):
+    """The site ships a subset font; every referenced icon must be in it."""
+
+    def test_every_referenced_icon_is_in_the_shipped_subset(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            'build_phosphor_subset', STATIC_DIR.parent / 'scripts' / 'build_phosphor_subset.py',
+        )
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        vendor = STATIC_DIR / 'vendor/phosphor-icons-web/2.1.2'
+        full = builder.icon_rules((vendor / 'regular/style.css').read_text(encoding='utf-8'))
+        used = builder.used_icon_names(set(full))
+        for variant in ('regular', 'fill'):
+            shipped = builder.icon_rules((vendor / 'subset' / variant / 'style.css').read_text(encoding='utf-8'))
+            missing = sorted(used - set(shipped))
+            with self.subTest(variant=variant):
+                self.assertEqual(
+                    missing, [],
+                    'Run scripts/build_phosphor_subset.py to add these icons to the subset',
+                )

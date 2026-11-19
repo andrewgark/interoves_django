@@ -63,10 +63,12 @@
   <link rel="stylesheet" href="{% static "css/new.css" %}?v={{ site_deploy_version|default:'0'|urlencode }}-wall-form-v11">
   {# Phosphor regular — new UI chrome icons. Preloaded: the nav and every page #}
   {# use it, and discovered via the CSS it arrived after the first paint.      #}
-  <link rel="preload" href="{% static "vendor/phosphor-icons-web/2.1.2/regular/Phosphor.woff2" %}" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/regular/style.css" %}">
+  {# Subset to the icons the site uses (16 KB instead of 147 KB); rebuild with  #}
+  {# scripts/build_phosphor_subset.py after adding an icon.                     #}
+  <link rel="preload" href="{% static "vendor/phosphor-icons-web/2.1.2/subset/regular/Phosphor.woff2" %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/subset/regular/style.css" %}">
   {# Phosphor fill — filled difficulty icons #}
-  <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/fill/style.css" %}">
+  <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/subset/fill/style.css" %}">
   {% if request.GET.snapshot or request.GET.sort or request.GET.actors or request.GET.page %}
   {# Snapshot/sort/filter/page variants of results tables are an endless crawl space. #}
   <meta name="robots" content="noindex,nofollow">
