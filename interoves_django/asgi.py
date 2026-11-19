@@ -29,6 +29,11 @@ def _http_application_with_admission(app):
         max_waiters = int(os.environ.get('DB_ADMISSION_MAX_WAITERS', default_waiters))
         wait_timeout = float(os.environ.get('DB_ADMISSION_WAIT_TIMEOUT_SECONDS', default_wait_timeout))
         retry_after = int(os.environ.get('DB_ADMISSION_RETRY_AFTER_SECONDS', '2'))
+        # One of the web permits is kept for players' moves (answers, hints,
+        # timing); page reads use the others.
+        priority_reserved = int(os.environ.get(
+            'DB_ADMISSION_PRIORITY_RESERVED', '1' if web_defaults and max_active >= 2 else '0',
+        ))
     except ValueError as exc:
         raise RuntimeError('Invalid DB admission configuration.') from exc
     if max_active < 0:
@@ -39,6 +44,7 @@ def _http_application_with_admission(app):
         max_waiters=max_waiters,
         wait_timeout=wait_timeout,
         retry_after_seconds=retry_after,
+        priority_reserved=priority_reserved,
     )
 
 

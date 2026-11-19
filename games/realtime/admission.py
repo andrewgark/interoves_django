@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import socket
 import time
 import uuid
@@ -34,10 +35,28 @@ def _observe_duration(histogram, value_ms):
     histogram['inf'] += 1
 
 
+# Players' moves: answers, hints and solve-timing writes. They are short and
+# a player is waiting on them; page reads (results tables, statistics) are
+# the long requests that filled every permit at the 00:00 MSK release.
+_PRIORITY_POST_RE = re.compile(
+    r'^/(?:send_attempt|send_raddle_ui)/'
+    r'|/(?:guess|timing|hint)/$'
+)
+
+
+def is_priority_request(scope) -> bool:
+    return scope.get('method') == 'POST' and bool(_PRIORITY_POST_RE.search(scope.get('path') or ''))
+
+
 class _AdmissionGate:
-    def __init__(self, *, max_active: int, max_waiters: int, wait_timeout: float):
-        if max_active < 0 or max_waiters < 0 or wait_timeout < 0:
+    def __init__(
+        self, *, max_active: int, max_waiters: int, wait_timeout: float,
+        priority_reserved: int = 0,
+    ):
+        if max_active < 0 or max_waiters < 0 or wait_timeout < 0 or priority_reserved < 0:
             raise ValueError('Admission limits cannot be negative.')
+        if priority_reserved and priority_reserved >= max_active:
+            raise ValueError('Reserved priority permits must leave one for other requests.')
         if max_active == 0 and (max_waiters or wait_timeout):
             raise ValueError('Queue settings require an enabled active request cap.')
         if max_waiters and wait_timeout <= 0:
@@ -45,10 +64,15 @@ class _AdmissionGate:
         self.max_active = max_active
         self.max_waiters = max_waiters
         self.wait_timeout = wait_timeout
+        # Ordinary requests may hold at most this many permits; the rest are
+        # kept for priority requests (players' moves).
+        self.ordinary_limit = max_active - priority_reserved
         self.active = 0
+        self.ordinary_active = 0
         self.max_active_observed = 0
         self.max_active_since_sample = 0
         self.waiters: deque[asyncio.Future] = deque()
+        self.priority_waiters: deque[asyncio.Future] = deque()
         self.lock = asyncio.Lock()
         self.accepted = 0
         self.rejected = 0
@@ -63,25 +87,43 @@ class _AdmissionGate:
         self.admission_wait_ms_buckets = _new_duration_histogram()
         self.permit_hold_ms_buckets = _new_duration_histogram()
 
-    async def acquire(self) -> tuple[bool, float, str | None]:
+    def _can_grant_locked(self, priority: bool) -> bool:
+        if self.active >= self.max_active:
+            return False
+        return priority or self.ordinary_active < self.ordinary_limit
+
+    def _grant_locked(self, priority: bool) -> None:
+        self.active += 1
+        if not priority:
+            self.ordinary_active += 1
+        self.max_active_observed = max(self.max_active_observed, self.active)
+        self.max_active_since_sample = max(self.max_active_since_sample, self.active)
+
+    @staticmethod
+    def _pending(queue) -> bool:
+        return any(not item.done() for item in queue)
+
+    async def acquire(self, priority: bool = False) -> tuple[bool, float, str | None]:
         queued_at = time.monotonic()
         loop = asyncio.get_running_loop()
+        queue = self.priority_waiters if priority else self.waiters
         async with self.lock:
-            if self.max_active == 0 or (self.active < self.max_active and not self.waiters):
-                self.active += 1
-                self.max_active_observed = max(self.max_active_observed, self.active)
-                self.max_active_since_sample = max(self.max_active_since_sample, self.active)
+            ahead = self._pending(self.priority_waiters) or (
+                not priority and self._pending(self.waiters)
+            )
+            if self.max_active == 0 or (self._can_grant_locked(priority) and not ahead):
+                self._grant_locked(priority)
                 self.accepted += 1
                 self.admission_count += 1
                 self._record_wait(0)
                 return True, 0.0, None
-            if len(self.waiters) >= self.max_waiters:
+            if len(queue) >= self.max_waiters:
                 self.rejected += 1
                 self.rejections_by_reason['queue_full'] += 1
                 self._record_wait(0)
                 return False, 0.0, 'queue_full'
             future = loop.create_future()
-            self.waiters.append(future)
+            queue.append(future)
 
         try:
             await asyncio.wait_for(asyncio.shield(future), timeout=self.wait_timeout)
@@ -92,18 +134,18 @@ class _AdmissionGate:
                 self._record_wait(waited_ms)
             return True, waited_ms, None
         except asyncio.CancelledError:
-            cleanup = asyncio.create_task(self._remove_cancelled_waiter(future, queued_at))
+            cleanup = asyncio.create_task(self._remove_cancelled_waiter(future, queued_at, priority))
             await asyncio.shield(cleanup)
             raise
         except asyncio.TimeoutError:
             waited_ms = (time.monotonic() - queued_at) * 1000
             async with self.lock:
                 try:
-                    self.waiters.remove(future)
+                    queue.remove(future)
                 except ValueError:
-                    # A just-transferred permit must not be lost on timeout.
+                    # A just-granted permit must not be lost on timeout.
                     if future.done() and not future.cancelled() and future.result():
-                        self._release_locked()
+                        self._release_locked(priority)
                 self.rejected += 1
                 self.rejections_by_reason['queue_timeout'] += 1
                 self._record_wait(waited_ms)
@@ -114,34 +156,44 @@ class _AdmissionGate:
         self.admission_wait_ms_max = max(self.admission_wait_ms_max, waited_ms)
         _observe_duration(self.admission_wait_ms_buckets, waited_ms)
 
-    async def _remove_cancelled_waiter(self, future: asyncio.Future, queued_at: float) -> None:
+    async def _remove_cancelled_waiter(
+        self, future: asyncio.Future, queued_at: float, priority: bool = False,
+    ) -> None:
+        queue = self.priority_waiters if priority else self.waiters
         async with self.lock:
             self.cancellations += 1
             self._record_wait((time.monotonic() - queued_at) * 1000)
             try:
-                self.waiters.remove(future)
+                queue.remove(future)
             except ValueError:
-                # The permit was transferred just as this waiter was cancelled.
+                # The permit was granted just as this waiter was cancelled.
                 # Return it to the next waiter safely.
                 if future.done() and not future.cancelled() and future.result():
-                    self._release_locked()
+                    self._release_locked(priority)
 
-    def _release_locked(self) -> None:
-        while self.waiters:
-            waiter = self.waiters.popleft()
-            if not waiter.done():
-                # Transfer an occupied permit directly; active stays constant.
-                waiter.set_result(True)
-                return
+    def _release_locked(self, priority: bool = False) -> None:
         self.active -= 1
+        if not priority:
+            self.ordinary_active -= 1
+        self._dispatch_locked()
 
-    async def release(self, held_ms: float) -> None:
+    def _dispatch_locked(self) -> None:
+        """Hand free permits to waiters: players' moves first, then the rest."""
+        for queue, priority in ((self.priority_waiters, True), (self.waiters, False)):
+            while queue and self._can_grant_locked(priority):
+                waiter = queue.popleft()
+                if waiter.done():
+                    continue
+                self._grant_locked(priority)
+                waiter.set_result(True)
+
+    async def release(self, held_ms: float, priority: bool = False) -> None:
         async with self.lock:
             self.request_time_ms_total += held_ms
             self.permit_hold_ms_count += 1
             self.permit_hold_ms_max = max(self.permit_hold_ms_max, held_ms)
             _observe_duration(self.permit_hold_ms_buckets, held_ms)
-            self._release_locked()
+            self._release_locked(priority)
 
     def stats(self) -> dict[str, int | float]:
         return {
@@ -150,7 +202,11 @@ class _AdmissionGate:
             'active_permits': self.active if self.max_active else 0,
             'max_active_observed': self.max_active_observed,
             'max_active_since_sample': self.max_active_since_sample,
-            'waiting': sum(not item.done() for item in self.waiters),
+            'waiting': sum(
+                not item.done() for item in (*self.waiters, *self.priority_waiters)
+            ),
+            'waiting_priority': sum(not item.done() for item in self.priority_waiters),
+            'configured_priority_reserved': self.max_active - self.ordinary_limit,
             'accepted': self.accepted,
             'rejected': self.rejected,
             'configured_cap': self.max_active,
@@ -187,6 +243,7 @@ class DatabaseAdmissionASGIMiddleware:
         wait_timeout: float,
         retry_after_seconds: int = 2,
         metrics_interval_seconds: float = _METRICS_INTERVAL_SECONDS,
+        priority_reserved: int = 0,
     ):
         if retry_after_seconds < 1 or retry_after_seconds > 30:
             raise ValueError('Retry-After must be between 1 and 30 seconds.')
@@ -195,6 +252,7 @@ class DatabaseAdmissionASGIMiddleware:
             max_active=max_active,
             max_waiters=max_waiters,
             wait_timeout=wait_timeout,
+            priority_reserved=priority_reserved,
         )
         self.retry_after_seconds = retry_after_seconds
         if metrics_interval_seconds <= 0:
@@ -307,8 +365,9 @@ class DatabaseAdmissionASGIMiddleware:
         if scope.get('path') in ('/health/live', '/health/live/'):
             return await self.app(scope, receive, send)
 
+        priority = is_priority_request(scope)
         try:
-            admitted, waited_ms, rejection_reason = await self.gate.acquire()
+            admitted, waited_ms, rejection_reason = await self.gate.acquire(priority)
         except asyncio.CancelledError:
             self._maybe_emit_metrics()
             raise
@@ -346,7 +405,7 @@ class DatabaseAdmissionASGIMiddleware:
             raise
         finally:
             held_ms = (time.monotonic() - started) * 1000
-            release = asyncio.create_task(self.gate.release(held_ms))
+            release = asyncio.create_task(self.gate.release(held_ms, priority))
             await asyncio.shield(release)
             logger.debug(
                 'event=released active=%d waiting=%d configured_cap=%d held_ms=%.1f queue_wait_ms=%.1f',

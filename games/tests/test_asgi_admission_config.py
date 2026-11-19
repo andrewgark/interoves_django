@@ -14,6 +14,7 @@ class AsgiAdmissionConfigTests(TestCase):
             middleware = _http_application_with_admission(lambda *_args: None)
         self.assertIsInstance(middleware, DatabaseAdmissionASGIMiddleware)
         self.assertEqual(middleware.gate.stats()['configured_cap'], 4)
+        self.assertEqual(middleware.gate.stats()['configured_priority_reserved'], 1)
         self.assertEqual(middleware.gate.stats()['configured_max_waiters'], 8)
         self.assertEqual(middleware.gate.stats()['configured_wait_timeout_ms'], 1000)
 
@@ -21,6 +22,7 @@ class AsgiAdmissionConfigTests(TestCase):
         with patch.dict(os.environ, {'INTEROVES_RUNTIME_ROLE': 'background-worker'}, clear=True):
             middleware = _http_application_with_admission(lambda *_args: None)
         self.assertEqual(middleware.gate.stats()['configured_cap'], 0)
+        self.assertEqual(middleware.gate.stats()['configured_priority_reserved'], 0)
         self.assertEqual(middleware.gate.stats()['configured_max_waiters'], 0)
 
     def test_environment_can_override_web_default(self):

@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 from games.realtime.admission import DatabaseAdmissionASGIMiddleware
 
 
-async def _invoke(app, path='/admission-test/'):
+async def _invoke(app, path='/admission-test/', method='GET'):
     events = []
 
     async def receive():
@@ -16,7 +16,7 @@ async def _invoke(app, path='/admission-test/'):
         events.append(message)
 
     await app(
-        {'type': 'http', 'asgi': {'version': '3.0'}, 'method': 'GET', 'path': path,
+        {'type': 'http', 'asgi': {'version': '3.0'}, 'method': method, 'path': path,
          'headers': [], 'query_string': b'', 'server': ('test', 80),
          'client': ('127.0.0.1', 12345), 'scheme': 'http', 'http_version': '1.1'},
         receive,
@@ -267,3 +267,65 @@ class DatabaseAdmissionASGITests(SimpleTestCase):
         self.assertEqual(gate.gate.stats()['rejected'], 0)
         release.set()
         await active
+
+
+class PriorityAdmissionTests(SimpleTestCase):
+    def _gate(self, release, entered, **kwargs):
+        async def app(scope, receive, send):
+            entered.append(scope['path'])
+            await release.wait()
+            await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+            await send({'type': 'http.response.body', 'body': b'ok'})
+
+        return DatabaseAdmissionASGIMiddleware(app, **kwargs)
+
+    async def _settle(self):
+        for _ in range(20):
+            await asyncio.sleep(0)
+
+    async def test_page_reads_cannot_take_the_reserved_permit(self):
+        release = asyncio.Event()
+        entered = []
+        gate = self._gate(
+            release, entered, max_active=3, max_waiters=4, wait_timeout=1, priority_reserved=1,
+        )
+        pages = [asyncio.create_task(_invoke(gate, '/ladder/results/')) for _ in range(3)]
+        await self._settle()
+        self.assertEqual(gate.gate.stats()['active'], 2)
+        self.assertEqual(gate.gate.stats()['waiting'], 1)
+
+        move = asyncio.create_task(_invoke(gate, '/censorly/37/guess/', method='POST'))
+        await self._settle()
+        self.assertIn('/censorly/37/guess/', entered)
+        self.assertEqual(gate.gate.stats()['active'], 3)
+
+        release.set()
+        await asyncio.gather(move, *pages)
+        stats = gate.gate.stats()
+        self.assertEqual(stats['active'], 0)
+        self.assertEqual(stats['waiting'], 0)
+        self.assertEqual(gate.gate.ordinary_active, 0)
+        self.assertEqual(stats['rejected'], 0)
+
+    async def test_waiting_moves_go_before_waiting_pages(self):
+        release = asyncio.Event()
+        entered = []
+        gate = self._gate(release, entered, max_active=1, max_waiters=4, wait_timeout=1)
+        first = asyncio.create_task(_invoke(gate, '/first/'))
+        await self._settle()
+        page = asyncio.create_task(_invoke(gate, '/salad/results/'))
+        await self._settle()
+        move = asyncio.create_task(_invoke(gate, '/send_attempt/7/', method='POST'))
+        await self._settle()
+        self.assertEqual(entered, ['/first/'])
+
+        release.set()
+        await asyncio.gather(first, page, move)
+        self.assertEqual(entered, ['/first/', '/send_attempt/7/', '/salad/results/'])
+        self.assertEqual(gate.gate.stats()['active'], 0)
+
+    def test_reserved_permits_must_leave_one_for_pages(self):
+        with self.assertRaises(ValueError):
+            DatabaseAdmissionASGIMiddleware(
+                lambda *a: None, max_active=1, max_waiters=0, wait_timeout=0, priority_reserved=1,
+            )
