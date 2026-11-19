@@ -5,3 +5,8 @@ surface	lemma	capitalized	note
 трою	троя	yes	the city
 троей	троя	yes	the city
 троею	троя	yes	the city
+шань	шань		Тянь-Шань; runtime pymorphy has only the name Шаня, any case
+шаня	шань	yes	Тянь-Шаня; not the name Шаня
+шаню	шань	yes	Тянь-Шаню; not the name Шаня
+шанем	шань	yes	Тянь-Шанем; not the abbreviation шанем
+шане	шань	yes	Тянь-Шане; not the name Шана

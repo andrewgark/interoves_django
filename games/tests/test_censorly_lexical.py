@@ -641,6 +641,21 @@ class LexicalResolverTests(SimpleTestCase):
                     self.assertFalse(gameplay_opens(left, right))
                     self.assertFalse(gameplay_opens(right, left))
 
+    def test_tian_shan_forms_open_each_other_not_names(self):
+        """Тянь-Шане/-Шанем/-Шаня are the mountains, not the names Шана/Шаня."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess in ('Шань', 'шань', 'Шане', 'Тянь-Шань', 'тянь-шаньский'):
+            for target in ('на Тянь-Шане', 'Тянь-Шанем', 'Тянь-Шаня', 'Тянь-Шаню'):
+                with self.subTest(expected='OPEN', guess=guess, target=target):
+                    self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('Шана', 'на Тянь-Шане'), ('шаньга', 'на Тянь-Шане'), ('Шань', 'шаньга'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_sel_family_splits_settling_by_prefix_meaning(self):
         """Поселение, население, выселение and переселение are different acts."""
         def gameplay_opens(guess, target):
