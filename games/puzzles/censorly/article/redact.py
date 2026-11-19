@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+import hashlib
+import threading
+from collections import OrderedDict
 from typing import Any, Iterable
 
 from games.puzzles.censorly.ids import CENSORLY_SHOW_MASK_ENDINGS
@@ -226,10 +228,11 @@ def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
         for token in (payload.get('body_tokens') or [])
         if token.get('kind') == 'content' and token.get('lemma') and token.get('surface')
     }))
-    return set(_title_opening_lemmas_cached(
-        title_rows,
-        body_rows,
-        open_pronouns_enabled(),
+    pronouns = open_pronouns_enabled()
+    return set(_memo(
+        _title_opening_memo,
+        ('opening', _rows_digest(title_rows, body_rows), pronouns),
+        lambda: _title_opening_lemmas_cached(title_rows, body_rows, pronouns),
     ))
 
 
@@ -252,10 +255,42 @@ def title_lexeme_lemmas(payload: dict[str, Any]) -> set[str]:
         if token.get('kind') == 'content' and token.get('lemma') in opening
         and token.get('surface')
     }))
-    return set(_title_lexeme_lemmas_cached(title_rows, body_rows))
+    return set(_memo(
+        _title_lexeme_memo,
+        ('lexeme', _rows_digest(title_rows, body_rows)),
+        lambda: _title_lexeme_lemmas_cached(title_rows, body_rows),
+    ))
 
 
-@lru_cache(maxsize=16)
+# Every play page needs these per-article sets; computing one runs the
+# matcher over each body lemma (~1.6 s). A 16-entry LRU keyed by the full
+# rows cycled through the ~40 archive puzzles, so archive pages paid it on
+# almost every view. Key by a digest instead: the values are small sets.
+_MEMO_SIZE = 512
+_memo_lock = threading.Lock()
+_title_opening_memo: OrderedDict = OrderedDict()
+_title_lexeme_memo: OrderedDict = OrderedDict()
+
+
+def _rows_digest(*rows) -> bytes:
+    return hashlib.blake2b(repr(rows).encode('utf-8'), digest_size=16).digest()
+
+
+def _memo(cache: OrderedDict, key, build):
+    with _memo_lock:
+        hit = cache.get(key)
+        if hit is not None:
+            cache.move_to_end(key)
+            return hit
+    value = build()
+    with _memo_lock:
+        cache[key] = value
+        cache.move_to_end(key)
+        while len(cache) > _MEMO_SIZE:
+            cache.popitem(last=False)
+    return value
+
+
 def _title_lexeme_lemmas_cached(
     title_rows: tuple[tuple[str, str], ...],
     body_rows: tuple[tuple[str, str], ...],
@@ -272,7 +307,6 @@ def _title_lexeme_lemmas_cached(
     return frozenset(out)
 
 
-@lru_cache(maxsize=16)
 def _title_opening_lemmas_cached(
     title_rows: tuple[tuple[str, str], ...],
     body_rows: tuple[tuple[str, str], ...],
