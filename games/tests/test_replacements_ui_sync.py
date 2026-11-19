@@ -3,10 +3,12 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.test import Client, SimpleTestCase, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import (
     ChainTaskState,
     CheckerType,
@@ -224,3 +226,44 @@ class ReplacementsUiSyncTests(TestCase):
         self.assertIn('<span class="encoded-replacement">BAR</span>', html)
         self.assertNotIn('THREE', html)
         self.assertNotIn('new-replacements-block__left', html)
+
+    def test_tournament_drafts_survive_the_switch_to_general(self):
+        client = self._client('repl_ui_one')
+        with patch('games.site.views.game.replacements_ui.track_actor_task_change'):
+            with patch.object(Game, 'get_current_mode', return_value='tournament'):
+                self._post(client, {'0:0': 'ONE', '1:0': 'ONE'})
+                self._post(client, {'1:1': 'THREE'})
+            # After the tournament the page reads the general mode.
+            data = self._page_data()
+            self.assertEqual(
+                json.loads(data['guesses_json']),
+                {'0:0': 'ONE', '1:0': 'ONE', '1:1': 'THREE'},
+            )
+            self.assertEqual(data['ui_revision'], 2)
+            payload = self._post(client, {'1:0': None}).json()
+        # The new row continues the drafts and the revision, so open pages
+        # that saw revision 2 accept the push.
+        self.assertEqual(
+            payload['replacements_ui'][str(self.task.pk)],
+            {'guesses': {'0:0': 'ONE', '1:1': 'THREE'}, 'revision': 3},
+        )
+        self.assertEqual(
+            sorted(ReplacementsUiState.objects.values_list('game_mode', 'revision')),
+            [('general', 3), ('tournament', 2)],
+        )
+        self.assertEqual(json.loads(self._page_data()['guesses_json']), {'0:0': 'ONE', '1:1': 'THREE'})
+
+    def test_support_preview_loads_replacements_styles(self):
+        support = User.objects.create_user('repl_ui_support', password='pw')
+        support.groups.add(Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)[0])
+        client = Client()
+        client.force_login(support)
+        url = reverse(
+            'support:preview_task_group',
+            kwargs={'game_id': self.game.pk, 'task_group_number': '1'},
+        )
+        response = client.get(url, {'team': self.team.name})
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('data-repl-slot-key="0:0"', html)
+        self.assertIn('css/replacements.css', html)

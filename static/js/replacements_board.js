@@ -190,7 +190,7 @@
 
   var document = global.document;
   var boards = Object.create(null);
-  var settings = { post: null };
+  var settings = { post: null, parseLinePaste: null };
   var editor = null;
   var editorEl = null;
 
@@ -300,7 +300,10 @@
     });
   }
 
+  /** Save errors share the fill message line; clearing never hides a fill message. */
   function showMessage(b, text) {
+    if (!text && !b.saveError) return;
+    b.saveError = !!text;
     var msg = b.root.querySelector('[data-repl-fill-msg]');
     if (!msg) return;
     msg.textContent = text || '';
@@ -328,6 +331,22 @@
     renderBoard(b);
   }
 
+  var RETRY_MIN_MS = 1000;
+  var RETRY_MAX_MS = 30000;
+
+  function scheduleFlush(b, delay) {
+    if (b.flushTimer) clearTimeout(b.flushTimer);
+    var taskId = b.taskId;
+    b.flushTimer = setTimeout(function () { flush(taskId); }, delay || 0);
+  }
+
+  /** Put back changes of a failed save unless the player changed those slots since. */
+  function requeue(b, changes) {
+    Object.keys(changes).forEach(function (k) {
+      if (!(k in b.outbox) && b.pending[k] === changes[k]) b.outbox[k] = changes[k];
+    });
+  }
+
   function flush(taskId) {
     var b = boards[taskId];
     if (!b) return;
@@ -338,19 +357,30 @@
     Promise.resolve(settings.post(taskId, changes)).then(function (data) {
       var cur = boards[taskId];
       if (!cur) return;
+      if (!data) {
+        // Network error or an unreadable answer: keep the words and retry,
+        // so a teammate's update cannot silently replace them.
+        requeue(cur, changes);
+        cur.retryDelay = Math.min(RETRY_MAX_MS, cur.retryDelay ? cur.retryDelay * 2 : RETRY_MIN_MS);
+        showMessage(cur, 'Не удалось сохранить введённые слова. Пробуем ещё раз…');
+        if (Object.keys(cur.outbox).length) scheduleFlush(cur, cur.retryDelay);
+        return;
+      }
       Object.keys(changes).forEach(function (k) {
         if (cur.pending[k] === changes[k]) delete cur.pending[k];
       });
-      if (data && data.status === 'ok') {
+      if (data.status === 'ok') {
+        cur.retryDelay = 0;
         showMessage(cur, '');
         applyPayload(cur, data.replacements_ui && data.replacements_ui[String(taskId)], true);
         return;
       }
-      if (data && (data.error === 'replay_required' || data.status === 'replay_required')) {
+      if (data.error === 'replay_required' || data.status === 'replay_required') {
         cur.refused = true;
+        cur.outbox = {};
         showMessage(cur, 'Игра закончилась: введённые слова больше не сохраняются для команды.');
-      } else if (!data || !data.context_mismatch) {
-        showMessage(cur, 'Не удалось сохранить введённые слова. Проверьте соединение.');
+      } else if (!data.context_mismatch) {
+        showMessage(cur, 'Не удалось сохранить введённые слова.');
       }
     });
   }
@@ -360,13 +390,11 @@
     b.guesses = applyChanges(b.guesses, changes);
     Object.keys(changes).forEach(function (k) {
       b.pending[k] = changes[k];
-      b.outbox[k] = changes[k];
+      if (!b.refused) b.outbox[k] = changes[k];
     });
     renderBoard(b);
-    if (!b.flushTimer) {
-      var taskId = b.taskId;
-      b.flushTimer = setTimeout(function () { flush(taskId); }, 0);
-    }
+    // A new edit is sent right away, also while a failed save waits for its retry.
+    scheduleFlush(b, 0);
     return Object.keys(changes).length;
   }
 
@@ -407,6 +435,7 @@
       e.preventDefault();
       saveEditor(editorEl.querySelector('[data-repl-editor-input]').value);
     });
+    editorEl.querySelector('[data-repl-editor-input]').addEventListener('paste', onEditorPaste);
     editorEl.querySelector('[data-repl-editor-clear]').addEventListener('click', function () {
       saveEditor('');
     });
@@ -420,6 +449,27 @@
     document.addEventListener('touchstart', onOutsidePointer, { capture: true, passive: true });
     global.addEventListener('resize', function () { if (editor) positionEditor(); });
     return editorEl;
+  }
+
+  /**
+   * Pasting a whole line (tabs, quotes or the full restored line) into the
+   * slot editor fills every slot of that line, like the old per-word inputs.
+   */
+  function onEditorPaste(e) {
+    if (!editor || editor.mode !== 'slot' || typeof settings.parseLinePaste !== 'function') return;
+    var clip = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (!clip || !String(clip).trim()) return;
+    var anchor = findAnchor();
+    var row = anchor && anchor.closest ? anchor.closest('tr[data-line-index]') : null;
+    if (!row) return;
+    var values = settings.parseLinePaste(row, clip);
+    if (!values || values.length < 2) return;
+    var lineIndex = parseInt(row.getAttribute('data-line-index'), 10);
+    if (isNaN(lineIndex)) return;
+    e.preventDefault();
+    var taskId = editor.taskId;
+    closeEditor(true);
+    setLineValues(taskId, lineIndex, values);
   }
 
   function onOutsidePointer(e) {
@@ -663,6 +713,7 @@
   /** Bind every `.repl-board` under `root`; safe to call after a card redraw. */
   function init(root, opts) {
     if (opts && typeof opts.post === 'function') settings.post = opts.post;
+    if (opts && typeof opts.parseLinePaste === 'function') settings.parseLinePaste = opts.parseLinePaste;
     var scope = root || document;
     var roots = [];
     if (scope.matches && scope.matches('.repl-board[data-task-id]')) roots.push(scope);
@@ -681,6 +732,8 @@
         pending: prev ? prev.pending : {},
         outbox: prev ? prev.outbox : {},
         flushTimer: prev ? prev.flushTimer : null,
+        retryDelay: prev ? prev.retryDelay : 0,
+        saveError: false,
         refused: prev ? prev.refused : false,
       };
       if (prev && prev.revision > revision) {

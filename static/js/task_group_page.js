@@ -618,6 +618,34 @@
     if (!ReplParse) return null;
     return ReplParse.parseReplLineAnswersSmart(container, raw, nSlots);
   }
+  /**
+   * A paste into one slot's editor that clearly holds the whole line: values
+   * separated by tabs or «;», quoted values, or the restored line with its
+   * fixed words. A plain phrase like «ЧЁРНАЯ ДЫРА» stays one slot's guess.
+   */
+  function parseReplLinePasteStrict(row, raw) {
+    if (!ReplParse || !row) return null;
+    var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
+    if (n < 2) return null;
+    var first = ReplParse.firstNonEmptyLineInRaw(normPasteText(raw)).replace(/\s+$/, '');
+    if (!first.replace(/\s/g, '')) return null;
+    var out = ReplParse.parseReplTabLine(first, n);
+    var quoted = ReplParse.normalizeQuotesLine(first).match(/"[^"]*"|«[^»]*»/g) || [];
+    if (!out && quoted.length >= 2) {
+      out = ReplParse.parseReplQuotedDoubleLine(first, n) || ReplParse.parseReplGuillemetLine(first, n);
+    }
+    if (!out) {
+      var container = row.querySelector('[data-repl-words-wrap]');
+      var ex = ReplParse.extractReplWordsLiterals(container);
+      // The paste is the restored line: its fixed words plus one word per slot.
+      var pattern = ex.nSlots === n ? ReplParse.templateTokenPattern(ex.literals, n) : null;
+      var hasFixedWords = !!pattern && pattern.some(function (w) { return w !== null; });
+      if (hasFixedWords && ReplParse.letterTokenSpans(first).length === pattern.length) {
+        out = ReplParse.parseReplTokenLine(first, ex.literals, n);
+      }
+    }
+    return out && out.length === n ? out : null;
+  }
   function buildFullAnswerLineFromWordsRow(row) {
     return window.ReplacementsBoard ? window.ReplacementsBoard.lineText(row) : '';
   }
@@ -1424,7 +1452,11 @@
       headers: headers,
       body: params.toString(),
       credentials: 'same-origin',
-    }).then(parseFetchJson).then(function (data) {
+    }).then(function (r) {
+      // Overload and server errors are temporary: null makes the board retry.
+      if (r.status >= 500 || r.status === 429) return null;
+      return parseFetchJson(r);
+    }).then(function (data) {
       if (data && data.context_mismatch) showGameplayContextMismatch(null, data.context_mismatch);
       else if (data && data.error === 'stale_replay') window.location.reload();
       else if (data && data.error === 'replay_required') {
@@ -3413,7 +3445,11 @@
       headers: headers,
       body: params.toString(),
       credentials: 'same-origin',
-    }).then(parseFetchJson).then(function (data) {
+    }).then(function (r) {
+      // Overload and server errors are temporary: null makes the board retry.
+      if (r.status >= 500 || r.status === 429) return null;
+      return parseFetchJson(r);
+    }).then(function (data) {
       if (data && data.context_mismatch) showGameplayContextMismatch(null, data.context_mismatch);
       else if (data && data.error === 'stale_replay') window.location.reload();
       else if (data && data.error === 'replay_required' && typeof window.revealReplayControl === 'function') {
@@ -3424,7 +3460,10 @@
   }
   function initReplacementsLinesStorage(root) {
     if (!window.ReplacementsBoard) return;
-    window.ReplacementsBoard.init(root || document, { post: postReplacementsUi });
+    window.ReplacementsBoard.init(root || document, {
+      post: postReplacementsUi,
+      parseLinePaste: parseReplLinePasteStrict,
+    });
   }
   window.applyReplacementsUiState = function (uiMap) {
     if (window.ReplacementsBoard) window.ReplacementsBoard.applyRemote(uiMap);

@@ -118,21 +118,51 @@ def stored_guesses(row, task):
     return dict(row.guesses or {}), int(row.revision or 0)
 
 
-def load_guesses(task, *, game, mode, team=None, user=None, anon_key=None, replay_slot=None):
+def latest_row_any_mode(lookup, *, fields=None):
+    """The most recently written drafts row of this actor context, in any mode.
+
+    Rows are still keyed by game mode, but drafts belong to the actor rather
+    than to the mode: when a tournament ends, the page switches to ``general``
+    and must keep showing the guesses typed during the tournament.
+    """
     from games.models import ReplacementsUiState
 
+    any_mode = {k: v for k, v in lookup.items() if k != 'game_mode'}
+    qs = ReplacementsUiState.objects.filter(**any_mode).order_by('-revision', '-updated_at', '-pk')
+    if fields:
+        qs = qs.only(*fields)
+    return qs.first()
+
+
+def seed_from_other_mode(lookup, task):
+    """Defaults for a new row: continue the latest row of another mode.
+
+    The revision continues too, so open pages that already saw the old row
+    accept the new row's pushes instead of dropping them as stale.
+    """
+    row = latest_row_any_mode(lookup, fields=('guesses', 'task_revision', 'revision'))
+    revision_now = task_revision(task)
+    if row is None or row.task_revision != revision_now:
+        return {
+            'guesses': {},
+            'task_revision': revision_now,
+            'revision': int(row.revision or 0) if row is not None else 0,
+        }
+    return {
+        'guesses': dict(row.guesses or {}),
+        'task_revision': revision_now,
+        'revision': int(row.revision or 0),
+    }
+
+
+def load_guesses(task, *, game, mode, team=None, user=None, anon_key=None, replay_slot=None):
     if game is None or (team is None and user is None and not anon_key):
         return {}, 0
     lookup = ui_state_lookup(
         task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
         replay_slot=replay_slot,
     )
-    row = (
-        ReplacementsUiState.objects
-        .filter(**lookup)
-        .only('guesses', 'task_revision', 'revision')
-        .first()
-    )
+    row = latest_row_any_mode(lookup, fields=('guesses', 'task_revision', 'revision'))
     return stored_guesses(row, task)
 
 

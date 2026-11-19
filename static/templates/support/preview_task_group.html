@@ -5,6 +5,9 @@
 
 {% block extrahead %}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  {% if replacements_lines_data %}
+    <link rel="stylesheet" href="{% static 'css/replacements.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  {% endif %}
 {% endblock %}
 
 {% block content %}

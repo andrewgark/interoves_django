@@ -1095,6 +1095,110 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         expect(second.locator(f'{card} .repl-chip__guess')).to_have_text('GUESS')
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
+    def test_replacements_failed_save_is_retried(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        first.goto(url)
+        second.goto(url)
+        card = f'#new-task-{self.replacements_task.pk}'
+        first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+        failed = []
+
+        def fail_first_save(route):
+            if '/send_replacements_ui/' in route.request.url and not failed:
+                failed.append(route.request.url)
+                route.abort()
+                return
+            route.continue_()
+
+        first.route('**/*', fail_first_save)
+        try:
+            self.fill_replacement(first, first_row, 'guess')
+            expect(first.locator(f'{card} [data-repl-fill-msg]')).to_contain_text(
+                'Пробуем ещё раз', timeout=10_000,
+            )
+            # The retry reaches the server and the teammate, and clears the error.
+            expect(second.locator(
+                f'{first_row} button[data-repl-slot] .unsubmitted-replacement'
+            )).to_have_text('guess', timeout=10_000)
+            expect(first.locator(f'{card} [data-repl-fill-msg]')).to_be_hidden()
+        finally:
+            first.unroute('**/*')
+        self.assertEqual(len(failed), 1)
+
+    def test_replacements_line_paste_fills_every_slot(self):
+        from playwright.sync_api import expect
+
+        errors = []
+
+        def make_two_slot_line():
+            close_old_connections()
+            try:
+                Task.objects.filter(pk=self.replacements_task.pk).update(
+                    text='FOO and BAR\nBAZ',
+                    checker_data=json.dumps({'lines': [['ONE', 'TWO'], ['X']]}),
+                )
+            except Exception as exc:  # pragma: no cover - surfaced in the test thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=make_two_slot_line)
+        thread.start()
+        thread.join()
+        if errors:
+            raise errors[0]
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        first.goto(url)
+        second.goto(url)
+        card = f'#new-task-{self.replacements_task.pk}'
+        row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+        editor_input = first.locator('.repl-editor input[data-repl-editor-input]')
+
+        def paste(text):
+            editor_input.evaluate(
+                """(input, text) => {
+                    const data = new DataTransfer();
+                    data.setData('text/plain', text);
+                    input.dispatchEvent(new ClipboardEvent('paste', {
+                        clipboardData: data, bubbles: true, cancelable: true,
+                    }));
+                }""",
+                text,
+            )
+
+        def guesses(page):
+            return page.locator(f'{row} button[data-repl-slot]').evaluate_all(
+                "els => els.map(el => (el.querySelector('.unsubmitted-replacement') || {}).textContent || '')"
+            )
+
+        # A plain phrase stays one slot's guess: the editor keeps it.
+        first.locator(f'{row} button[data-repl-slot]').first.click()
+        paste('BLACK HOLE')
+        expect(first.locator('.repl-editor')).to_be_visible()
+        first.keyboard.press('Escape')
+        self.assertEqual(guesses(first), ['', ''])
+
+        first.locator(f'{row} button[data-repl-slot]').nth(1).click()
+        paste('one\ttwo')
+        expect(first.locator('.repl-editor')).to_be_hidden()
+        expect(second.locator(f'{row} button[data-repl-slot] .unsubmitted-replacement')).to_have_count(
+            2, timeout=10_000,
+        )
+        self.assertEqual(guesses(second), ['one', 'two'])
+
+        # The restored line with its fixed words works too.
+        first.locator(f'{row} button[data-repl-slot]').first.click()
+        paste('uno and dos')
+        expect(first.locator('.repl-editor')).to_be_hidden()
+        expect(first.locator(f'{row} button[data-repl-slot] .unsubmitted-replacement').first).to_have_text('uno')
+        self.assertEqual(guesses(first), ['uno', 'dos'])
+
     def test_teammate_can_submit_next_replacements_line_after_live_update(self):
         from playwright.sync_api import expect
 

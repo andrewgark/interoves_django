@@ -14,6 +14,7 @@ from games.puzzles.replacements.lines.ui_state import (
     apply_guess_changes,
     parse_changes,
     replacements_ui_payload,
+    seed_from_other_mode,
     task_revision,
     ui_state_lookup,
 )
@@ -74,7 +75,8 @@ def process_send_replacements_ui(request, task_id):
             queryset=ReplacementsUiState.objects.filter(**lookup),
             task=task,
             lookup=lookup,
-            defaults={'guesses': {}, 'task_revision': revision_now},
+            # Drafts survive a mode switch (tournament -> general).
+            defaults=lambda: seed_from_other_mode(lookup, task),
         )
         base = row.guesses if row.task_revision == revision_now else {}
         row.guesses = apply_guess_changes(base, changes, slot_counts, solved)
