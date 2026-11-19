@@ -54,25 +54,32 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # ---- Resolve instance -------------------------------------------------------
-# Prefer a serving host during replacements and rolling deployments. A running
-# EC2 instance can still be bootstrapping or unresponsive to management access.
-INSTANCE_ID=$(aws elasticbeanstalk describe-instances-health --region "$REGION" \
+# Prefer serving hosts during replacements and rolling deployments. EB can
+# still report Ok for a host it is terminating (2026-11-19: the deploy's last
+# step picked such a host and stranded the refresh gate), so keep only hosts
+# EC2 reports as running and fall through to the next one on a failed key push.
+OK_IDS=$(aws elasticbeanstalk describe-instances-health --region "$REGION" \
     --environment-name "$ENV_NAME" --attribute-names HealthStatus \
-    --query 'InstanceHealthList[?HealthStatus==`Ok`].InstanceId | [0]' \
-    --output text 2>/dev/null) || INSTANCE_ID=""
-if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
+    --query 'InstanceHealthList[?HealthStatus==`Ok`].InstanceId' \
+    --output text 2>/dev/null) || OK_IDS=""
+CANDIDATES=""
+if [[ -n "$OK_IDS" && "$OK_IDS" != "None" ]]; then
+    # shellcheck disable=SC2086
+    CANDIDATES=$(aws ec2 describe-instances --region "$REGION" --instance-ids $OK_IDS \
+        --filters "Name=instance-state-name,Values=running" \
+        --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null) || CANDIDATES=""
+fi
+if [[ -z "$CANDIDATES" || "$CANDIDATES" == "None" ]]; then
     # Retain access for diagnosis when EB has no healthy host or enhanced health.
-    INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
+    CANDIDATES=$(aws ec2 describe-instances --region "$REGION" \
         --filters "Name=tag:elasticbeanstalk:environment-name,Values=${ENV_NAME}" \
                   "Name=instance-state-name,Values=running" \
-        --query 'Reservations[].Instances[].InstanceId | [0]' --output text)
+        --query 'Reservations[].Instances[].InstanceId' --output text)
 fi
-if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
+if [[ -z "$CANDIDATES" || "$CANDIDATES" == "None" ]]; then
     echo "No running instance found for EB environment ${ENV_NAME}" >&2
     exit 1
 fi
-
-echo "Instance: ${INSTANCE_ID} (${ENV_NAME}, SSM SSH)"
 
 # ---- Generate a throw-away key pair -----------------------------------------
 cleanup() { rm -f "$KEY_FILE" "${KEY_FILE}.pub"; }
@@ -80,14 +87,25 @@ trap cleanup EXIT
 
 ssh-keygen -t rsa -b 2048 -f "$KEY_FILE" -N "" -q
 
-# ---- Push public key (valid for 60 s) ---------------------------------------
-aws ec2-instance-connect send-ssh-public-key \
-    --region "$REGION" \
-    --instance-id "$INSTANCE_ID" \
-    --instance-os-user "$OS_USER" \
-    --ssh-public-key "file://${KEY_FILE}.pub" > /dev/null \
-    && echo "SSH key pushed (60 s window)" \
-    || { echo "Failed to push SSH key" >&2; exit 1; }
+# ---- Push public key (valid for 60 s) to the first host that accepts it -----
+INSTANCE_ID=""
+for candidate in $CANDIDATES; do
+    if aws ec2-instance-connect send-ssh-public-key \
+        --region "$REGION" \
+        --instance-id "$candidate" \
+        --instance-os-user "$OS_USER" \
+        --ssh-public-key "file://${KEY_FILE}.pub" > /dev/null; then
+        INSTANCE_ID="$candidate"
+        break
+    fi
+    echo "SSH key push to ${candidate} failed; trying the next host" >&2
+done
+if [[ -z "$INSTANCE_ID" ]]; then
+    echo "Failed to push SSH key" >&2
+    exit 1
+fi
+echo "Instance: ${INSTANCE_ID} (${ENV_NAME}, SSM SSH)"
+echo "SSH key pushed (60 s window)"
 
 # ---- SSH helper through SSM (no public IP or direct SG route required) ------
 SSH=(ssh -T -i "$KEY_FILE" \
