@@ -163,6 +163,14 @@ Read-only snapshot option names from AWS on 2026-09-28 (наличие пере�
 Смена EB option settings — это configuration deployment и рестарт. Отдельный
 restart app server уже запущенный процесс новыми options не наполняет.
 
+## Nutrimatic Lambda
+
+Поиск `/nutrimatic-ru/` выполняет Lambda `interoves-nutrimatic` (стек
+`interoves-nutrimatic`), Green её только вызывает (`NUTRIMATIC_LAMBDA_FUNCTION`).
+Изменения `cgi-search.py`/`find-expr`/индекса выкатываются
+`./scripts/deploy_nutrimatic_lambda.sh` (профиль `default`), не `deploy.sh`.
+Подробности — `infra/nutrimatic/README.md`.
+
 ## AWS и безопасные read-only проверки
 
 Для AWS CLI используй `./scripts/aws_with_role.sh` (роль `ai-bot`), не печатай

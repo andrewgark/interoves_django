@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Nutrimatic search Lambda. Green's Django invokes it for /nutrimatic-ru/ so a
+  heavy find-expr runs in its own sandbox instead of Daphne's memory cgroup.
+  Deployed by scripts/deploy_nutrimatic_lambda.sh (stack interoves-nutrimatic).
+
+Parameters:
+  ImageTag:
+    Type: String
+    Default: ''
+    Description: Tag in the stack's ECR repository. Empty creates only the repository.
+  FunctionName:
+    Type: String
+    Default: interoves-nutrimatic
+  MemorySize:
+    Type: Number
+    Default: 2048
+  ReservedConcurrency:
+    Type: Number
+    Default: 4
+    Description: Hard cap on parallel searches (and on the worst-case bill).
+  WebRoleName:
+    Type: String
+    Default: interoves-green-web-role
+  AlarmTopicArn:
+    Type: String
+    Default: arn:aws:sns:eu-central-1:916000456640:interoves-eb-health-alerts
+
+Conditions:
+  HasImage: !Not [!Equals [!Ref ImageTag, '']]
+
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Ref FunctionName
+      ImageTagMutability: IMMUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the five most recent images",
+                "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 5},
+                "action": {"type": "expire"}
+              }
+            ]
+          }
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FunctionName}
+      RetentionInDays: 30
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: HasImage
+    Properties:
+      RoleName: !Sub ${FunctionName}-lambda
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub ${LogGroup.Arn}:*
+
+  Function:
+    Type: AWS::Lambda::Function
+    Condition: HasImage
+    Properties:
+      FunctionName: !Ref FunctionName
+      PackageType: Image
+      Code:
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}:${ImageTag}
+      Architectures: [x86_64]
+      MemorySize: !Ref MemorySize
+      Timeout: 25
+      ReservedConcurrentExecutions: !Ref ReservedConcurrency
+      Role: !GetAtt ExecutionRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref LogGroup
+      Environment:
+        Variables:
+          NUTRIMATIC_DEADLINE_SECONDS: '18'
+
+  WebInvokePolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasImage
+    Properties:
+      PolicyName: invoke-nutrimatic-lambda
+      Roles: [!Ref WebRoleName]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt Function.Arn
+
+  # One ping every 5 minutes keeps a sandbox (and the index's page cache) warm.
+  WarmupRule:
+    Type: AWS::Events::Rule
+    Condition: HasImage
+    Properties:
+      Name: !Sub ${FunctionName}-warmup
+      ScheduleExpression: rate(5 minutes)
+      Targets:
+        - Id: warmup
+          Arn: !GetAtt Function.Arn
+          Input: '{"warmup": true}'
+
+  WarmupPermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasImage
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WarmupRule.Arn
+
+  ErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasImage
+    Properties:
+      AlarmName: !Sub ${FunctionName}-errors
+      AlarmDescription: Nutrimatic Lambda crashed (OOM, init failure) repeatedly.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref Function}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+
+  # Normal load is well under a minute of compute per hour; sustained use near
+  # the concurrency cap is abuse and costs money.
+  DurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasImage
+    Properties:
+      AlarmName: !Sub ${FunctionName}-compute-time
+      AlarmDescription: Nutrimatic Lambda used over 10 minutes of compute in an hour.
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions: [{Name: FunctionName, Value: !Ref Function}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 600000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopicArn]
+
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt Repository.RepositoryUri
+  FunctionName:
+    Condition: HasImage
+    Value: !Ref Function

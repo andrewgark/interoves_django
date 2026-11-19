@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import html
 import json
 import logging
@@ -53,6 +54,10 @@ _NUTRIMATIC_QUEUE_WAIT_SECONDS = 1.0
 _NUTRIMATIC_DEADLINE_SECONDS = 20.0
 _NUTRIMATIC_KILL_GRACE_SECONDS = 1.0
 _NUTRIMATIC_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+# A Lambda search does not load this instance, so allow a few at once; the
+# function's reserved concurrency is the global cap.
+_NUTRIMATIC_LAMBDA_PER_INSTANCE = 2
+_NUTRIMATIC_LAMBDA_CLIENT = None
 
 
 def _nutrimatic_async_gate():
@@ -63,7 +68,7 @@ def _nutrimatic_async_gate():
         _NUTRIMATIC_SEARCH_GATE = None
         _NUTRIMATIC_GATE_LOCK = None
     if _NUTRIMATIC_SEARCH_GATE is None:
-        _NUTRIMATIC_SEARCH_GATE = asyncio.Semaphore(1)
+        _NUTRIMATIC_SEARCH_GATE = asyncio.Semaphore(_NUTRIMATIC_LAMBDA_PER_INSTANCE if _nutrimatic_lambda_function() else 1)
         _NUTRIMATIC_GATE_LOCK = asyncio.Lock()
     return _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK
 
@@ -265,21 +270,12 @@ async def nutrimatic_search(request):
     started = asyncio.get_running_loop().time()
     if not await _nutrimatic_acquire():
         logger.info("nutrimatic rejected active=%d queued=%d", _NUTRIMATIC_ACTIVE, _NUTRIMATIC_QUEUED)
-        retry_query = html.escape(request.GET.urlencode(), quote=True)
-        retry_href = f"?{retry_query}" if retry_query else "/nutrimatic-ru/"
-        return HttpResponse(
-            "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            "<title>Nutrimatic — поиск занят</title></head><body>"
-            "<main><h1>Nutrimatic</h1>"
-            "<p role=\"status\"><strong>Сейчас выполняется другой поиск.</strong></p>"
-            "<p>Ваш запрос пока не запущен. Подождите несколько секунд и повторите.</p>"
-            f"<p><a href=\"{retry_href}\">Повторить запрос</a></p>"
-            "</main></body></html>",
-            status=429,
-            headers={"Retry-After": "5"},
-            content_type="text/html; charset=utf-8",
-        )
+        return _nutrimatic_busy_response(request)
+    if _nutrimatic_lambda_function():
+        try:
+            return await _nutrimatic_search_lambda(request, started)
+        finally:
+            await _nutrimatic_release()
     try:
         paths = await _nutrimatic_paths_async()
     except BaseException:
@@ -382,10 +378,114 @@ async def nutrimatic_search(request):
             content_type="text/plain; charset=utf-8",
         )
 
-    body = _strip_cgi_headers(stdout)
+    return _nutrimatic_page_response(stdout)
+
+
+def _nutrimatic_page_response(cgi_output: bytes) -> HttpResponse:
+    body = _strip_cgi_headers(cgi_output)
     favicon_url = f'{settings.STATIC_URL.rstrip("/")}/img/favicon/favicon.ico'
     body = body.replace(b'href="/favicon.ico"', f'href="{favicon_url}"'.encode())
     return HttpResponse(body, content_type="text/html; charset=utf-8")
+
+
+def _nutrimatic_lambda_function() -> str:
+    return (getattr(settings, "NUTRIMATIC_LAMBDA_FUNCTION", "") or "").strip()
+
+
+def _nutrimatic_lambda_client():
+    global _NUTRIMATIC_LAMBDA_CLIENT
+    if _NUTRIMATIC_LAMBDA_CLIENT is None:
+        import boto3
+        from botocore.config import Config
+
+        _NUTRIMATIC_LAMBDA_CLIENT = boto3.client(
+            "lambda",
+            region_name=getattr(settings, "NUTRIMATIC_LAMBDA_REGION", "") or "eu-central-1",
+            config=Config(
+                connect_timeout=3,
+                read_timeout=_NUTRIMATIC_DEADLINE_SECONDS + 5,
+                retries={"total_max_attempts": 1},
+                max_pool_connections=_NUTRIMATIC_LAMBDA_PER_INSTANCE + 2,
+            ),
+        )
+    return _NUTRIMATIC_LAMBDA_CLIENT
+
+
+def _invoke_nutrimatic_lambda(query_string: str) -> dict:
+    """Blocking invoke; returns {"throttled": True} or the function's reply."""
+    client = _nutrimatic_lambda_client()
+    try:
+        reply = client.invoke(
+            FunctionName=_nutrimatic_lambda_function(),
+            Payload=json.dumps({"query_string": query_string}).encode(),
+        )
+    except client.exceptions.TooManyRequestsException:
+        return {"throttled": True}
+    payload = json.loads(reply["Payload"].read() or b"null")
+    if reply.get("FunctionError"):
+        # The sandbox died (out of memory, CPU limit): the query was too heavy.
+        error_type = payload.get("errorType", "") if isinstance(payload, dict) else ""
+        return {"status": "crashed", "error_type": error_type}
+    return payload if isinstance(payload, dict) else {"status": "error"}
+
+
+async def _nutrimatic_search_lambda(request, started):
+    query_string = request.META.get("QUERY_STRING", "")
+    logger.info("nutrimatic start backend=lambda active=%d queued=%d", _NUTRIMATIC_ACTIVE, _NUTRIMATIC_QUEUED)
+    loop = asyncio.get_running_loop()
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_invoke_nutrimatic_lambda, query_string),
+            timeout=_NUTRIMATIC_DEADLINE_SECONDS + 4,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("nutrimatic timeout backend=lambda duration=%.3f", loop.time() - started)
+        return _nutrimatic_timeout_response()
+    except Exception:
+        logger.exception("Nutrimatic Lambda invoke failed")
+        return HttpResponse("Search unavailable", status=503, content_type="text/plain; charset=utf-8")
+
+    duration = loop.time() - started
+    if result.get("throttled"):
+        logger.info("nutrimatic rejected backend=lambda reason=throttled")
+        return _nutrimatic_busy_response(request)
+    status = result.get("status")
+    logger.info(
+        "nutrimatic finish backend=lambda status=%s exit_code=%s duration=%.3f lambda_duration=%s",
+        status, result.get("exit_code"), duration, result.get("duration"),
+    )
+    if status == "ok":
+        return _nutrimatic_page_response(base64.b64decode(result.get("body_b64") or ""))
+    if status in ("timeout", "crashed"):
+        if status == "crashed":
+            logger.warning("nutrimatic crashed backend=lambda error_type=%s", result.get("error_type"))
+        return _nutrimatic_timeout_response()
+    if status == "output_limit":
+        return HttpResponse("Search unavailable", status=502, content_type="text/plain; charset=utf-8")
+    logger.error("nutrimatic cgi failed backend=lambda exit_code=%s", result.get("exit_code"))
+    return HttpResponse(
+        "Поиск не удалось выполнить. Попробуйте изменить запрос или повторить позже.",
+        status=500,
+        content_type="text/plain; charset=utf-8",
+    )
+
+
+def _nutrimatic_busy_response(request):
+    retry_query = html.escape(request.GET.urlencode(), quote=True)
+    retry_href = f"?{retry_query}" if retry_query else "/nutrimatic-ru/"
+    return HttpResponse(
+        "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>Nutrimatic — поиск занят</title></head><body>"
+        "<main><h1>Nutrimatic</h1>"
+        "<p role=\"status\"><strong>Сейчас выполняется другой поиск.</strong></p>"
+        "<p>Ваш запрос пока не запущен. Подождите несколько секунд и повторите.</p>"
+        f"<p><a href=\"{retry_href}\">Повторить запрос</a></p>"
+        "</main></body></html>",
+        status=429,
+        headers={"Retry-After": "5"},
+        content_type="text/html; charset=utf-8",
+    )
 
 
 def _nutrimatic_timeout_response():

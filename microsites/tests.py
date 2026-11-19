@@ -626,3 +626,103 @@ class NutrimaticAsyncTests(SimpleTestCase):
             self.assertIn("Повторить запрос", third.content.decode())
             self.assertEqual((await first).status_code, 200)
             self.assertEqual((await second).status_code, 429)
+
+
+@override_settings(NUTRIMATIC_LAMBDA_FUNCTION="interoves-nutrimatic")
+class NutrimaticLambdaBackendTests(SimpleTestCase):
+    """With NUTRIMATIC_LAMBDA_FUNCTION set, searches never start find-expr locally."""
+
+    def setUp(self):
+        from microsites import views
+
+        views._NUTRIMATIC_SEARCH_GATE = None
+        views._NUTRIMATIC_GATE_LOCK = None
+        views._NUTRIMATIC_ACTIVE = 0
+        views._NUTRIMATIC_QUEUED = 0
+        self.addCleanup(setattr, views, "_NUTRIMATIC_SEARCH_GATE", None)
+
+    def invoke_returning(self, result):
+        return patch("microsites.views._invoke_nutrimatic_lambda", return_value=result)
+
+    async def call_view(self, query="q=%D0%BA%D0%BE%D1%82&start=0"):
+        from django.test import RequestFactory
+
+        from microsites.views import nutrimatic_search
+        return await nutrimatic_search(RequestFactory().get("/nutrimatic-ru/?" + query))
+
+    async def test_ok_renders_cgi_body_without_local_subprocess(self):
+        import base64
+
+        body = base64.b64encode(b'Content-type: text/html\n\n<html><link href="/favicon.ico">ok</html>').decode()
+        with self.invoke_returning({"status": "ok", "exit_code": 0, "body_b64": body}) as invoke, \
+                patch("microsites.views.asyncio.create_subprocess_exec") as local_exec:
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"ok</html>", response.content)
+        self.assertNotIn(b'href="/favicon.ico"', response.content)
+        invoke.assert_called_once_with("q=%D0%BA%D0%BE%D1%82&start=0")
+        local_exec.assert_not_called()
+
+    async def test_timeout_and_crash_show_heavy_query_page(self):
+        for result in ({"status": "timeout", "exit_code": -15}, {"status": "crashed", "error_type": "Runtime.OutOfMemory"}):
+            with self.subTest(result=result), self.invoke_returning(result):
+                response = await self.call_view()
+                self.assertEqual(response.status_code, 504)
+                self.assertTrue(response.interoves_expected_error)
+
+    async def test_throttled_shows_busy_page(self):
+        with self.invoke_returning({"throttled": True}):
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("Сейчас выполняется другой поиск", response.content.decode())
+
+    async def test_invoke_failure_returns_503_and_releases_gate(self):
+        from microsites import views
+
+        with patch("microsites.views._invoke_nutrimatic_lambda", side_effect=RuntimeError("network")):
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
+
+    async def test_two_searches_run_at_once_per_instance(self):
+        import threading
+
+        release = threading.Event()
+
+        def slow_invoke(_query):
+            release.wait(5)
+            return {"status": "ok", "exit_code": 0, "body_b64": ""}
+
+        with patch("microsites.views._invoke_nutrimatic_lambda", side_effect=slow_invoke):
+            first = asyncio.create_task(self.call_view())
+            second = asyncio.create_task(self.call_view())
+            await asyncio.sleep(0.1)
+            from microsites import views
+            self.assertEqual(views._NUTRIMATIC_ACTIVE, 2)
+            release.set()
+            self.assertEqual([(await first).status_code, (await second).status_code], [200, 200])
+
+    def test_invoke_maps_function_error_and_throttling(self):
+        import io
+        import json as jsonlib
+
+        from microsites import views
+
+        class Throttled(Exception):
+            pass
+
+        client = MagicMock()
+        client.exceptions.TooManyRequestsException = Throttled
+        client.invoke.return_value = {
+            "FunctionError": "Unhandled",
+            "Payload": io.BytesIO(jsonlib.dumps({"errorType": "Runtime.OutOfMemory"}).encode()),
+        }
+        with patch.object(views, "_nutrimatic_lambda_client", return_value=client):
+            self.assertEqual(
+                views._invoke_nutrimatic_lambda("q=x"),
+                {"status": "crashed", "error_type": "Runtime.OutOfMemory"},
+            )
+            client.invoke.side_effect = Throttled()
+            self.assertEqual(views._invoke_nutrimatic_lambda("q=x"), {"throttled": True})
+        sent = jsonlib.loads(client.invoke.call_args.kwargs["Payload"])
+        self.assertEqual(sent, {"query_string": "q=x"})
