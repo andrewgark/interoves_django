@@ -48,6 +48,47 @@ def build_daily_archive_items(links, *, game_id, publish_at_for_number,
     return items
 
 
+# A month picked in the archive is remembered for a while in a per-game cookie
+# (written by static/js/daily_archive.js), so returning from a puzzle to the
+# hub keeps the player in the month they are working through. The cookie
+# records the calendar month it was set in: once a new month starts it is
+# ignored, so nobody is sent back to last month's archive.
+REMEMBERED_MONTH_COOKIE_PREFIX = 'daily_archive_month_'
+REMEMBERED_MONTH_MAX_AGE = 6 * 60 * 60
+
+
+def remembered_month_cookie_name(game_id) -> str:
+    return '{}{}'.format(REMEMBERED_MONTH_COOKIE_PREFIX, game_id)
+
+
+def requested_archive_month(request, game_id, today):
+    """Month from ``?month=``, else the one remembered during this calendar month."""
+    explicit = request.GET.get('month')
+    if explicit:
+        return explicit
+    raw = request.COOKIES.get(remembered_month_cookie_name(game_id)) or ''
+    selected, _sep, saved_in = raw.partition('@')
+    if parse_month(selected) and saved_in == month_key(today):
+        return selected
+    return None
+
+
+def _with_remembered_month(context, *, requested_month, today, game_id):
+    """Tell the page which month to remember: a non-current month chosen by the player."""
+    if not context.get('daily_archive'):
+        return context
+    selected = context['daily_archive_month']
+    current = month_key(today)
+    remember = (
+        selected != current
+        and parse_month(requested_month) == context['daily_archive_selected']
+    )
+    context['daily_archive_remember_cookie'] = remembered_month_cookie_name(game_id)
+    context['daily_archive_remember_value'] = '{}@{}'.format(selected, current) if remember else ''
+    context['daily_archive_remember_max_age'] = REMEMBERED_MONTH_MAX_AGE
+    return context
+
+
 def prepare_daily_archive(request, links, *, game_id, publish_at_for_number,
                           href_for_number, timezone_name, game_label,
                           number_for_link=None, calendar_id=None):
@@ -60,16 +101,20 @@ def prepare_daily_archive(request, links, *, game_id, publish_at_for_number,
         timezone_name=timezone_name,
         number_for_link=number_for_link,
     )
+    today = timezone.localdate()
+    requested_month = requested_archive_month(request, game_id, today)
     context = build_daily_archive_context(
         items=items,
-        requested_month=request.GET.get('month'),
-        today=timezone.localdate(),
+        requested_month=requested_month,
+        today=today,
         archive_url=request.path,
         game_label=game_label,
         archive_query=archive_query_string(request.GET),
         calendar_id=calendar_id or 'daily-archive-{}'.format(game_id),
     )
-    return items, context
+    return items, _with_remembered_month(
+        context, requested_month=requested_month, today=today, game_id=game_id,
+    )
 
 
 def links_for_archive_month(links, selected, *, publish_at_for_number,
@@ -93,10 +138,12 @@ def refresh_daily_archive_context(request, *, items, game_label, game_id,
                                   completed_keys=(), status_by_key=None,
                                   locked_keys=()):
     """Rebuild archive state after a hub has computed row completion and locks."""
-    return build_daily_archive_context(
+    today = timezone.localdate()
+    requested_month = requested_archive_month(request, game_id, today)
+    context = build_daily_archive_context(
         items=items,
-        requested_month=request.GET.get('month'),
-        today=timezone.localdate(),
+        requested_month=requested_month,
+        today=today,
         archive_url=request.path,
         game_label=game_label,
         archive_query=archive_query_string(request.GET),
@@ -104,6 +151,9 @@ def refresh_daily_archive_context(request, *, items, game_label, game_id,
         completed_keys=completed_keys,
         status_by_key=status_by_key,
         locked_keys=locked_keys,
+    )
+    return _with_remembered_month(
+        context, requested_month=requested_month, today=today, game_id=game_id,
     )
 
 

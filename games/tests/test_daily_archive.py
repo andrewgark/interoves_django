@@ -113,3 +113,68 @@ class DailyArchiveContextTests(SimpleTestCase):
             context['daily_archive_previous']['href'],
             '/ladder/?month=2026-03&play_mode=team&tag=x',
         )
+
+
+class RememberedArchiveMonthTests(SimpleTestCase):
+    """The hub keeps the month the player is working through, within one calendar month."""
+
+    items = DailyArchiveContextTests.items
+
+    def context_for(self, path, *, today, cookies=None):
+        from unittest import mock
+
+        from django.test import RequestFactory
+
+        from games.daily.page import archive
+
+        request = RequestFactory().get(path)
+        request.COOKIES.update(cookies or {})
+        with mock.patch.object(archive.timezone, 'localdate', return_value=today):
+            return archive.refresh_daily_archive_context(
+                request, items=self.items(), game_label='Салатик', game_id='salad',
+            )
+
+    def test_explicit_past_month_is_remembered_with_the_current_month(self):
+        context = self.context_for('/salad/?month=2026-03', today=date(2026, 5, 9))
+        self.assertEqual(context['daily_archive_month'], '2026-03')
+        self.assertEqual(context['daily_archive_remember_cookie'], 'daily_archive_month_salad')
+        self.assertEqual(context['daily_archive_remember_value'], '2026-03@2026-05')
+
+    def test_remembered_month_is_used_without_query(self):
+        context = self.context_for(
+            '/salad/', today=date(2026, 5, 20),
+            cookies={'daily_archive_month_salad': '2026-03@2026-05'},
+        )
+        self.assertEqual(context['daily_archive_month'], '2026-03')
+        self.assertEqual(context['daily_archive_remember_value'], '2026-03@2026-05')
+
+    def test_remembered_month_is_dropped_once_a_new_month_starts(self):
+        context = self.context_for(
+            '/salad/', today=date(2026, 6, 1),
+            cookies={'daily_archive_month_salad': '2026-03@2026-05'},
+        )
+        self.assertEqual(context['daily_archive_month'], '2026-05')
+        self.assertEqual(context['daily_archive_remember_value'], '')
+
+    def test_choosing_the_current_month_forgets_the_remembered_one(self):
+        context = self.context_for(
+            '/salad/?month=2026-05', today=date(2026, 5, 9),
+            cookies={'daily_archive_month_salad': '2026-03@2026-05'},
+        )
+        self.assertEqual(context['daily_archive_month'], '2026-05')
+        self.assertEqual(context['daily_archive_remember_value'], '')
+
+    def test_other_games_do_not_share_the_remembered_month(self):
+        from unittest import mock
+
+        from django.test import RequestFactory
+
+        from games.daily.page import archive
+
+        request = RequestFactory().get('/ladder/')
+        request.COOKIES['daily_archive_month_salad'] = '2026-03@2026-05'
+        with mock.patch.object(archive.timezone, 'localdate', return_value=date(2026, 5, 9)):
+            context = archive.refresh_daily_archive_context(
+                request, items=self.items(), game_label='Лесенка', game_id='ladder',
+            )
+        self.assertEqual(context['daily_archive_month'], '2026-05')

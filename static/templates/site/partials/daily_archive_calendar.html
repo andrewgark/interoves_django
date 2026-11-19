@@ -1,5 +1,5 @@
 {% if daily_archive %}
-<section class="daily-archive" aria-label="Календарь {{ daily_archive_month_label }}">
+<section class="daily-archive"{% if daily_archive_remember_cookie %} data-remember-cookie="{{ daily_archive_remember_cookie }}" data-remember-value="{{ daily_archive_remember_value }}" data-remember-max-age="{{ daily_archive_remember_max_age }}"{% endif %} aria-label="Календарь {{ daily_archive_month_label }}">
   <div class="daily-archive__month-nav">
     {% if daily_archive_previous %}<a class="daily-archive__month-arrow" href="{{ daily_archive_previous.href }}" aria-label="{{ daily_archive_previous.label }}"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<span class="daily-archive__month-arrow is-disabled" aria-hidden="true"><i class="ph ph-caret-left"></i></span>{% endif %}
     <button type="button" class="daily-archive__month-picker" aria-haspopup="true" aria-expanded="false" aria-controls="{{ daily_archive_calendar_id }}-months">{{ daily_archive_month_label }} <i class="ph ph-caret-down" aria-hidden="true"></i></button>

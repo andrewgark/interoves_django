@@ -1,5 +1,13 @@
 (function () {
   document.querySelectorAll('.daily-archive').forEach(function (archive) {
+    var rememberCookie = archive.getAttribute('data-remember-cookie');
+    if (rememberCookie) {
+      // Keep a non-current month the player chose for a while; forget it otherwise.
+      var value = archive.getAttribute('data-remember-value') || '';
+      var maxAge = value ? (parseInt(archive.getAttribute('data-remember-max-age'), 10) || 0) : 0;
+      document.cookie = rememberCookie + '=' + encodeURIComponent(value) +
+        '; path=/; max-age=' + maxAge + '; SameSite=Lax';
+    }
     var picker = archive.querySelector('.daily-archive__month-picker');
     var months = archive.querySelector('.daily-archive__months');
     if (picker && months) {
