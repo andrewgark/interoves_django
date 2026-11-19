@@ -8,7 +8,7 @@ from collections import OrderedDict
 from typing import Any, Iterable
 
 from games.puzzles.censorly.ids import CENSORLY_SHOW_MASK_ENDINGS
-from games.puzzles.censorly.text.normalize import is_hintable_ending, strip_combining_marks
+from games.puzzles.censorly.text.normalize import is_hintable_ending
 from games.puzzles.censorly.text.tokenize import (
     all_tokens,
     content_token_open_at_start,
@@ -62,7 +62,7 @@ def _token_public(
         return out
     # Always-open structural tokens (legacy `heading` = whole section title blob).
     if kind in ('space', 'punct', 'stop', 'heading', 'heading_break'):
-        out['text'] = tok.get('surface') or ''
+        out['text'] = tok.get('display') or tok.get('surface') or ''
         out['revealed'] = True
         return out
 
@@ -72,7 +72,7 @@ def _token_public(
             out['title_lemma'] = True
         elif lemma and lemma in title_related_lemmas:
             out['title_related'] = True
-        out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
+        out['text'] = tok.get('display') or tok.get('surface') or ''
         out['revealed'] = True
         return out
 
@@ -94,7 +94,7 @@ def _token_public(
         out['hinted'] = True
     if is_open:
         out['lemma'] = lemma
-        out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
+        out['text'] = tok.get('display') or tok.get('surface') or ''
         if last_lemma and lemma == last_lemma:
             out['just_revealed'] = True
     elif show_endings:

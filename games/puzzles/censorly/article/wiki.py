@@ -331,6 +331,8 @@ class _WikiExtractHTMLParser(HTMLParser):
         'ts-oq',
         # «(недоступная ссылка)», «(англ.)» after a source, «МФА (чеш.)».
         'ref-info',
+        # Editorial notes: [кем?], [прояснить], [значимость факта?].
+        'ts-fix-template',
         # {{coord}} prints degrees-minutes, then decimal degrees and a
         # machine-readable pair that the site stylesheet hides.
         'geo-multi-punct', 'geo-dec',
@@ -785,11 +787,17 @@ class _WikiExtractHTMLParser(HTMLParser):
         return ''.join(self.parts).strip()
 
 
+_CHECKED_ON_RE = re.compile(r'[ \t\u00a0]*Проверено[ \u00a0]\d{1,2}[ \u00a0][а-яё]+[ \u00a0]\d{4}\.')
+
+
 def _html_extract_to_text(extract: str) -> str:
     parser = _WikiExtractHTMLParser()
     parser.feed(extract or '')
     parser.close()
     text = parser.text()
+    # {{Недоступная ссылка}} follows its ref-info note with a bare
+    # «Проверено 27 марта 2026.» in a plain <small>.
+    text = _CHECKED_ON_RE.sub('', text)
     # HTML source formatting often inserts whitespace between sibling <li>s
     # and <dt>/<dd>s; the items themselves are separated by one line break.
     return re.sub(rf'(?m)^({QUOTE_START}?[*#;:]+ [^\n]+)\n{{2,}}(?=[*#:]+ )', r'\1\n', text)

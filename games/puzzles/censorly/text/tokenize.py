@@ -343,7 +343,8 @@ def _tokenize_plain(
             tokens.append(tok)
             tid += 1
             continue
-        # Drop combining accents from play surfaces (guessing / display).
+        # Guessing and matching use the word without combining accents
+        # (Ни́гер → Нигер); an open word shows the accent again via display.
         surface = raw if raw.isspace() or raw.endswith('⃗') else strip_combining_marks(raw)
         if not surface and not raw.isspace():
             continue
@@ -396,6 +397,8 @@ def _tokenize_plain(
             'in_title': bool(in_title),
             'in_heading': bool(in_heading),
         }
+        if kind in ('content', 'stop') and surface != raw:
+            tok['display'] = raw
         if kind == 'content' and ending:
             tok['ending'] = ending
             tok['stem_length'] = stem_length

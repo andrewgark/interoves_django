@@ -1827,6 +1827,42 @@ class CensorlyWikiHelperTests(TestCase):
             'Apple Inc («Эппл»)\xa0— корпорация. Берлин (нем.\xa0Berlin). Пастер (фр.\xa0Louis Pasteur; 1822).',
         )
 
+    def test_stress_marks_are_hidden_until_the_word_opens(self):
+        from games.puzzles.censorly.article.redact import build_public_view
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        body = tokenize_text('Ни́гер, также Ниге́р.')
+        nigers = [tok for tok in body if tok['kind'] == 'content']
+        self.assertEqual([tok['surface'] for tok in nigers], ['Нигер', 'Нигер'])
+        self.assertEqual({tok['lemma'] for tok in nigers}, {'нигер'})
+        payload = {'title_tokens': tokenize_text('Нигер', in_title=True), 'body_tokens': body}
+
+        def shown(view):
+            return [
+                (tok.get('text'), tok.get('length')) for tok in view['body_tokens']
+                if tok.get('kind') == 'content'
+            ]
+
+        self.assertEqual(shown(build_public_view(payload)), [(None, 5), (None, 5)])
+        self.assertEqual(
+            shown(build_public_view(payload, revealed_lemmas=['нигер'])),
+            [('Ни́гер', 5), ('Ниге́р', 5)],
+        )
+
+    def test_html_extract_drops_editorial_and_dead_link_notes(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        raw = (
+            '<p>Книга считается<sup class="ts-fix-template">&#91;<i><a>кем?</a></i>&#93;</sup> '
+            'лучшей. Тиндализация<sup class="reference"><a>[21]</a></sup>&#160;'
+            '<small class="ref-info">(недоступная ссылка)</small>&#32;'
+            '<small>Проверено 27 марта 2026.</small>. Токсин.</p>'
+        )
+
+        self.assertEqual(
+            _html_extract_to_text(raw), 'Книга считается лучшей. Тиндализация. Токсин.',
+        )
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text
