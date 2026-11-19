@@ -1765,6 +1765,21 @@ class CensorlyWikiHelperTests(TestCase):
             'Масса 4,6×10¹⁸ кг, H₂O, 10⁻³, ион O₃⁻, xа б, XIXй, aₘₐₓ.',
         )
 
+    def test_html_extract_drops_script_font_help_marks(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        raw = (
+            '<p>Жёлтое море (кор. <span class="script-korean">황해'
+            '<a href="/wiki/Хангыль" title="Хангыль"><sup>?</sup></a></span>, '
+            '<span class="script-korean">黃海<a href="/wiki/Ханча" title="Ханча">'
+            '<sup>?</sup></a></span> <i>хванхэ</i>)</p>'
+        )
+
+        self.assertEqual(
+            _html_extract_to_text(raw),
+            'Жёлтое море (кор. 황해, 黃海 хванхэ)',
+        )
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text

@@ -738,6 +738,11 @@ class _WikiExtractHTMLParser(HTMLParser):
             else:
                 self.parts.insert(split, ' ')
             return
+        if tag == 'sup' and ''.join(self.parts[start:]).strip() == '?':
+            # {{lang-ko}}, {{lang-zh}} etc. link a superscript «?» to the
+            # script's article (Хангыль, Ханча) as font help, not text.
+            del self.parts[start:]
+            return
         # 10<sup>18</sup>, H<sub>2</sub>O; anything else (a footnote mark,
         # a Cyrillic word) keeps its plain text.
         rendered = script(self.parts[start:], _SUPERSCRIPTS if tag == 'sup' else _SUBSCRIPTS)
