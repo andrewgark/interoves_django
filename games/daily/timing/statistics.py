@@ -581,16 +581,64 @@ def _timing_actor_q(keys):
     return q
 
 
+# Above this many actors the per-actor OR clause costs more than reading the
+# task's attempts by index and keeping the actors in Python: MySQL tested up
+# to 27k rows against hundreds of clauses (1.7 s per query, 2026-11-19).
+_ACTOR_OR_LIMIT = 20
+
+
 def _attempt_rows(task, game, actors, statuses):
-    return Attempt.manager.filter(
+    """Attempts of ``actors``; large actor sets come back unfiltered.
+
+    Callers group the rows through ``_grouped_by_actor(rows, actors)`` or
+    ``_keeps_actor``, which apply the same exact actor shapes as ``_actor_q``.
+    """
+    rows = Attempt.manager.filter(
         task=task, game=game, skip=False, status__in=statuses,
         replay_slot__isnull=True,
-    ).filter(_actor_q(actors)).order_by('time', 'id')
+    )
+    if len(actors) <= _ACTOR_OR_LIMIT:
+        rows = rows.filter(_actor_q(actors))
+    return rows.order_by('time', 'id')
 
 
-def _grouped_by_actor(rows):
+def _exact_actor_key(row):
+    """``_actor_key`` for rows matching ``_actor_q``'s exact shapes, else None."""
+    team_id, user_id, anon_key = row.team_id, row.user_id, row.anon_key
+    if team_id is not None and user_id is None and anon_key is None:
+        return ('team', team_id)
+    if user_id is not None and team_id is None and anon_key is None:
+        return ('user', user_id)
+    if anon_key is not None and team_id is None and user_id is None:
+        return ('anon', anon_key)
+    return None
+
+
+def _keeps_actor(row, actors):
+    key = _exact_actor_key(row)
+    return key is not None and key in actors
+
+
+def _keeps_timing_actor(row, actors):
+    """``_timing_actor_q``'s shapes: a user's timing row may carry a team."""
+    team_id, user_id, anon_key = row.team_id, row.user_id, row.anon_key
+    if team_id is not None and user_id is None and anon_key is None:
+        key = ('team', team_id)
+    elif user_id is not None and anon_key is None:
+        key = ('user', user_id)
+    elif anon_key is not None and user_id is None:
+        key = ('anon', anon_key)
+    else:
+        return False
+    return key in actors
+
+
+def _grouped_by_actor(rows, actors=None):
+    wanted = set(actors) if actors is not None else None
     grouped = defaultdict(list)
     for row in rows:
+        if wanted is not None and not _keeps_actor(row, wanted):
+            continue
         grouped[_actor_key(row)].append(row)
     return grouped
 
@@ -601,7 +649,7 @@ def _attempts_for(task, game, actors, statuses=('Ok', 'Partial')):
     return _grouped_by_actor(_attempt_rows(task, game, actors, statuses).only(
         'id', 'team_id', 'user_id', 'anon_key', 'text', 'state', 'status',
         'time', 'active_time_ms',
-    ))
+    ), actors)
 
 
 class _LastGuessLemma(Func):
@@ -639,7 +687,13 @@ def _completed_time_map(game, task_group, actors):
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, status=DailySolveTiming.STATUS_COMPLETED,
         replay_slot__isnull=True,
-    ).filter(_timing_actor_q(actors)).only(
+    )
+    wanted_timing = None
+    if len(actors) <= _ACTOR_OR_LIMIT:
+        rows = rows.filter(_timing_actor_q(actors))
+    else:
+        wanted_timing = set(actors)
+    rows = rows.only(
         'team_id', 'user_id', 'anon_key', 'status', 'frozen_ms', 'accumulated_ms', 'timing_version',
         'completed_at', 'updated_at', 'pk',
     )
@@ -649,6 +703,8 @@ def _completed_time_map(game, task_group, actors):
     missing_timing_keys = set()
     timing_preferences = {}
     for row in rows:
+        if wanted_timing is not None and not _keeps_timing_actor(row, wanted_timing):
+            continue
         if not row.timing_version:
             continue
         key = _actor_key(row)
@@ -686,8 +742,16 @@ def _completed_time_map(game, task_group, actors):
 def _chain_states(task, game, actors):
     rows = ChainTaskState.objects.filter(
         task=task, game=game, game_mode='general', replay_slot__isnull=True,
-    ).filter(_actor_q(actors)).only('team_id', 'user_id', 'anon_key', 'state')
-    return {_actor_key(row): row.state for row in rows}
+    )
+    if len(actors) <= _ACTOR_OR_LIMIT:
+        rows = rows.filter(_actor_q(actors))
+        return {_actor_key(row): row.state for row in rows.only('team_id', 'user_id', 'anon_key', 'state')}
+    wanted = set(actors)
+    return {
+        _actor_key(row): row.state
+        for row in rows.only('team_id', 'user_id', 'anon_key', 'state')
+        if _keeps_actor(row, wanted)
+    }
 
 
 def _latest_attempt_states(task, game, actors, statuses):
@@ -696,8 +760,10 @@ def _latest_attempt_states(task, game, actors, statuses):
     rows = _attempt_rows(task, game, actors, statuses).exclude(
         state__isnull=True,
     ).exclude(state='').only('id', 'team_id', 'user_id', 'anon_key')
+    wanted = set(actors)
     for row in rows:
-        latest_ids[_actor_key(row)] = row.id
+        if _keeps_actor(row, wanted):
+            latest_ids[_actor_key(row)] = row.id
     rows = Attempt.manager.filter(id__in=latest_ids.values()).only(
         'id', 'team_id', 'user_id', 'anon_key', 'state',
     )
@@ -986,7 +1052,8 @@ def _censorly(task, game, actors):
     attempts = _grouped_by_actor(
         _attempt_rows(task, game, actors, statuses)
         .only('id', 'team_id', 'user_id', 'anon_key', 'text', 'status', 'time')
-        .annotate(last_guess_lemma=_LastGuessLemma('state'))
+        .annotate(last_guess_lemma=_LastGuessLemma('state')),
+        actors,
     ) if actors else {}
     states = _chain_states(task, game, actors) if actors else {}
     missing = [actor for actor in actors if actor not in states]

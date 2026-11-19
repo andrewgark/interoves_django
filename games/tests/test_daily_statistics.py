@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.core.cache import cache, caches
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.daily.timing.statistics import (
@@ -722,10 +722,10 @@ class DailyStatisticsTests(TestCase):
         loaded = []
         grouped = daily_statistics._grouped_by_actor
 
-        def spy(rows):
+        def spy(rows, actors=None):
             rows = list(rows)
             loaded.extend(rows)
-            return grouped(rows)
+            return grouped(rows, actors)
 
         with patch.object(daily_statistics, '_grouped_by_actor', side_effect=spy):
             data = build_daily_statistics(game, tg)
@@ -1156,3 +1156,36 @@ class PersonalStatisticsTests(TestCase):
                 })
                 self.assertEqual(data['achievements'], [])
                 self.assertNotIn(self.me, payload[RANKING_KEY]['attempts'])
+
+
+class StatisticsActorFilterShapeTests(SimpleTestCase):
+    """The large-actor-set path must keep exactly what the SQL OR kept."""
+
+    def setUp(self):
+        from games.daily.timing import statistics
+
+        self.statistics = statistics
+
+    @staticmethod
+    def _row(team=None, user=None, anon=None):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(team_id=team, user_id=user, anon_key=anon)
+
+    def test_attempt_and_chain_rows_keep_exact_actor_shapes(self):
+        actors = {('team', 'T'), ('user', 7), ('anon', 'a')}
+        keep = self.statistics._keeps_actor
+        self.assertTrue(keep(self._row(team='T'), actors))
+        self.assertTrue(keep(self._row(user=7), actors))
+        self.assertTrue(keep(self._row(anon='a'), actors))
+        # A team attempt submitted by a user is neither the team nor the user.
+        self.assertFalse(keep(self._row(team='T', user=7), actors))
+        self.assertFalse(keep(self._row(user=8), actors))
+
+    def test_timing_rows_allow_a_user_row_with_a_team(self):
+        actors = {('team', 'T'), ('user', 7), ('anon', 'a')}
+        keep = self.statistics._keeps_timing_actor
+        self.assertTrue(keep(self._row(team='T', user=7), actors))
+        # As in _timing_actor_q, an anonymous timing row may carry a team.
+        self.assertTrue(keep(self._row(team='T', anon='a'), actors))
+        self.assertFalse(keep(self._row(user=7, anon='a'), actors))
