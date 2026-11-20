@@ -425,6 +425,7 @@ class _WikiExtractHTMLParser(HTMLParser):
             self._rstrip_parts()
             if self.parts and not self.parts[-1].endswith(self._BLOCK_OPENERS):
                 self.parts.append('\u2028')
+                self.strip_leading_space = True
             return
         trailing = 0
         for part in reversed(self.parts):
@@ -511,6 +512,7 @@ class _WikiExtractHTMLParser(HTMLParser):
             # alttext, so its tree is collected and rebuilt as TeX on close.
             if attrs.get('alttext'):
                 self.parts.append(attrs['alttext'])
+                self.strip_leading_space = False
                 self.skip_depth = 1
             else:
                 self.math_stack = [_MathNode(tag, attrs)]
@@ -658,6 +660,9 @@ class _WikiExtractHTMLParser(HTMLParser):
                 tex = _mathml_to_tex(node).strip()
                 if tex:
                     self.parts.append(f'{{\\displaystyle {tex}}}')
+                    # A formula opening a cell is its text: the space after
+                    # it stays («a и b — катеты»).
+                    self.strip_leading_space = False
             return
         if tag in self._VOID_TAGS:
             return

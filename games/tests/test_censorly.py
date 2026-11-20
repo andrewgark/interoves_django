@@ -1273,6 +1273,22 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('cos', cleaned)
         self.assertNotIn('\\', cleaned)
 
+    def test_formula_opening_a_table_cell_keeps_the_space_after_it(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def formula(name: str) -> str:
+            return f'<math class="mwe-math-element"><mrow><mi>{name}</mi></mrow></math>'
+
+        raw = (
+            '<table class="wikitable"><tr><td>' + formula('a') + ' и ' + formula('b')
+            + '&#160;— катеты</td><td><div>' + formula('S') + '</div> (формула Герона)</td>'
+            '</tr></table>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw), mark_formulas=True)
+        self.assertIn('a и b — катеты', cleaned)
+        self.assertIn('S (формула Герона)', cleaned)
+
     def test_native_mathml_constructs_match_their_tex_rendering(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
 
