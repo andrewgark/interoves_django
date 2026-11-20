@@ -928,6 +928,7 @@ class PlayerAnalyticsState(models.Model):
     first_utm_source = models.CharField(max_length=64, blank=True, default='')
     first_utm_medium = models.CharField(max_length=64, blank=True, default='')
     first_utm_campaign = models.CharField(max_length=128, blank=True, default='')
+    first_utm_content = models.CharField(max_length=128, blank=True, default='')
     first_referrer_host = models.CharField(max_length=128, blank=True, default='')
     first_landing_path = models.CharField(max_length=255, blank=True, default='')
     first_site_host = models.CharField(max_length=64, blank=True, default='')

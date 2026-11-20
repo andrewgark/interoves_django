@@ -33,11 +33,17 @@ FIRST_TOUCH_FIELDS = {
     'first_utm_source': ('us', 64),
     'first_utm_medium': ('um', 64),
     'first_utm_campaign': ('uc', 128),
+    'first_utm_content': ('ut', 128),
     'first_referrer_host': ('rh', 128),
     'first_landing_path': ('lp', 255),
     'first_site_host': ('sh', 64),
 }
-_UTM_PARAMS = {'us': 'utm_source', 'um': 'utm_medium', 'uc': 'utm_campaign'}
+_UTM_PARAMS = {
+    'us': 'utm_source',
+    'um': 'utm_medium',
+    'uc': 'utm_campaign',
+    'ut': 'utm_content',
+}
 
 _current_touch: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
     'interoves_first_touch', default=None,

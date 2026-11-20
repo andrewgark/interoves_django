@@ -36,7 +36,8 @@ class FirstTouchFromRequestTests(TestCase):
 
     def test_utm_external_referrer_landing_and_host(self):
         request = self.rf.get(
-            '/salad/first/?utm_source=telegram&utm_medium=post&utm_campaign=io-tg-nov26',
+            '/salad/first/?utm_source=telegram&utm_medium=post&utm_campaign=io-tg-nov26'
+            '&utm_content=chgkgame',
             HTTP_REFERER='https://web.telegram.org/k/',
             HTTP_HOST='ru.interoves.com',
         )
@@ -44,6 +45,7 @@ class FirstTouchFromRequestTests(TestCase):
         self.assertEqual(touch['us'], 'telegram')
         self.assertEqual(touch['um'], 'post')
         self.assertEqual(touch['uc'], 'io-tg-nov26')
+        self.assertEqual(touch['ut'], 'chgkgame')
         self.assertEqual(touch['rh'], 'web.telegram.org')
         self.assertEqual(touch['lp'], '/salad/first/')
         self.assertEqual(touch['sh'], 'ru.interoves.com')
@@ -127,10 +129,11 @@ class RecordFirstTouchTests(TestCase):
             release_first_touch(token)
 
     def test_first_start_copies_touch_and_later_starts_keep_it(self):
-        self._start(self._task(1), {'us': 'telegram', 'lp': '/salad/first/', 'sh': 'interoves.com', 'at': 1762560000},
-                    anon_key=ANON)
+        touch = {'us': 'telegram', 'ut': 'chgkgame', 'lp': '/salad/first/', 'sh': 'interoves.com', 'at': 1762560000}
+        self._start(self._task(1), touch, anon_key=ANON)
         state = PlayerAnalyticsState.objects.get(anon_key=ANON)
         self.assertEqual(state.first_utm_source, 'telegram')
+        self.assertEqual(state.first_utm_content, 'chgkgame')
         self.assertEqual(state.first_landing_path, '/salad/first/')
         self.assertEqual(state.first_touch_at, datetime.fromtimestamp(1762560000, tz=dt_timezone.utc))
 
