@@ -113,6 +113,9 @@ rsync -a --delete-delay \
 # after EB has completed the application update.
 if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
     rm -f "$stage/.platform/hooks/postdeploy/02_background_migrations.sh"
+    # Nutrimatic runs in AWS Lambda (infra/nutrimatic); stop downloading its
+    # ~300 MB index onto every web instance.
+    rm -f "$stage/.platform/hooks/postdeploy/03_sync_nutrimatic_index.sh"
 fi
 
 # A recovery base can come from the recheck worker when the target worker's

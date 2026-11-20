@@ -118,39 +118,8 @@ def _get_static_release_id() -> str:
 
 STATIC_RELEASE_ID = _get_static_release_id()
 
-# Nutrimatic (Russian Wikipedia index): directory with build/find-expr, *.index,
-# and cgi_scripts/cgi-search.py. Override with NUTRIMATIC_ROOT on EB.
-def resolve_nutrimatic_root() -> str:
-    explicit = (os.environ.get("NUTRIMATIC_ROOT") or "").strip()
-    if explicit:
-        return explicit
-    # Bundle wins when both exist (typical local + EB layout). Sync cgi_scripts from
-    # ~/nutrimatic-ru with scripts/bundle_microsites.sh so the home page examples match the fork.
-    for d in (
-        os.path.join(BASE_DIR, "nutrimatic_bundle"),
-        os.path.expanduser("~/nutrimatic-ru"),
-    ):
-        if os.path.isfile(os.path.join(d, "build", "find-expr")):
-            return d
-    return ""
-
-
-NUTRIMATIC_ROOT = resolve_nutrimatic_root()
-NUTRIMATIC_FIND_EXPR = (os.environ.get("NUTRIMATIC_FIND_EXPR") or "").strip()
-NUTRIMATIC_INDEX = (os.environ.get("NUTRIMATIC_INDEX") or "").strip()
-NUTRIMATIC_CGI_SCRIPT = (os.environ.get("NUTRIMATIC_CGI_SCRIPT") or "").strip()
-# Optional: large .index on S3 — downloaded to a local file (find-expr needs a filesystem path).
-NUTRIMATIC_INDEX_S3_BUCKET = (os.environ.get("NUTRIMATIC_INDEX_S3_BUCKET") or "").strip()
-NUTRIMATIC_INDEX_S3_KEY = (os.environ.get("NUTRIMATIC_INDEX_S3_KEY") or "").strip()
-NUTRIMATIC_INDEX_S3_REGION = (
-    os.environ.get("NUTRIMATIC_INDEX_S3_REGION")
-    or os.environ.get("AWS_DEFAULT_REGION")
-    or "eu-central-1"
-).strip()
-# On EB, keep the cache outside /var/app/current so deploys do not re-download ~350MB.
-NUTRIMATIC_INDEX_CACHE_DIR = (os.environ.get("NUTRIMATIC_INDEX_CACHE_DIR") or "").strip()
-# When set, searches run in this AWS Lambda (infra/nutrimatic) instead of a
-# local find-expr subprocess, so a heavy query cannot exhaust Daphne's memory.
+# Nutrimatic searches run in this AWS Lambda (infra/nutrimatic), never on the
+# web instances: one find-expr can take ~1.6 GB. Unset = search returns 503.
 NUTRIMATIC_LAMBDA_FUNCTION = (os.environ.get("NUTRIMATIC_LAMBDA_FUNCTION") or "").strip()
 NUTRIMATIC_LAMBDA_REGION = (os.environ.get("NUTRIMATIC_LAMBDA_REGION") or "eu-central-1").strip()
 

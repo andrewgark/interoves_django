@@ -28,7 +28,12 @@ deploy_stack() {
 }
 
 # 1. Repository first (the function cannot be created before an image exists).
-deploy_stack ImageTag=
+# Only on the very first run: an empty ImageTag on an existing stack would
+# DELETE the function and Green's invoke policy (2026-11-19 23:33, 7 minutes
+# of "Search unavailable").
+if ! aws cloudformation describe-stacks --stack-name "$STACK" >/dev/null 2>&1; then
+    deploy_stack ImageTag=
+fi
 REPO_URI=$(aws cloudformation describe-stacks --stack-name "$STACK" \
     --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" --output text)
 

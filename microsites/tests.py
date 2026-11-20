@@ -1,7 +1,5 @@
 import asyncio
-import os
 import shutil
-import signal
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -156,31 +154,10 @@ class MicrositesUrlTests(SimpleTestCase):
         m = resolve("/nutrimatic-ru/robots.txt")
         self.assertEqual(m.kwargs["rel_path"], "robots.txt")
 
-    @patch("microsites.views._nutrimatic_paths", return_value=None)
-    def test_nutrimatic_unconfigured_returns_503(self, _mock_paths):
+    @override_settings(NUTRIMATIC_LAMBDA_FUNCTION="")
+    def test_nutrimatic_unconfigured_returns_503(self):
         r = Client().get("/nutrimatic-ru/")
         self.assertEqual(r.status_code, 503)
-        self.assertIn("Поиск не настроен", r.content.decode())
-
-    def test_nutrimatic_s3_cache_hit_does_not_need_writable_lock(self):
-        from microsites.nutrimatic_s3_index import ensure_nutrimatic_index_from_s3
-
-        with tempfile.TemporaryDirectory() as td:
-            cache = Path(td) / "cache"
-            cache.mkdir()
-            dest = cache / "private__nutrimatic__wiki-merged.index"
-            dest.write_bytes(b"index")
-            cache.chmod(0o555)
-            try:
-                with override_settings(
-                    NUTRIMATIC_INDEX_S3_BUCKET="bucket",
-                    NUTRIMATIC_INDEX_S3_KEY="private/nutrimatic/wiki-merged.index",
-                    NUTRIMATIC_INDEX_CACHE_DIR=str(cache),
-                ):
-                    got = ensure_nutrimatic_index_from_s3()
-            finally:
-                cache.chmod(0o755)
-            self.assertEqual(got, dest)
 
     def test_eurovision_booklet_2026_resolves(self):
         m = resolve("/eurovision_booklet/2026/")
@@ -433,204 +410,9 @@ class BookletLazyAssetProxyTests(SimpleTestCase):
         mock_fetch.assert_called_once()
 
 
-class NutrimaticAsyncTests(SimpleTestCase):
-    def setUp(self):
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tempdir.cleanup)
-        self.root = Path(self.tempdir.name)
-        self.cgi = self.root / "cgi.py"
-        self.find_expr = self.root / "find-expr"
-        self.find_expr.touch()
-        self.index = self.root / "words.index"
-        self.index.touch()
-        from microsites import views
-        views._NUTRIMATIC_SEARCH_GATE = None
-        views._NUTRIMATIC_GATE_LOCK = None
-        views._NUTRIMATIC_PATHS_TASK = None
-        views._NUTRIMATIC_PATHS_VALUE = None
-        views._NUTRIMATIC_ACTIVE = 0
-        views._NUTRIMATIC_QUEUED = 0
-
-    def write_cgi(self, source):
-        self.cgi.write_text(source)
-
-    def mock_paths(self):
-        return patch(
-            "microsites.views._nutrimatic_paths",
-            return_value=(self.root, self.find_expr, self.index, self.cgi),
-        )
-
-    async def call_view(self, query="q=test&start=0&num=100"):
-        from django.test import RequestFactory
-
-        from microsites.views import nutrimatic_search
-        return await nutrimatic_search(RequestFactory().get("/nutrimatic-ru/?" + query))
-
-    async def test_async_search_preserves_cgi_response(self):
-        self.write_cgi("import sys; print('Content-type: text/html\\n\\n<html>ok</html>')")
-        with self.mock_paths():
-            response = await self.call_view()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"<html>ok</html>", response.content)
-
-    async def test_cgi_start_error_returns_503(self):
-        with self.mock_paths(), patch("microsites.views.asyncio.create_subprocess_exec", side_effect=OSError("no exec")):
-            response = await self.call_view()
-        self.assertEqual(response.status_code, 503)
-
-    async def test_deadline_cleans_up_and_returns_504(self):
-        from microsites import views
-        self.write_cgi("import time; time.sleep(10)")
-        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_DEADLINE_SECONDS", 0.1):
-            response = await self.call_view()
-        self.assertEqual(response.status_code, 504)
-        self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
-        self.assertTrue(response.interoves_expected_error)
-        self.assertIn("text/html", response["Content-Type"])
-        self.assertIn("comp".encode(), response.content)
-
-    async def test_real_cgi_stops_offering_harder_search_at_ceiling(self):
-        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
-        self.find_expr.write_text("#!/usr/bin/env python3\nprint('# 4000000')\n")
-        self.find_expr.chmod(0o755)
-        with self.mock_paths():
-            harder = await self.call_view("q=%3Cabc%3E&comp=2000000")
-            ceiling = await self.call_view("q=%3Cabc%3E&comp=8000000")
-        self.assertIn(b"comp=4000000", harder.content)
-        self.assertNotIn(b"harder", ceiling.content)
-        self.assertIn(b"maximum effort", ceiling.content)
-
-    async def test_large_stderr_is_drained_while_stdout_is_read(self):
-        self.write_cgi("import sys; sys.stderr.write('x' * 200000); print('Content-type: text/html\\n\\nOK')")
-        with self.mock_paths():
-            response = await self.call_view()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"OK", response.content)
-
-    async def test_real_cgi_streams_find_expr_and_preserves_query_paging(self):
-        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
-        self.find_expr.write_text(
-            "#!/usr/bin/env python3\\nimport sys\\nsys.stderr.write('e' * 200000)\\nprint('1.0 Moscow')\\n"
-        )
-        self.find_expr.chmod(0o755)
-        with self.mock_paths():
-            response = await self.call_view("q=capital&start=0&num=100")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Moscow", response.content)
-        self.assertIn(b"capital", response.content)
-
-    async def test_health_endpoint_remains_responsive_during_long_job_through_middleware(self):
-        self.write_cgi("import time; time.sleep(0.4); print('Content-type: text/html\\n\\nOK')")
-        from microsites.views import nutrimatic_search
-        self.assertTrue(asyncio.iscoroutinefunction(nutrimatic_search))
-        with self.mock_paths():
-            client = AsyncClient()
-            search_task = asyncio.create_task(client.get("/nutrimatic-ru/?q=slow"))
-            await asyncio.sleep(0.05)
-            health = await client.get("/health/live/")
-            self.assertEqual(health.status_code, 200)
-            self.assertFalse(search_task.done())
-            self.assertEqual((await search_task).status_code, 200)
-
-    async def test_client_cancellation_kills_process_group(self):
-        self.write_cgi(
-            "import os,time; open(os.environ['PID_FILE'],'w').write(str(os.getpid())); time.sleep(10)"
-        )
-        pidfile = self.root / "pid"
-        with self.mock_paths(), patch.dict(os.environ, {"PID_FILE": str(pidfile)}):
-            task = asyncio.create_task(self.call_view())
-            deadline = asyncio.get_running_loop().time() + 2
-            while not pidfile.exists() and asyncio.get_running_loop().time() < deadline:
-                await asyncio.sleep(0.01)
-            self.assertTrue(pidfile.exists())
-            pid = int(pidfile.read_text())
-            task.cancel()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-        await asyncio.sleep(0.05)
-        try:
-            state = Path(f"/proc/{pid}/stat").read_text().split()[2]
-        except FileNotFoundError:
-            state = None
-        self.assertIsNone(state)
-
-    async def test_second_cancellation_does_not_abort_process_cleanup(self):
-        from microsites import views
-        self.write_cgi("import time; time.sleep(10)")
-        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_KILL_GRACE_SECONDS", 0.2):
-            task = asyncio.create_task(self.call_view())
-            await asyncio.sleep(0.05)
-            task.cancel()
-            await asyncio.sleep(0.03)
-            task.cancel()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-        self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
-
-    async def test_cancellation_kills_find_expr_in_same_process_group(self):
-        from microsites import views
-        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
-        self.find_expr.write_text(
-            "#!/usr/bin/env python3\n"
-            "import os, signal, time\n"
-            "open(os.environ['CHILD_PID_FILE'], 'w').write(f'{os.getpid()} {os.getpgrp()} {os.getsid(0)}')\n"
-            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-            "time.sleep(10)\n"
-        )
-        self.find_expr.chmod(0o755)
-        child_pidfile = self.root / "child-pid"
-        kill_calls = []
-        real_killpg = os.killpg
-        def track_killpg(pgid, sig):
-            kill_calls.append((pgid, sig))
-            return real_killpg(pgid, sig)
-        with self.mock_paths(), patch.dict(os.environ, {"CHILD_PID_FILE": str(child_pidfile)}), patch.object(
-            views, "_NUTRIMATIC_KILL_GRACE_SECONDS", 0.05
-        ), patch.object(views.os, "killpg", side_effect=track_killpg):
-            task = asyncio.create_task(self.call_view("q=slow&start=0&num=100"))
-            deadline = asyncio.get_running_loop().time() + 2
-            while not child_pidfile.exists() and asyncio.get_running_loop().time() < deadline:
-                await asyncio.sleep(0.01)
-            self.assertTrue(child_pidfile.exists())
-            child_pid, child_pgid, child_sid = map(int, child_pidfile.read_text().split())
-            task.cancel()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-        state = "S"
-        for _ in range(20):
-            try:
-                state = Path(f"/proc/{child_pid}/stat").read_text().split()[2]
-            except FileNotFoundError:
-                state = None
-                break
-            await asyncio.sleep(0.01)
-        if state is not None:
-            try:
-                os.killpg(child_pgid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        self.assertIsNone(state, f"find-expr remained in pgid={child_pgid} sid={child_sid}; kill_calls={kill_calls}")
-
-    async def test_gate_rejects_when_active_and_single_queue_slot_is_full(self):
-        from microsites import views
-        self.write_cgi("import time; time.sleep(0.3); print('Content-type: text/html\\n\\nOK')")
-        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_QUEUE_WAIT_SECONDS", 0.05):
-            first = asyncio.create_task(self.call_view())
-            await asyncio.sleep(0.02)
-            second = asyncio.create_task(self.call_view())
-            await asyncio.sleep(0.02)
-            third = await self.call_view()
-            self.assertEqual(third.status_code, 429)
-            self.assertEqual(third.headers.get("Retry-After"), "5")
-            self.assertIn("Сейчас выполняется другой поиск", third.content.decode())
-            self.assertIn("Повторить запрос", third.content.decode())
-            self.assertEqual((await first).status_code, 200)
-            self.assertEqual((await second).status_code, 429)
-
-
 @override_settings(NUTRIMATIC_LAMBDA_FUNCTION="interoves-nutrimatic")
 class NutrimaticLambdaBackendTests(SimpleTestCase):
-    """With NUTRIMATIC_LAMBDA_FUNCTION set, searches never start find-expr locally."""
+    """The view only invokes the Lambda; find-expr never runs on the web instance."""
 
     def setUp(self):
         from microsites import views
@@ -650,18 +432,16 @@ class NutrimaticLambdaBackendTests(SimpleTestCase):
         from microsites.views import nutrimatic_search
         return await nutrimatic_search(RequestFactory().get("/nutrimatic-ru/?" + query))
 
-    async def test_ok_renders_cgi_body_without_local_subprocess(self):
+    async def test_ok_renders_cgi_body(self):
         import base64
 
         body = base64.b64encode(b'Content-type: text/html\n\n<html><link href="/favicon.ico">ok</html>').decode()
-        with self.invoke_returning({"status": "ok", "exit_code": 0, "body_b64": body}) as invoke, \
-                patch("microsites.views.asyncio.create_subprocess_exec") as local_exec:
+        with self.invoke_returning({"status": "ok", "exit_code": 0, "body_b64": body}) as invoke:
             response = await self.call_view()
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"ok</html>", response.content)
         self.assertNotIn(b'href="/favicon.ico"', response.content)
         invoke.assert_called_once_with("q=%D0%BA%D0%BE%D1%82&start=0")
-        local_exec.assert_not_called()
 
     async def test_timeout_and_crash_show_heavy_query_page(self):
         for result in ({"status": "timeout", "exit_code": -15}, {"status": "crashed", "error_type": "Runtime.OutOfMemory"}):
@@ -726,3 +506,134 @@ class NutrimaticLambdaBackendTests(SimpleTestCase):
             self.assertEqual(views._invoke_nutrimatic_lambda("q=x"), {"throttled": True})
         sent = jsonlib.loads(client.invoke.call_args.kwargs["Payload"])
         self.assertEqual(sent, {"query_string": "q=x"})
+
+    async def test_gate_rejects_when_both_slots_and_queue_are_busy(self):
+        import threading
+
+        from microsites import views
+
+        release = threading.Event()
+
+        def slow_invoke(_query):
+            release.wait(5)
+            return {"status": "ok", "exit_code": 0, "body_b64": ""}
+
+        with patch("microsites.views._invoke_nutrimatic_lambda", side_effect=slow_invoke), \
+                patch.object(views, "_NUTRIMATIC_QUEUE_WAIT_SECONDS", 0.2):
+            running = [asyncio.create_task(self.call_view()) for _ in range(2)]
+            await asyncio.sleep(0.05)
+            queued = asyncio.create_task(self.call_view())
+            await asyncio.sleep(0.02)
+            rejected = await self.call_view()
+            self.assertEqual(rejected.status_code, 429)
+            self.assertEqual(rejected.headers.get("Retry-After"), "5")
+            self.assertIn("Повторить запрос", rejected.content.decode())
+            self.assertEqual((await queued).status_code, 429)
+            release.set()
+            self.assertEqual([(await t).status_code for t in running], [200, 200])
+
+    async def test_health_endpoint_stays_responsive_during_search(self):
+        import threading
+
+        release = threading.Event()
+
+        def slow_invoke(_query):
+            release.wait(5)
+            return {"status": "ok", "exit_code": 0, "body_b64": ""}
+
+        with patch("microsites.views._invoke_nutrimatic_lambda", side_effect=slow_invoke):
+            client = AsyncClient()
+            search = asyncio.create_task(client.get("/nutrimatic-ru/?q=slow"))
+            await asyncio.sleep(0.05)
+            health = await client.get("/health/live/")
+            self.assertEqual(health.status_code, 200)
+            self.assertFalse(search.done())
+            release.set()
+            self.assertEqual((await search).status_code, 200)
+
+
+class NutrimaticLambdaHandlerTests(SimpleTestCase):
+    """infra/nutrimatic/handler.py running the real cgi-search.py with a stub find-expr."""
+
+    REPO = Path(__file__).resolve().parent.parent
+
+    def setUp(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "nutrimatic_lambda_handler", self.REPO / "infra/nutrimatic/handler.py",
+        )
+        self.handler = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.handler)
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.root = Path(self.tempdir.name)
+        self.find_expr = self.root / "find-expr"
+        index = self.root / "words.index"
+        index.touch()
+        self.handler.CGI_SCRIPT = str(self.REPO / "nutrimatic_bundle/cgi_scripts/cgi-search.py")
+        self.handler.FIND_EXPR = str(self.find_expr)
+        self.handler.INDEX = str(index)
+
+    def stub_find_expr(self, source):
+        self.find_expr.write_text("#!/usr/bin/env python3\n" + source)
+        self.find_expr.chmod(0o755)
+
+    def run_search(self, query_string):
+        import base64
+
+        result = self.handler.handler({"query_string": query_string}, None)
+        body = base64.b64decode(result.get("body_b64", "")).decode()
+        return result, body
+
+    def test_streams_results_and_keeps_query_in_paging(self):
+        self.stub_find_expr("import sys\nsys.stderr.write('e' * 200000)\nprint('1.0 Moscow')\n")
+        result, body = self.run_search("q=capital&start=0&num=100")
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("Moscow", body)
+        self.assertIn("capital", body)
+
+    def test_stops_offering_harder_search_at_ceiling(self):
+        self.stub_find_expr("print('# 4000000')\n")
+        _, harder = self.run_search("q=%3Cabc%3E&comp=2000000")
+        _, ceiling = self.run_search("q=%3Cabc%3E&comp=8000000")
+        self.assertIn("comp=4000000", harder)
+        self.assertNotIn("harder", ceiling)
+        self.assertIn("maximum effort", ceiling)
+
+    def test_home_page_needs_no_find_expr(self):
+        result, body = self.run_search("")
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("Examples", body)
+
+    def test_deadline_kills_find_expr_that_ignores_sigterm(self):
+        pidfile = self.root / "pid"
+        self.stub_find_expr(
+            "import signal, time\n"
+            f"open({str(pidfile)!r}, 'w').write(str(__import__('os').getpid()))\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            "time.sleep(30)\n"
+        )
+        self.handler.DEADLINE_SECONDS = 1.0
+        result, _ = self.run_search("q=slow")
+        self.assertEqual(result["status"], "timeout")
+        pid = int(pidfile.read_text())
+        state = None
+        for _ in range(50):
+            try:
+                state = Path(f"/proc/{pid}/stat").read_text().split()[2]
+            except FileNotFoundError:
+                state = None
+                break
+            if state == "Z":
+                break
+            import time
+            time.sleep(0.02)
+        self.assertIn(state, (None, "Z"), "find-expr survived the deadline")
+
+    def test_output_over_limit_is_not_returned(self):
+        self.stub_find_expr("for i in range(200000):\n    print(f'1.0 word{i}')\n")
+        self.handler.MAX_OUTPUT_BYTES = 10_000
+        result, body = self.run_search("q=word&num=10000")
+        self.assertEqual(result["status"], "output_limit")
+        self.assertEqual(body, "")

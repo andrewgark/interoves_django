@@ -29,17 +29,41 @@ MAX_OUTPUT_BYTES = 4 * 1024 * 1024  # Lambda's synchronous response cap is 6 MB.
 MAX_QUERY_STRING = 4096
 
 
+def _prefetch_index():
+    # The image is lazy-loaded: in a fresh sandbox find-expr's random reads of
+    # the index fault in one block at a time, and a search that is 1-2 s warm
+    # hit the 18 s deadline. One sequential read fills the page cache instead.
+    try:
+        with open(INDEX, "rb", buffering=0) as f:
+            while f.read(8 * 1024 * 1024):
+                pass
+    except OSError:
+        pass
+
+
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    import threading
+
+    threading.Thread(target=_prefetch_index, name="index-prefetch", daemon=True).start()
+
+
 def _kill_group(proc):
-    for sig in (signal.SIGTERM, signal.SIGKILL):
-        try:
-            os.killpg(proc.pid, sig)
-        except ProcessLookupError:
-            return
-        try:
-            proc.wait(timeout=1)
-            return
-        except subprocess.TimeoutExpired:
-            continue
+    # find-expr shares the CGI's process group but may outlive it, so the
+    # group gets SIGKILL even after the CGI itself exits on SIGTERM. A
+    # survivor would keep burning the warm sandbox's CPU and memory.
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    proc.wait()
 
 
 def handler(event, context):

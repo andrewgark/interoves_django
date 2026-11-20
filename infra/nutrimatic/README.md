@@ -1,9 +1,10 @@
 # Nutrimatic Lambda
 
-`/nutrimatic-ru/` searches run in the Lambda `interoves-nutrimatic`, not on
-Green. Django (`microsites.views.nutrimatic_search`) invokes it when
-`NUTRIMATIC_LAMBDA_FUNCTION` is set in the Green EB environment; unset, it
-falls back to a local `find-expr` subprocess (needs the index hook on Green).
+`/nutrimatic-ru/` searches run in the Lambda `interoves-nutrimatic`, never on
+Green. Django (`microsites.views.nutrimatic_search`) invokes the function named
+by `NUTRIMATIC_LAMBDA_FUNCTION` (Green EB environment property); unset, the
+page returns 503. Green no longer has the index or runs `find-expr`.
+`nutrimatic_bundle/` in git is only the image's source.
 
 Why: one heavy `find-expr` takes 0.8–1.6 GB. Inside Daphne's memory cgroup it
 OOM-killed the web service (2026-11-19 21:39 UTC, 502s through the ALB).
@@ -35,6 +36,13 @@ duration and the query string; Green logs `nutrimatic finish backend=lambda`.
 
 ## Rollback
 
-Remove `NUTRIMATIC_LAMBDA_FUNCTION` from the Green environment (local
-`find-expr` comes back on the next restart; keep `03_sync_nutrimatic_index.sh`
-until the local path is deleted).
+Green cannot search locally any more (no index hook, no subprocess path).
+To get local search back, redeploy the EB application version
+`app-green-dcb5adfc-20261119225703` (its zip still carries the index hook and
+the subprocess path); a fresh `deploy.sh` of an older commit does not restore
+the hook, because Green bundles inherit `.platform` from the live version.
+
+Never deploy the stack with an empty `ImageTag` once it exists: the
+`HasImage` condition then deletes the function and Green's invoke policy
+(2026-11-19 23:33–23:40, searches returned "Search unavailable"). The deploy
+script only does that on the very first run.

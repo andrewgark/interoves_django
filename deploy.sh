@@ -80,8 +80,6 @@ if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
   members="$(unzip -Z1 "$PREBUILT_RELEASE_ARTIFACT")"
   for required_member in \
     Procfile \
-    nutrimatic_bundle/build/find-expr \
-    nutrimatic_bundle/cgi_scripts/cgi-search.py \
     interoves_django/deploy_version.txt \
     interoves_django/static_release_id.txt \
     interoves_eb_config_manifest.json; do
@@ -119,16 +117,5 @@ if [[ -z "${PREBUILT_RELEASE_ARTIFACT:-}" && "${BUNDLE_MICROSITES:-0}" == "1" ]]
   "$SOURCE_DIR/scripts/bundle_microsites.sh"
 else
   echo "Skipping microsite bundling (set BUNDLE_MICROSITES=1 to refresh local bundles)."
-fi
-if [[ -z "$PREBUILT_RELEASE_ARTIFACT" ]]; then
-  if [[ ! -x "$SOURCE_DIR/nutrimatic_bundle/build/find-expr" ]]; then
-    echo "ERROR: nutrimatic_bundle/build/find-expr missing or not executable." >&2
-    echo "Run scripts/bundle_microsites.sh (needs ~/nutrimatic-ru/build/find-expr) or restore the committed binary." >&2
-    exit 1
-  fi
-  if [[ ! -f "$SOURCE_DIR/nutrimatic_bundle/cgi_scripts/cgi-search.py" ]]; then
-    echo "ERROR: nutrimatic_bundle/cgi_scripts/cgi-search.py missing." >&2
-    exit 1
-  fi
 fi
 "$REPO_ROOT/scripts/deploy_green.sh" "$DEPLOY_MODE"
