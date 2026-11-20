@@ -93,6 +93,8 @@
   --card-radius: 8px;
   --warning: #b8953d;
   --warning-hover: #a18232;
+  --near: #3b6ea5;
+  --near-hover: #2f5a88;
   --difficulty-icon: #d85c8a;
   --success: var(--accent);
   font-size: 16px;
@@ -126,6 +128,8 @@ html.new-ui-dark {
   --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent);
   --warning: #d4b45c;
   --warning-hover: #e0c574;
+  --near: #6b9fd4;
+  --near-hover: #8cb5e0;
   --difficulty-icon: #f08eb3;
   --success: var(--accent);
   --raddle-before: #d4b45c;
@@ -9166,7 +9170,7 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__word-pill.is-solved { border-color: var(--success-soft-border); background: var(--success-soft-bg); color: var(--success); }
 .new-daily-statistics__finding-pill { border-color: color-mix(in srgb, var(--muted) 28%, var(--border)); background: color-mix(in srgb, var(--muted) 12%, var(--surface)); color: var(--muted); }
 .new-daily-statistics__finding-pill.is-rare { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning-hover); }
-.new-daily-statistics__finding-pill.is-near { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent-hover); }
+.new-daily-statistics__finding-pill.is-near { border-color: color-mix(in srgb, var(--near) 40%, var(--border)); background: color-mix(in srgb, var(--near) 12%, var(--surface)); color: var(--near-hover); }
 .new-daily-statistics__finding-pill small { font: inherit; font-size: .78em; letter-spacing: 0; }
 .new-daily-statistics__finding-pill.is-rare { cursor: help; outline: none; }
 .new-daily-statistics__finding-pill.is-rare::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 15rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-family: inherit; font-size: .72rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
@@ -12068,9 +12072,9 @@ html.new-ui-dark .new-word-salad__links line {
 }
 
 .new-word-salad__rare.is-near {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--near) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--near) 40%, var(--border));
+  color: var(--near-hover);
 }
 
 .new-word-salad__extra {
@@ -12098,8 +12102,8 @@ html.new-ui-dark .new-word-salad__links line {
 }
 
 .new-word-salad__rare.is-near.is-latest {
-  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--near) 20%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--near) 45%, var(--border));
 }
 
 .new-word-salad__word.is-latest .new-word-salad__pill {
@@ -12321,13 +12325,30 @@ button.new-word-salad__hint-btn:disabled {
 }
 
 .new-word-salad__toast.is-near {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--surface) 86%, var(--accent));
-  color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--near) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) 82%, var(--near));
+  color: var(--near-hover);
 }
 
+.new-word-salad__toast.is-near .new-word-salad__toast-mark,
 .new-word-salad__toast.is-near .new-word-salad__toast-ok {
-  color: var(--accent-hover);
+  color: var(--near-hover);
+}
+
+.new-word-salad__toast.is-rare .new-word-salad__toast-mark {
+  color: var(--warning);
+}
+
+/* "Уже было!" for an off-topic word: neutral, it never scored. */
+.new-word-salad__toast.is-extra {
+  border-color: color-mix(in srgb, var(--muted) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 88%, var(--muted));
+  color: var(--muted);
+}
+
+.new-word-salad__toast.is-extra .new-word-salad__toast-mark,
+.new-word-salad__toast.is-extra .new-word-salad__toast-ok {
+  color: var(--muted);
 }
 
 @media (pointer: coarse) {

@@ -342,8 +342,18 @@ function clearKeyEvent(overrides) {
     message: 'Уже было!',
     icon: 'ph-arrow-counter-clockwise',
     duplicate: true,
-    rare: false
+    rare: false,
+    near: false,
+    extra: false
   });
+  // A repeat keeps the colour of what the word was the first time.
+  var rareAgain = Path.feedbackForResult('duplicate', 'скиф', 'rare');
+  assert.deepStrictEqual([rareAgain.message, rareAgain.rare, rareAgain.near, rareAgain.extra],
+    ['Уже было!', true, false, false]);
+  var nearAgain = Path.feedbackForResult('duplicate', 'краска', 'near');
+  assert.deepStrictEqual([nearAgain.rare, nearAgain.near, nearAgain.extra], [true, true, false]);
+  var extraAgain = Path.feedbackForResult('duplicate', 'стол', 'extra');
+  assert.deepStrictEqual([extraAgain.rare, extraAgain.near, extraAgain.extra], [false, false, true]);
   assert.deepStrictEqual(Path.feedbackForResult('rare', 'скиф'), {
     word: 'СКИФ',
     message: 'Редкая находка!',

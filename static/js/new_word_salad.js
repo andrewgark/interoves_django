@@ -476,7 +476,9 @@
     }, TOAST_FADE_MS);
   }
 
-  function feedbackForResult(result, word) {
+  // duplicateOf says what a repeated word was the first time: 'answer'
+  // (default), 'rare', 'near' or 'extra'. "Уже было!" keeps that colour.
+  function feedbackForResult(result, word, duplicateOf) {
     var duplicate = result === 'duplicate';
     var displayWord = String(word || '').trim().toUpperCase();
     if (result === 'rare' || result === 'near') {
@@ -490,17 +492,30 @@
         near: result === 'near'
       };
     }
+    if (duplicate) {
+      var of = duplicateOf === 'rare' || duplicateOf === 'near' || duplicateOf === 'extra'
+        ? duplicateOf : 'answer';
+      return {
+        word: displayWord,
+        message: 'Уже было!',
+        icon: 'ph-arrow-counter-clockwise',
+        duplicate: true,
+        rare: of === 'rare' || of === 'near',
+        near: of === 'near',
+        extra: of === 'extra'
+      };
+    }
     return {
       word: displayWord,
-      message: duplicate ? 'Уже было!' : 'Верно!',
-      icon: duplicate ? 'ph-arrow-counter-clockwise' : 'ph-check-circle',
-      duplicate: duplicate,
+      message: 'Верно!',
+      icon: 'ph-check-circle',
+      duplicate: false,
       rare: false
     };
   }
 
-  function showAnswerToast(root, word, result) {
-    var feedback = feedbackForResult(result, word);
+  function showAnswerToast(root, word, result, duplicateOf) {
+    var feedback = feedbackForResult(result, word, duplicateOf);
     var toast = document.querySelector('.new-word-salad__toast');
     if (!toast) {
       toast = document.createElement('div');
@@ -511,10 +526,11 @@
       document.body.appendChild(toast);
     }
     clearToastTimers(toast);
-    toast.classList.remove('is-in', 'is-out', 'is-duplicate', 'is-rare', 'is-near');
+    toast.classList.remove('is-in', 'is-out', 'is-duplicate', 'is-rare', 'is-near', 'is-extra');
     toast.classList.toggle('is-duplicate', feedback.duplicate);
     toast.classList.toggle('is-rare', !!feedback.rare);
     toast.classList.toggle('is-near', !!feedback.near);
+    toast.classList.toggle('is-extra', !!feedback.extra);
     toast.textContent = '';
 
     var mark = document.createElement('span');
@@ -1448,6 +1464,14 @@
         return isConfiguredNear(word) ? 'near' : 'rare';
       }
 
+      // What a word the server calls a duplicate was when first found.
+      function duplicateKind(word) {
+        var normalized = normalizeWord(word);
+        if (isConfiguredNear(normalized)) return 'near';
+        if (isConfiguredRare(normalized) || rareWords.indexOf(normalized) >= 0) return 'rare';
+        return requiredAnswerSet()[normalized] ? 'answer' : 'extra';
+      }
+
       function addExtraWord(word) {
         var remembered = rememberExtraWord(extraWords, word, answerWordSet());
         if (!remembered.latest) return;
@@ -1844,7 +1868,7 @@
           var solvedWord = selectedWord(path);
           if (data && data.status === 'duplicate') {
             finishWrong(pathKey);
-            showAnswerToast(root, solvedWord, 'duplicate');
+            showAnswerToast(root, solvedWord, 'duplicate', duplicateKind(solvedWord));
             return;
           }
           if (data && data.status === 'ok' && data.word_salad_rare) {
