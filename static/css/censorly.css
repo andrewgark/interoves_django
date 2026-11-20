@@ -38,6 +38,11 @@
   align-items: start;
 }
 
+/*
+  Grid items default to min-width: auto, so a wide article table would stretch
+  the column past the screen instead of scrolling inside .censorly-table-wrap.
+*/
+.censorly__article,
 .censorly__dock {
   min-width: 0;
   max-width: 100%;
