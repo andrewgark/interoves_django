@@ -128,6 +128,9 @@
 .ph-fill.ph-caret-up:before {
   content: "\e13c";
 }
+.ph-fill.ph-chart-bar:before {
+  content: "\e150";
+}
 .ph-fill.ph-chats-circle:before {
   content: "\e17e";
 }

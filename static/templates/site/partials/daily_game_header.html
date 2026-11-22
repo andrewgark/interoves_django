@@ -25,12 +25,30 @@
     <div class="new-daily-game-header__controls">
       {% if not custom_daily_task and not hide_daily_navigation %}
       <nav class="new-daily-game-header__nav" aria-label="{{ daily_pager_aria_label|default:'Переход между ежедневными играми' }}">
-        {% if prev_task_group_url %}<a class="new-daily-game-header__nav-button{% if prev_task_group_locked %} is-archive-locked{% endif %}" href="{{ prev_task_group_url }}" data-daily-nav-link aria-label="Предыдущая ежедневная игра{% if prev_task_group_locked %}, доступ по клубной подписке{% endif %}" data-tooltip="{% if prev_task_group_locked %}Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽.{% else %}Предыдущий выпуск{% endif %}">{% if prev_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-left" aria-hidden="true"></i>{% endif %}</a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
+        {% if prev_task_group_url %}<a class="new-daily-game-header__nav-button{% if prev_task_group_locked %} is-archive-locked{% endif %}" href="{{ prev_task_group_url }}" data-daily-nav-link aria-label="Предыдущая ежедневная игра{% if prev_task_group_locked %}, доступ по клубной подписке{% elif prev_task_group_unsolved %}, ещё не решена{% endif %}" data-tooltip="{% if prev_task_group_locked %}Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽.{% elif prev_task_group_unsolved %}Предыдущий выпуск, ещё не решён{% else %}Предыдущий выпуск{% endif %}">{% if prev_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-left" aria-hidden="true"></i>{% if prev_task_group_unsolved %}<span class="new-fresh-dot" aria-hidden="true"></span>{% endif %}{% endif %}</a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
         <span class="new-daily-game-header__date">
           {% if daily_publish_date %}{% with date_year=daily_publish_date|date:"Y" %}<span class="new-daily-game-header__date-full">{{ daily_publish_date|date:"j E" }}{% if date_year == current_year %}{% else %} {{ date_year }}{% endif %}</span><span class="new-daily-game-header__date-compact">{{ daily_publish_date|date:"j.n" }}{% if date_year == current_year %}{% else %}.{{ daily_publish_date|date:"y" }}{% endif %}</span>{% endwith %}{% else %}Дата не указана{% endif %}
         </span>
-        {% if next_task_group_url %}<a class="new-daily-game-header__nav-button{% if next_task_group_locked %} is-archive-locked{% endif %}" href="{{ next_task_group_url }}" data-daily-nav-link aria-label="Следующая ежедневная игра{% if next_task_group_locked %}, доступ по клубной подписке{% endif %}" data-tooltip="{% if next_task_group_locked %}Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽.{% else %}Следующий выпуск{% endif %}">{% if next_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-right" aria-hidden="true"></i>{% endif %}</a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
+        {% if next_task_group_url %}<a class="new-daily-game-header__nav-button{% if next_task_group_locked %} is-archive-locked{% endif %}" href="{{ next_task_group_url }}" data-daily-nav-link aria-label="Следующая ежедневная игра{% if next_task_group_locked %}, доступ по клубной подписке{% elif next_task_group_unsolved %}, ещё не решена{% endif %}" data-tooltip="{% if next_task_group_locked %}Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽.{% elif next_task_group_unsolved %}Следующий выпуск, ещё не решён{% else %}Следующий выпуск{% endif %}">{% if next_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-right" aria-hidden="true"></i>{% if next_task_group_unsolved %}<span class="new-fresh-dot" aria-hidden="true"></span>{% endif %}{% endif %}</a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
       </nav>
+      <script>
+      // After a finished game the open edition arrows nudge once: there is more to play.
+      (function () {
+        var nav = document.currentScript && document.currentScript.previousElementSibling;
+        function start() {
+          if (!nav || !window.interovesOnDailyResult) return;
+          if (!nav.querySelector('a.new-daily-game-header__nav-button:not(.is-archive-locked)')) return;
+          window.interovesOnDailyResult(function () {
+            window.setTimeout(function () {
+              nav.classList.add('is-calling');
+              window.setTimeout(function () { nav.classList.remove('is-calling'); }, 3000);
+            }, 900);
+          });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+        else start();
+      })();
+      </script>
       {% endif %}
       {% if daily_timing_enabled %}{% include "site/partials/daily_solve_timer.html" %}{% endif %}
       {% include "site/partials/replay_controls.html" with custom_reset_url=custom_reset_url custom_reset_enabled=custom_reset_enabled %}

@@ -70,7 +70,7 @@ from games.site.pages import (
 )
 from games.site.pages.game.access import _maybe_registration_or_announce_response
 from games.site.pages.game.progress import (
-    _archive_nav_target,
+    _archive_nav_context,
     _game_task_group_links,
     _neighbors_by_pk,
     _play_url_for_task_group,
@@ -712,22 +712,11 @@ def task_group_page(
         'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
-        'prev_task_group_url': _archive_nav_target(
-            request, game, prev_tg,
-            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None,
-        )[0],
-        'next_task_group_url': _archive_nav_target(
-            request, game, next_tg,
-            _play_url_for_task_group(game, next_tg.number) if next_tg else None,
-        )[0],
-        'prev_task_group_locked': _archive_nav_target(
-            request, game, prev_tg,
-            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None,
-        )[1],
-        'next_task_group_locked': _archive_nav_target(
-            request, game, next_tg,
-            _play_url_for_task_group(game, next_tg.number) if next_tg else None,
-        )[1],
+        **_archive_nav_context(
+            request, game, prev_tg, next_tg,
+            lambda number: _play_url_for_task_group(game, number),
+            team=team, user=user, anon_key=anon_key,
+        ),
         'task_group_results_url': (
             '' if ladder_tutorial_task is not None
             or placement_is_deferred

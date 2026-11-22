@@ -1183,6 +1183,46 @@
     box.hidden = false;
   }
 
+  // A solved article is long and the result, rating and statistics sit
+  // under it: while they are below the screen, a corner button takes the
+  // player there. Returns update(), called after every state change.
+  function setupStatsJump(root) {
+    var btn = document.getElementById('censorly-stats-jump');
+    var target = root.querySelector('.new-daily-results-layout');
+    if (!btn || !target) return function () {};
+    var frame = 0;
+
+    function update() {
+      frame = 0;
+      var state = root._censorlyState || {};
+      var visibleBottom = window.innerHeight;
+      // Above the mobile dock while it sticks to the bottom of the screen;
+      // not mobileDockBounds(): a dock leaving over the top still overlaps.
+      var dock = root.querySelector('.censorly__dock');
+      var dockTop = dock ? dock.getBoundingClientRect().top : Infinity;
+      var overDock = dockTop > window.innerHeight / 2 && dockTop < window.innerHeight;
+      if (overDock) visibleBottom = dockTop - 12;
+      btn.style.bottom = overDock ? Math.round(window.innerHeight - visibleBottom) + 'px' : '';
+      btn.hidden = !state.won || target.getBoundingClientRect().top < visibleBottom - 48;
+    }
+    function schedule() {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    }
+
+    btn.addEventListener('click', function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try {
+        target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      } catch (e) {
+        target.scrollIntoView(true);
+      }
+    });
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', schedule);
+    return schedule;
+  }
+
   function wikiUrl(state) {
     if (state && state.wiki_title) {
       return 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
@@ -1320,6 +1360,7 @@
     renderGuessTable(root, guesses, activeGuessIndex(root, guesses));
     showShare(state);
     if (state.meta_bar_html) updateMetaBar(state.meta_bar_html);
+    if (root._censorlyStatsJump) root._censorlyStatsJump();
 
     if (state.won) {
       root.classList.remove('censorly--hint-pick');
@@ -1596,6 +1637,7 @@
 
     root.classList.toggle('censorly--show-endings', showEndings);
     root.classList.toggle('censorly--show-lengths', showLengths);
+    root._censorlyStatsJump = setupStatsJump(root);
     applyState(root, state);
     syncEndingsToggle(root, endingsBtn, showEndings);
     syncLengthsToggle(root, lengthsBtn, showLengths);

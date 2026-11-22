@@ -1,6 +1,6 @@
 {% load filters %}
-{# Голосовалка ▲▼ задания. Ожидает: task, lm (likes_meta задания). #}
-<div class="new-vote" data-vote data-lead="{{ lm.likes|vote_lead:lm.dislikes }}" role="group" aria-label="Лайки и дизлайки">
+{# Голосовалка ▲▼ задания. Ожидает: task, lm (likes_meta задания); vote_class — модификатор размера (необязателен). #}
+<div class="new-vote{% if vote_class %} {{ vote_class }}{% endif %}" data-vote data-lead="{{ lm.likes|vote_lead:lm.dislikes }}" role="group" aria-label="Лайки и дизлайки">
   <button type="button" class="new-vote__side new-vote__side--up{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}" aria-pressed="{% if lm.liked %}true{% else %}false{% endif %}" data-tooltip="Лайк">
     {% include "site/partials/vote_arrow.html" with dir="up" %}<span class="new-visually-hidden">Лайков:</span><span class="new-vote__count" data-like-count="{{ task.id }}" data-count="{{ lm.likes|default:0 }}"{% if not lm.likes %} data-zero{% endif %}>{{ lm.likes|vote_count }}</span>
   </button>

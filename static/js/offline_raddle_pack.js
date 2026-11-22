@@ -170,9 +170,13 @@
       var oldResult = root.querySelector('[data-raddle-result]');
       if (oldResult) oldResult.parentNode.removeChild(oldResult);
       if (keys.complete && pack.result) {
+        var finish = root.querySelector('[data-daily-finish]');
         var layout = root.querySelector('.new-daily-results-layout');
         var result = fragment(doc, pack.result);
-        if (layout) {
+        // The result card sits before «Оцените игру» in the finish block.
+        if (finish) {
+          finish.insertBefore(result, finish.firstChild);
+        } else if (layout) {
           layout.insertBefore(result, layout.firstChild);
         } else {
           var ladderLayout = root.querySelector('.new-raddle-layout');

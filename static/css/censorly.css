@@ -1100,3 +1100,68 @@ html.new-ui-dark .censorly__dock {
     transition: none;
   }
 }
+
+/* «Посмотреть статистику»: shown after a win while the result block is below the screen. */
+.censorly-stats-jump {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  /* Under the sticky nav (10) and the signup-style prompts (9). */
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.6rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.1;
+  cursor: pointer;
+  box-shadow: 0 0.5rem 1.4rem color-mix(in srgb, var(--text) 18%, transparent);
+  animation: censorly-stats-jump-in 0.18s ease-out;
+}
+
+.censorly-stats-jump[hidden] {
+  display: none;
+}
+
+.censorly-stats-jump .ph-chart-bar {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+@media (hover: hover) {
+  .censorly-stats-jump:hover {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+}
+
+.censorly-stats-jump:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring), 0 0.5rem 1.4rem color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+/* On phones a bottom-left prompt spans the width: the prompt wins. */
+@media (max-width: 42rem) {
+  body:has(.new-signup-prompt:not([hidden])) .censorly-stats-jump {
+    display: none;
+  }
+}
+
+@keyframes censorly-stats-jump-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .censorly-stats-jump { animation: none; }
+}
+
+#censorly-root .new-daily-results-layout {
+  scroll-margin-top: calc(var(--new-ui-scroll-margin-top, 5.5rem) + 0.5rem);
+}

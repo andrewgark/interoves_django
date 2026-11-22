@@ -232,12 +232,15 @@
   <div id="censorly-meta-host" class="censorly__meta-host" hidden></div>
 
   {% if daily_statistics_url %}<div class="new-daily-results-layout">{% endif %}
+  <div class="new-daily-finish" data-daily-finish>
   <div class="new-raddle-result" id="censorly-result" data-raddle-result hidden>
     <div class="new-raddle-result__head">
       <span class="new-raddle-result__label">Ваш результат</span>
       {% include "site/partials/daily_share_actions.html" %}
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text id="censorly-result-share"></div>
+  </div>
+  {% if daily_statistics_url %}{% include "site/partials/daily_rate.html" %}{% endif %}
   </div>
   {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>{% endif %}
   {% if daily_statistics_url %}</div>{% endif %}
@@ -247,6 +250,12 @@
 {% if daily_timing_enabled %}</div>{% endif %}
 
 {% include "site/partials/daily_task_footer.html" %}
+{% if daily_statistics_url %}
+{# A solved article is long, and the result, rating and statistics are under it. Outside #censorly-root so no ancestor becomes its fixed containing block. #}
+<button type="button" class="censorly-stats-jump" id="censorly-stats-jump" hidden>
+  <i class="ph ph-chart-bar" aria-hidden="true"></i><span>Посмотреть статистику</span><i class="ph ph-arrow-down" aria-hidden="true"></i>
+</button>
+{% endif %}
 {% include "site/partials/stuck_nudge.html" with stuck_nudge_game="censorly" %}
 {% include "site/partials/signup_prompt.html" %}
 {% include "site/partials/another_game_hint.html" %}

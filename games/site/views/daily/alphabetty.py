@@ -53,7 +53,7 @@ from games.sections.paths import section_hub_path, section_play_path, section_re
 from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.pages.game.progress import (
-    _archive_nav_target,
+    _archive_nav_context,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
@@ -322,22 +322,11 @@ def alphabetty_play_page(request, number):
             task=task, game=game, user=user, anon_key=anon_key,
             replay_slot=replay_slot,
         ),
-        'prev_task_group_url': _archive_nav_target(
-            request, game, prev_tg,
-            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None,
-        )[0],
-        'next_task_group_url': _archive_nav_target(
-            request, game, next_tg,
-            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None,
-        )[0],
-        'prev_task_group_locked': _archive_nav_target(
-            request, game, prev_tg,
-            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None,
-        )[1],
-        'next_task_group_locked': _archive_nav_target(
-            request, game, next_tg,
-            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None,
-        )[1],
+        **_archive_nav_context(
+            request, game, prev_tg, next_tg,
+            lambda number: section_play_path(ALPHABETTY_GAME_ID, number),
+            user=user, anon_key=anon_key,
+        ),
         **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
         **_task_group_page_nav_context(

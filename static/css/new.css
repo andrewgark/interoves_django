@@ -47,6 +47,8 @@
   --border: #d0d5d2;
   --tile: #e6ebe8;
   --danger: #b61f1f;
+  /* «Ещё не решено, можно играть»: blue like an unread mark; green, gold and red already mean solved, club and error. */
+  --fresh: #2f7de1;
   --danger-soft: rgba(182, 31, 31, 0.1);
   --success-soft-bg: rgba(31, 111, 94, 0.12);
   --success-soft-border: rgba(31, 111, 94, 0.35);
@@ -111,6 +113,7 @@ html.new-ui-dark {
   --border: #3a3f3d;
   --tile: #2a2e2c;
   --danger: #f87171;
+  --fresh: #6aa8f0;
   --danger-soft: rgba(248, 113, 113, 0.14);
   --success-soft-bg: rgba(63, 184, 154, 0.18);
   --success-soft-border: rgba(63, 184, 154, 0.42);
@@ -4359,17 +4362,70 @@ html.new-ui-dark .new-team-switcher-active-box {
   cursor: pointer;
 }
 
-/* Open neighbouring editions read as links: accent arrows on a light tint,
-   still quiet next to the game (Nov 9: players did not notice grey ones). */
+/* Open neighbouring editions are more content to play: solid accent buttons,
+   like .new-btn (Nov 9 accent-on-tint arrows still went unnoticed). */
 a.new-daily-game-header__nav-button:not(.is-archive-locked) {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: #fff;
+  background: var(--accent);
   font-size: 1.15rem;
 }
 
-.new-daily-game-header__nav-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  color: var(--accent);
+a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+.new-daily-game-header__nav-button.is-archive-locked:hover {
+  background: color-mix(in srgb, var(--warning) 36%, var(--surface));
+}
+
+/* An open edition the player has not finished: a blue dot, like an unread mark.
+   Inside the button's corner, since the nav clips overflow. */
+.new-fresh-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fresh);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.new-daily-game-header__nav-button {
+  position: relative;
+}
+
+.new-daily-game-header__nav-button .new-fresh-dot {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+}
+
+.new-fresh-dot--inline {
+  margin-left: 0.4rem;
+  vertical-align: 0.1em;
+}
+
+/* After a finished game the open arrows nudge outward a few times: there is
+   more to play. Motion, not a ring: the nav clips overflow. */
+.new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button:not(.is-archive-locked) .ph {
+  animation: new-daily-nav-nudge-next 0.9s ease-in-out 3;
+}
+
+.new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button:not(.is-archive-locked):first-child .ph {
+  animation-name: new-daily-nav-nudge-prev;
+}
+
+@keyframes new-daily-nav-nudge-next {
+  40% { transform: translateX(0.22rem); }
+}
+
+@keyframes new-daily-nav-nudge-prev {
+  40% { transform: translateX(-0.22rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button .ph { animation: none; }
 }
 
 .new-daily-game-header__nav-button:disabled {
@@ -4466,6 +4522,15 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked) {
   .new-daily-game-header .new-daily-game-header__nav-button {
     width: calc(var(--daily-header-control) * 0.75);
     min-height: calc(var(--daily-header-control) - 2px);
+  }
+
+  /* Narrow arrows: a smaller dot pressed into the corner, clear of the caret. */
+  .new-daily-game-header .new-daily-game-header__nav-button .new-fresh-dot {
+    top: 0.12rem;
+    right: 0.1rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    box-shadow: 0 0 0 1.5px var(--surface);
   }
 
   .new-daily-game-header .new-daily-game-header__date {
@@ -9103,10 +9168,39 @@ html.is-age-gated .new-wrap {
   font-variant-numeric: tabular-nums;
 }
 .new-daily-results-layout { display: flex; flex-direction: column; align-items: stretch; gap: .8rem; }
-.new-daily-results-layout > .new-raddle-result { order: 1; }
+.new-daily-results-layout > .new-raddle-result,
+.new-daily-results-layout > .new-daily-finish { order: 1; }
 .new-daily-results-layout > .new-daily-statistics { order: 2; }
 .new-daily-results-layout > .new-daily-statistics { min-width: 0; }
 .new-daily-results-layout > .new-raddle-result { align-self: flex-end; margin-top: 0; }
+/* «Ваш результат» and «Оцените игру»: side by side on desktop, stacked on phones.
+   The block shows only while it holds a visible result card. */
+.new-daily-finish { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: .8rem; margin-top: 1.25rem; }
+.new-daily-finish:not(:has(> [data-raddle-result]:not([hidden]))) { display: none; }
+.new-daily-results-layout > .new-daily-finish { justify-content: flex-end; margin-top: 0; }
+.new-daily-finish > .new-raddle-result { margin: 0; }
+.new-daily-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  padding: .7rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
+}
+.new-daily-rate__label { font-weight: 700; font-size: .85rem; color: var(--muted); }
+/* .new-vote doubled: the touch override of .new-vote sizes comes later in the file. */
+.new-vote.new-vote--large {
+  --vote-icon: 1.45rem;
+  --vote-fs: 1.05rem;
+  --vote-gap: .9rem;
+  flex-direction: row;
+}
+.new-vote--large .new-vote__side { gap: .3rem; padding: .3rem .5rem; border-radius: 6px; }
+.new-vote--large button.new-vote__side::before,
+.new-vote--large button.new-vote__side--down::before { inset: -0.3rem; }
 .new-daily-statistics__title { margin: 0 0 .65rem; color: var(--muted); font-size: .85rem; font-weight: 700; }
 .new-results-exclusion,
 .new-daily-statistics__exclusion {
@@ -9202,6 +9296,8 @@ html.is-age-gated .new-wrap {
 }
 @media (max-width: 919px) {
   .new-daily-results-layout > .new-raddle-result { align-self: center; }
+  .new-daily-finish,
+  .new-daily-results-layout > .new-daily-finish { flex-direction: column; align-items: center; }
   .new-daily-statistics__body { grid-template-columns: 1fr; }
   .new-daily-statistics__salad-findings { grid-template-columns: 1fr; }
 }
@@ -11502,7 +11598,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   gap: 0.75rem;
 }
 
-.new-word-salad > .new-raddle-result {
+.new-word-salad > .new-raddle-result,
+.new-word-salad > .new-daily-finish {
   margin-top: 0;
 }
 

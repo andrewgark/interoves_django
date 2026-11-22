@@ -1,0 +1,8 @@
+{% load filters %}
+{# A larger copy of the meta bar's ▲▼ vote next to «Ваш результат»: a player who has read the statistics rates without scrolling back up. Goes inside .new-daily-finish, which shows only with a visible result card. Expects: task, likes_meta_by_task_id. #}
+{% with lm=likes_meta_by_task_id|get_item:task.id %}{% if lm %}
+<section class="new-daily-rate" aria-label="Оцените игру">
+  <span class="new-daily-rate__label">Оцените игру</span>
+  {% include "site/partials/task_vote.html" with vote_class="new-vote--large" %}
+</section>
+{% endif %}{% endwith %}

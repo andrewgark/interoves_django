@@ -58,7 +58,7 @@ from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.http.request_util import get_public_task_or_404
 from games.site.pages.game.progress import (
-    _archive_nav_target,
+    _archive_nav_context,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
@@ -547,22 +547,11 @@ def _render_play(request, *, game, task, load_meta):
             task=task, game=game, user=user, anon_key=anon_key,
             replay_slot=replay_slot,
         ),
-        'prev_task_group_url': _archive_nav_target(
-            request, game, prev_tg,
-            section_play_path(CENSORLY_GAME_ID, prev_tg.number) if prev_tg else None,
-        )[0],
-        'next_task_group_url': _archive_nav_target(
-            request, game, next_tg,
-            section_play_path(CENSORLY_GAME_ID, next_tg.number) if next_tg else None,
-        )[0],
-        'prev_task_group_locked': _archive_nav_target(
-            request, game, prev_tg,
-            section_play_path(CENSORLY_GAME_ID, prev_tg.number) if prev_tg else None,
-        )[1],
-        'next_task_group_locked': _archive_nav_target(
-            request, game, next_tg,
-            section_play_path(CENSORLY_GAME_ID, next_tg.number) if next_tg else None,
-        )[1],
+        **_archive_nav_context(
+            request, game, prev_tg, next_tg,
+            lambda number: section_play_path(CENSORLY_GAME_ID, number),
+            user=user, anon_key=anon_key,
+        ),
         **(onboarding_followup_context(CENSORLY_GAME_ID) if not is_random else {}),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
