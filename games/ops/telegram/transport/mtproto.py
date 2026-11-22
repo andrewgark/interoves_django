@@ -31,6 +31,43 @@ def _build_client():
     return TelegramClient(session, api_id, api_hash)
 
 
+# Telegram's own photo copy tops out at 1280px on the long side, so a
+# downscaled retry loses nothing a viewer sees in the channel.
+FALLBACK_PHOTO_MAX_SIDE = 1280
+
+
+def downscale_photo(photo_bytes: bytes, max_side: int = FALLBACK_PHOTO_MAX_SIDE) -> bytes:
+    """Fit a PNG/JPEG into ``max_side`` px and re-encode it as PNG."""
+    from PIL import Image
+
+    image = Image.open(BytesIO(photo_bytes))
+    image.thumbnail((max_side, max_side), Image.LANCZOS)
+    out = BytesIO()
+    image.save(out, 'PNG', optimize=True)
+    return out.getvalue()
+
+
+def _named_photo(photo_bytes: bytes, filename: str) -> BytesIO:
+    photo = BytesIO(photo_bytes)
+    photo.name = filename
+    return photo
+
+
+async def _retry_downscaled(send, photo_bytes: bytes, filename: str):
+    """Call ``send(photo)``; on IMAGE_PROCESS_FAILED retry once at 1280px.
+
+    Telegram sometimes rejects ~1800px teasers for hours (2026-11-22: the
+    same PNG passed and failed minutes apart) while 1280px uploads pass.
+    """
+    from telethon.errors import ImageProcessFailedError
+
+    try:
+        return await send(_named_photo(photo_bytes, filename))
+    except ImageProcessFailedError:
+        logger.warning('Telegram IMAGE_PROCESS_FAILED for %s; retrying downscaled', filename)
+        return await send(_named_photo(downscale_photo(photo_bytes), filename))
+
+
 def run_sync(coro_factory: Callable[[], Any]):
     """Run an async Telethon coroutine from sync Django code."""
     return asyncio.run(coro_factory())
@@ -62,15 +99,17 @@ async def schedule_channel_photo(
             raise RuntimeError('Session must be a user account (not a bot)')
 
         entity = await client.get_entity(chat)
-        photo = BytesIO(photo_bytes)
-        photo.name = filename
-        message = await client.send_file(
-            entity,
-            file=photo,
-            caption=caption or None,
-            parse_mode='html',
-            force_document=False,
-            schedule=schedule_at,
+        message = await _retry_downscaled(
+            lambda photo: client.send_file(
+                entity,
+                file=photo,
+                caption=caption or None,
+                parse_mode='html',
+                force_document=False,
+                schedule=schedule_at,
+            ),
+            photo_bytes,
+            filename,
         )
         if isinstance(message, list):
             message = message[0] if message else None
@@ -177,16 +216,18 @@ async def edit_scheduled_photo(
         if message is None:
             # Already published or deleted from «Отложенные»: nothing to edit.
             return False
-        photo = BytesIO(photo_bytes)
-        photo.name = filename
-        uploaded = await client.upload_file(photo)
-        await client(EditMessageRequest(
-            peer=entity,
-            id=int(message_id),
-            message=getattr(message, 'message', '') or '',
-            entities=getattr(message, 'entities', None) or None,
-            media=InputMediaUploadedPhoto(file=uploaded),
-        ))
+
+        async def edit(photo):
+            uploaded = await client.upload_file(photo)
+            await client(EditMessageRequest(
+                peer=entity,
+                id=int(message_id),
+                message=getattr(message, 'message', '') or '',
+                entities=getattr(message, 'entities', None) or None,
+                media=InputMediaUploadedPhoto(file=uploaded),
+            ))
+
+        await _retry_downscaled(edit, photo_bytes, filename)
     return True
 
 
