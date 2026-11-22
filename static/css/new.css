@@ -4417,13 +4417,14 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
   vertical-align: 0.1em;
 }
 
-/* After a finished game the open arrows nudge outward a few times: there is
-   more to play. Motion, not a ring: the nav clips overflow. */
-.new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button:not(.is-archive-locked) .ph {
+/* After a finished game, and while the «Сыграйте ещё один выпуск» hint points
+   here, the open arrows nudge outward a few times: there is more to play.
+   Motion, not a ring: the nav clips overflow. */
+.new-daily-game-header__nav:is(.is-calling, .is-hinted) a.new-daily-game-header__nav-button:not(.is-archive-locked) .ph {
   animation: new-daily-nav-nudge-next 0.9s ease-in-out 3;
 }
 
-.new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button:not(.is-archive-locked):first-child .ph {
+.new-daily-game-header__nav:is(.is-calling, .is-hinted) a.new-daily-game-header__nav-button:not(.is-archive-locked):first-child .ph {
   animation-name: new-daily-nav-nudge-prev;
 }
 
@@ -4436,7 +4437,7 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .new-daily-game-header__nav.is-calling a.new-daily-game-header__nav-button .ph { animation: none; }
+  .new-daily-game-header__nav:is(.is-calling, .is-hinted) a.new-daily-game-header__nav-button .ph { animation: none; }
 }
 
 .new-daily-game-header__nav-button:disabled {
@@ -13653,18 +13654,6 @@ button.new-word-salad__hint-btn:disabled {
   transform: rotate(45deg);
 }
 
-.new-daily-game-header__nav.is-hinted .new-daily-game-header__nav-button:not([disabled]) {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
-  animation: new-another-game-pulse 1.6s ease-in-out 3;
-}
-
-@keyframes new-another-game-pulse {
-  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .new-daily-game-header__nav.is-hinted .new-daily-game-header__nav-button:not([disabled]) { animation: none; }
-}
 
 .new-signup-prompt.is-visible {
   opacity: 1;
