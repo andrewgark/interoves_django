@@ -295,11 +295,6 @@ html.new-ui-dark .censorly__dock {
   color: var(--muted);
 }
 
-/* Result card uses [hidden]; global .new-raddle-result { display:block } must not win. */
-.censorly .new-raddle-result[hidden] {
-  display: none !important;
-}
-
 .censorly-tok {
   display: inline;
 }

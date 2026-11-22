@@ -1203,7 +1203,11 @@
       var overDock = dockTop > window.innerHeight / 2 && dockTop < window.innerHeight;
       if (overDock) visibleBottom = dockTop - 12;
       btn.style.bottom = overDock ? Math.round(window.innerHeight - visibleBottom) + 'px' : '';
-      btn.hidden = !state.won || target.getBoundingClientRect().top < visibleBottom - 48;
+      // Replay and random wins hide the result card, and the statistics
+      // load only with it: there would be nothing to scroll to.
+      var result = document.getElementById('censorly-result');
+      btn.hidden = !state.won || !result || result.hidden ||
+        target.getBoundingClientRect().top < visibleBottom - 48;
     }
     function schedule() {
       if (!frame) frame = window.requestAnimationFrame(update);

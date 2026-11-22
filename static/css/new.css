@@ -4357,6 +4357,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 .new-daily-game-header__nav-button {
+  position: relative;
   width: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
@@ -4397,10 +4398,6 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
   border-radius: 50%;
   background: var(--fresh);
   box-shadow: 0 0 0 2px var(--surface);
-}
-
-.new-daily-game-header__nav-button {
-  position: relative;
 }
 
 .new-daily-game-header__nav-button .new-fresh-dot {
@@ -9089,6 +9086,10 @@ html.is-age-gated .new-wrap {
   background: color-mix(in srgb, var(--text) 3%, var(--surface));
   text-align: center;
 }
+/* Censorly and the alphabet unhide the card after a win. */
+.new-raddle-result[hidden] {
+  display: none;
+}
 .new-raddle-result__head {
   display: flex;
   align-items: center;
@@ -9182,11 +9183,9 @@ html.is-age-gated .new-wrap {
   font-variant-numeric: tabular-nums;
 }
 .new-daily-results-layout { display: flex; flex-direction: column; align-items: stretch; gap: .8rem; }
-.new-daily-results-layout > .new-raddle-result,
 .new-daily-results-layout > .new-daily-finish { order: 1; }
 .new-daily-results-layout > .new-daily-statistics { order: 2; }
 .new-daily-results-layout > .new-daily-statistics { min-width: 0; }
-.new-daily-results-layout > .new-raddle-result { align-self: flex-end; margin-top: 0; }
 /* «Ваш результат» and «Оцените игру»: side by side on desktop, stacked on phones.
    The block shows only while it holds a visible result card. */
 .new-daily-finish { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: .8rem; margin-top: 1.25rem; }
@@ -9309,7 +9308,6 @@ html.is-age-gated .new-wrap {
   .new-daily-statistics__summary:not(.new-daily-statistics__summary--alphabet):not(.new-daily-statistics__summary--censorly) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); }
 }
 @media (max-width: 919px) {
-  .new-daily-results-layout > .new-raddle-result { align-self: center; }
   .new-daily-finish,
   .new-daily-results-layout > .new-daily-finish { flex-direction: column; align-items: center; }
   .new-daily-statistics__body { grid-template-columns: 1fr; }
@@ -11035,9 +11033,6 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-alphabetty {
   min-width: 0;
 }
-.new-alphabetty .new-raddle-result[hidden] {
-  display: none !important;
-}
 
 /* Три ряда фиксированной высоты: инпут всегда в середине, списки растут к нему. */
 .new-alphabetty__layout {
@@ -11612,7 +11607,6 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   gap: 0.75rem;
 }
 
-.new-word-salad > .new-raddle-result,
 .new-word-salad > .new-daily-finish {
   margin-top: 0;
 }
