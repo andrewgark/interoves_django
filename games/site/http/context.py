@@ -239,9 +239,25 @@ def ui_section_games(request):
     elif url_name in ('ui_task_group', 'new_task_group') and game_id:
         nav_desyatochki_active = not is_root_section_game(game_id)
 
+    from django.utils.functional import SimpleLazyObject
+
+    def unfinished_daily_games():
+        from games.daily.fresh import unfinished_latest_game_ids
+        from games.ops.analytics.identity import gameplay_anon_key
+        user = getattr(request, 'user', None)
+        try:
+            if user is not None and user.is_authenticated:
+                return unfinished_latest_game_ids(user=user)
+            return unfinished_latest_game_ids(anon_key=gameplay_anon_key(request))
+        except Exception:
+            logger.exception('Daily nav dots failed')
+            return frozenset()
+
     return {
         'section_games': get_section_games(request),
         'daily_nav_sections': daily_nav_items(),
+        # Lazy: evaluated only where the nav shows the daily sections.
+        'daily_nav_fresh': SimpleLazyObject(unfinished_daily_games),
         'user_timezone': tz,
         'nav_desyatochki_active': nav_desyatochki_active,
     }

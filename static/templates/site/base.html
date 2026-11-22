@@ -133,8 +133,8 @@
       <div class="new-nav__sections" aria-label="Разделы">
         {% if show_sections_nav %}
           {% for item in daily_nav_sections %}
-          <a class="new-nav__section" href="{{ item.url }}" aria-label="{{ item.title }}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
-            <i class="ph ph-{{ item.ph_icon }} new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">{{ item.title }}</span>
+          <a class="new-nav__section" href="{{ item.url }}" data-nav-game="{{ item.id }}" aria-label="{{ item.title }}{% if item.id in daily_nav_fresh %}, новый выпуск ещё не решён{% endif %}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
+            <i class="ph ph-{{ item.ph_icon }} new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">{{ item.title }}</span>{% if item.id in daily_nav_fresh %}<span class="new-fresh-dot" aria-hidden="true"></span>{% endif %}
           </a>
           {% endfor %}
           <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>

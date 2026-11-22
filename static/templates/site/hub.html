@@ -110,6 +110,8 @@
         var row = data && data.rows && data.rows[num];
         if (!row || !row.is_fully_solved) return;
         cta.classList.add('new-hub-section__cta--solved');
+        var fresh = cta.querySelector('[data-hub-fresh-dot]');
+        if (fresh) fresh.remove();
         var rowEl = cta.closest('.new-hub-section__cta-row');
         var mark = rowEl && rowEl.querySelector('[data-hub-solved-mark]');
         if (mark) {

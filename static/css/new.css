@@ -1537,7 +1537,15 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-hub-section__cta {
+  position: relative;
   margin: 0;
+}
+
+/* Today's edition not finished yet: the blue dot in the button's corner. */
+.new-hub-section__cta .new-fresh-dot {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
 }
 
 .new-hub-section__ctas .new-hub-section__cta {
@@ -4399,6 +4407,12 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
   position: absolute;
   top: 0.3rem;
   right: 0.3rem;
+}
+
+.new-nav__section .new-fresh-dot {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.05rem;
 }
 
 .new-fresh-dot--inline {

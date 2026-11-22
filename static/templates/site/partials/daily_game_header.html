@@ -33,12 +33,23 @@
       </nav>
       <script>
       // After a finished game the open edition arrows nudge once: there is more to play.
+      // Finishing the newest edition also clears this game's dot in the site nav.
       (function () {
         var nav = document.currentScript && document.currentScript.previousElementSibling;
+        var newest = {% if next_task_group_url %}false{% else %}true{% endif %};
+        var gameId = '{{ game.id|escapejs }}';
         function start() {
           if (!nav || !window.interovesOnDailyResult) return;
-          if (!nav.querySelector('a.new-daily-game-header__nav-button:not(.is-archive-locked)')) return;
           window.interovesOnDailyResult(function () {
+            if (newest && gameId) {
+              document.querySelectorAll('.new-nav__section[data-nav-game="' + gameId + '"]').forEach(function (link) {
+                var dot = link.querySelector('.new-fresh-dot');
+                if (!dot) return;
+                dot.remove();
+                link.setAttribute('aria-label', (link.getAttribute('aria-label') || '').replace(', новый выпуск ещё не решён', ''));
+              });
+            }
+            if (!nav.querySelector('a.new-daily-game-header__nav-button:not(.is-archive-locked)')) return;
             window.setTimeout(function () {
               nav.classList.add('is-calling');
               window.setTimeout(function () { nav.classList.remove('is-calling'); }, 3000);

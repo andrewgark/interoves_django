@@ -63,4 +63,28 @@ class DailyFreshDotTests(TestCase):
     def test_no_dot_when_both_neighbours_are_finished(self):
         self._finish('1')
         self._finish('3')
-        self.assertNotIn('new-fresh-dot', self._page())
+        html = self._page()
+        header = re.search(r'<nav class="new-daily-game-header__nav".*?</nav>', html, re.S).group(0)
+        pager = re.search(r'<nav class="new-tg-pager".*?</nav>', html, re.S).group(0)
+
+        self.assertNotIn('new-fresh-dot', header)
+        self.assertNotIn('new-fresh-dot', pager)
+
+    def _nav_link(self, html, game_id):
+        return re.search(
+            r'<a class="new-nav__section"[^>]*data-nav-game="{}".*?</a>'.format(game_id), html, re.S,
+        ).group(0)
+
+    def test_nav_and_hub_mark_an_unfinished_newest_edition(self):
+        self._finish('1')
+        html = self.client.get('/').content.decode()
+
+        self.assertIn('new-fresh-dot', self._nav_link(html, 'censorly'))
+        self.assertIn('новый выпуск ещё не решён', self._nav_link(html, 'censorly'))
+        self.assertIn('data-hub-fresh-dot', html)
+
+    def test_nav_dot_clears_once_the_newest_edition_is_finished(self):
+        self._finish('3')
+        html = self.client.get('/').content.decode()
+
+        self.assertNotIn('new-fresh-dot', self._nav_link(html, 'censorly'))

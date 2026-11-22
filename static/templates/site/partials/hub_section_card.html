@@ -24,7 +24,7 @@
          data-hub-section-cta
          data-cta-number="{{ card.cta_number|default:'' }}"
          {% if card.load_task_group_progress and card.task_group_progress_url and not card.progress_embedded %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}{% if card.is_solved %} data-progress-embedded="1"{% endif %}>
-        {{ card.cta_label }}
+        {{ card.cta_label }}{% if card.id in daily_nav_fresh and not card.is_solved %}<span class="new-fresh-dot" data-hub-fresh-dot aria-hidden="true"></span>{% endif %}
       </a>
       <span class="new-hub-section__solved"{% if not card.is_solved %} hidden{% endif %} data-hub-solved-mark role="img" aria-label="Решено"{% if card.is_solved %} tabindex="0"{% endif %}>
         <i class="ph ph-check-circle" aria-hidden="true"></i>
