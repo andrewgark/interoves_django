@@ -59,6 +59,21 @@ class RecordClientEventsTests(SimpleTestCase):
         self.assertEqual(publish.call_args.kwargs['alert'], 'offline_play')
         self.assertIn('Карточка не собралась', publish.call_args.kwargs['payload']['text'])
 
+    @patch('games.ops.telegram.bot.alerts.publish_admin_alert')
+    def test_move_after_own_finish_is_counted_without_alert(self, publish, log, _anon):
+        telemetry.record_client_events(anon_request(), [
+            {'kind': 'queue_dropped', 'detail': {'task_id': 3, 'status': 409, 'error': 'replay_required'}},
+        ])
+        publish.assert_not_called()
+        now = datetime.now(dt_timezone.utc)
+        self.assertEqual(
+            telemetry.totals(now - timedelta(hours=1), now + timedelta(hours=1)), {'queue_after_finish': 1},
+        )
+        telemetry.record_client_events(anon_request(), [
+            {'kind': 'queue_dropped', 'detail': {'task_id': 3, 'status': 409, 'error': 'context_mismatch'}},
+        ])
+        self.assertEqual(publish.call_count, 1)
+
 
 class CountersTests(SimpleTestCase):
     def setUp(self):

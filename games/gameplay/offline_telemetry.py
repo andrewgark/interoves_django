@@ -40,6 +40,11 @@ CLIENT_KINDS = {
     'assemble_failed': ('Карточка не собралась из кусочков', True),
     'restore_failed': ('Прогресс не восстановился при открытии без сети', True),
     'queue_dropped': ('Офлайн-ход отклонён навсегда (другой аккаунт или игра)', True),
+    # A queued move that reached the server after the official game was
+    # already complete (replay_required). The completion needs every word, so
+    # such a move is a wrong guess or a repeat and loses nothing: counted, not
+    # alerted. Pages report it as queue_dropped; see _reclassify.
+    'queue_after_finish': ('Офлайн-ход пришёл после завершения игры', False),
     # 403 to a queued move: the page's CSRF token is stale; sent after a reload.
     'queue_blocked': ('Офлайн-ходы ждут обновления страницы (устаревший CSRF)', False),
 }
@@ -149,6 +154,12 @@ def _alert(kind, actor_key, detail, path):
     )
 
 
+def _reclassify(kind, detail):
+    if kind == 'queue_dropped' and detail.get('error') == 'replay_required':
+        return 'queue_after_finish'
+    return kind
+
+
 def record_client_events(request, events):
     """Count, log and, for bug kinds, alert the events a page reported.
 
@@ -162,8 +173,8 @@ def record_client_events(request, events):
     for event in events[:MAX_EVENTS_PER_REPORT]:
         if not isinstance(event, dict) or event.get('kind') not in CLIENT_KINDS:
             continue
-        kind = event['kind']
         detail = sanitize_detail(event.get('detail'))
+        kind = _reclassify(event['kind'], detail)
         try:
             n = max(1, min(int(detail.get('count') or 1), MAX_COUNT_PER_EVENT))
         except (TypeError, ValueError):
