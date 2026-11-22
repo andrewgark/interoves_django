@@ -253,6 +253,10 @@
     var visibleSince = visibilityOf(doc) === 'visible' ? createdAt : null;
     var everRunning = false;
     var lastFailure = null;
+    // When the server last answered this page with any HTTP status (the page
+    // load counts). A report long after it describes a lost connection, not
+    // a timer bug: the report itself only gets through once the link is back.
+    var lastServerAnswerAt = createdAt;
     var reportsSent = {};
     var watchdogTimer = null;
     var watchdogDueAt = 0;
@@ -587,6 +591,7 @@
       var answered = fetchFn(url, init).then(function (res) {
         if (!res || !res.json) return { data: null, status: 0, retryable: false };
         var responseStatus = Number(res.status) || 0;
+        if (responseStatus) lastServerAnswerAt = Date.now();
         var responseRetryAfterMs = res.headers && res.headers.get
           ? parseRetryAfter(res.headers.get('Retry-After'), Date.now())
           : 0;
@@ -1135,6 +1140,7 @@
         last_network: lastFailure ? lastFailure.network : null,
         last_error_name: lastFailure ? lastFailure.errorName : null,
         last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
+        last_ok_age_s: Math.round((Date.now() - lastServerAnswerAt) / 1000),
         start_failures: startFailures,
         request_timeout_s: Math.round(requestTimeoutMs() / 1000),
         failed_start_rounds: failedStartRounds,
@@ -1497,6 +1503,7 @@
         }, REQUEST_TIMEOUT_MS);
       }
       fetchFn(getUrl, init).then(function (res) {
+        if (res && Number(res.status)) lastServerAnswerAt = Date.now();
         // An error body (403 club_required, 503 busy, ...) is not a timing
         // snapshot: applying it would e.g. flip `exists` to true.
         if (!res || !res.json || res.ok === false) return null;

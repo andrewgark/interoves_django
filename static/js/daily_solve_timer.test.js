@@ -1807,11 +1807,61 @@ asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
     assert.strictEqual(report.details.last_error, 'club_required');
     assert.strictEqual(report.details.start_attempts, 12);
     assert.strictEqual(report.details.failed_start_rounds, 2);
+    // A 403 is an answer: the connection worked.
+    assert.ok(report.details.last_ok_age_s < 5);
     assert.strictEqual(reports[0].init.keepalive, true);
     assert.strictEqual(reports[0].init.headers['X-CSRFToken'], 'csrf');
     ctrl.destroy();
   } finally {
     global.setTimeout = oldSetTimeout;
+  }
+});
+
+asyncTest(async function testStartFailureReportTellsHowLongTheServerWasSilent() {
+  // iOS Brave, 2026-11-21: the phone lost its connection for 3.5 min. Every
+  // start failed with TypeError and the report arrived once the link was
+  // back, so it has to say how long nothing had answered.
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 7000000;
+  var retries = [];
+  var recoveries = [];
+  var reports = [];
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    (delay < timer.HEARTBEAT_MS ? retries : recoveries).push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      now += 10000;
+      return Promise.reject(new TypeError('Load failed'));
+    });
+    ctrl.startIfAllowed();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    recoveries.shift()();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].details.last_network, true);
+    assert.strictEqual(reports[0].details.last_error_name, 'TypeError');
+    assert.ok(reports[0].details.last_ok_age_s >= 90, reports[0].details.last_ok_age_s);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+    Date.now = oldNow;
   }
 });
 

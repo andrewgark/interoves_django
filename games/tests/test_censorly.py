@@ -3727,6 +3727,48 @@ class CensorlyUxDailyTests(TestCase):
         self.assertNotIn('must not be kept', logged[0])
         self.assertFalse(DailySolveTiming.objects.filter(user=self.staff).exists())
 
+    def test_timer_client_report_after_network_outage_is_logged_not_alerted(self):
+        from unittest.mock import patch
+
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.force_login(self.staff)
+
+        def report(last_ok_age_s):
+            return json.dumps({
+                'action': 'client_report',
+                'reason': 'start_failed',
+                'details': {
+                    'last_network': True,
+                    'last_error_name': 'TypeError',
+                    'last_ok_age_s': last_ok_age_s,
+                },
+            })
+
+        with patch(
+            'games.ops.telegram.bot.alerts.publish_admin_alert',
+            return_value=True,
+        ) as publish, self.assertLogs('interoves.auth', level='INFO') as logs:
+            outage = self.client.post(
+                '/censorly/999/timing/', data=report(210),
+                content_type='application/json',
+            )
+            # The server answered recently: a timer problem, not an outage.
+            recent = self.client.post(
+                '/censorly/998/timing/', data=report(20),
+                content_type='application/json',
+            )
+
+        self.assertEqual(outage.status_code, 200, outage.content)
+        self.assertEqual(recent.status_code, 200, recent.content)
+        self.assertEqual(publish.call_count, 1)
+        self.assertIn('/censorly/998/', publish.call_args.kwargs['payload']['text'])
+        logged = [line for line in logs.output if 'daily_timer_client_report' in line]
+        self.assertEqual(len(logged), 2)
+        self.assertIn('"network_outage":true', logged[0])
+        self.assertIn('"last_ok_age_s":210', logged[0])
+
     def test_timer_client_report_rejects_unknown_reason(self):
         response = self.client.post(
             '/censorly/1/timing/',
