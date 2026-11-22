@@ -188,7 +188,7 @@
         ? 'Слово из названия статьи'
         : 'Слово, близкое к слову из названия статьи';
       mask.dataset.lockLabel = lockTip;
-      mask.setAttribute('data-tooltip', lockTip + ' · ' + lengthLabel);
+      mask.setAttribute('data-tooltip', lockTip + ', ' + lengthLabel);
       mask.setAttribute('tabindex', '0');
       mask.setAttribute('aria-label', lockTip + ', ' + lengthLabel);
       mask.classList.add(tok.title_lemma ? 'censorly-tok--title-lock' : 'censorly-tok--related-lock');
@@ -1377,7 +1377,7 @@
       if (submit) submit.disabled = true;
       if (hintBtn) hintBtn.disabled = true;
       document.title = state.wiki_title
-        ? ('Цензурка · ' + state.wiki_title)
+        ? ('Цензурка: ' + state.wiki_title)
         : document.title;
       if (typeof window.revealReplayControl === 'function') {
         window.revealReplayControl();

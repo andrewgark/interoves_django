@@ -59,7 +59,7 @@ def _page_title_and_description(path):
     if path == '/':
         return HUB_TITLE, HUB_DESCRIPTION
     if path == '/games/':
-        return 'Десяточки · {}'.format(SITE_TITLE), 'Командные сложные игры, в которых можно пользоваться интернетом.'
+        return 'Десяточки — {}'.format(SITE_TITLE), 'Командные сложные игры, в которых можно пользоваться интернетом.'
     parts = [part for part in path.split('/') if part]
     game_id = parts[0] if parts else ''
     meta = SECTION_HUB_META.get(game_id)
@@ -69,12 +69,12 @@ def _page_title_and_description(path):
     if meta.get('soon_text'):
         description += ' ' + meta['soon_text']
     if len(parts) == 1:
-        return '{} · {}'.format(meta['title'], SITE_TITLE), description
+        return '{} — {}'.format(meta['title'], SITE_TITLE), description
     name = ONBOARDING_GAME_META.get(game_id, {}).get('title') or meta.get('pager_label') or meta['title']
     edition = parts[1]
     if _EDITION_RE.match(edition) and game_id in NUMBERED_EDITION_GAME_IDS:
-        return '{} №{} · {}'.format(name, edition, SITE_TITLE), description
-    return '{} · {}'.format(name, SITE_TITLE), description
+        return '{} №{} — {}'.format(name, edition, SITE_TITLE), description
+    return '{} — {}'.format(name, SITE_TITLE), description
 
 
 def player_description(stats):
@@ -84,13 +84,13 @@ def player_description(stats):
     parts = ['{} {}'.format(stats.total_played, ru_plural(stats.total_played, 'игра,игры,игр'))]
     if stats.best_day_streak > 1:
         parts.append('серия {} {}'.format(stats.best_day_streak, ru_plural(stats.best_day_streak, 'день,дня,дней')))
-    return '{} · {}'.format(' · '.join(parts), games)
+    return '{}. {}'.format(', '.join(parts), games)
 
 
 def team_description(members_count, stats):
-    text = 'Команда Inter Oves · {} {}'.format(
+    text = 'Команда Inter Oves, {} {}'.format(
         members_count, ru_plural(members_count, 'участник,участника,участников'),
     )
     if stats is not None and stats.has_any:
-        text += ' · {} {}'.format(stats.total_played, ru_plural(stats.total_played, 'игра,игры,игр'))
+        text += ', {} {}'.format(stats.total_played, ru_plural(stats.total_played, 'игра,игры,игр'))
     return text

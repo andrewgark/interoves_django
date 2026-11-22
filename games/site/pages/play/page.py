@@ -537,7 +537,7 @@ def task_group_page(
                 draft_offer.accepted_link.number,
             )
         else:
-            page_title = '{} · {}'.format(
+            page_title = '{}: {}'.format(
                 game.outside_name or game.name,
                 placement.name or 'предложение',
             )

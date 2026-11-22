@@ -1,6 +1,6 @@
 {# Streak rule: games.daily.timing.streak (36 hours, 84 for a Club member at the time of the solve). #}
 {% if status %}
-  {% if status == 'late' %}{% firstof 'Решено позже, чем засчитывается в серию (36 часов, в Клубе — 84)' as flame_label %}{% elif status == 'streak' %}{% firstof 'Решено вовремя · текущая серия' as flame_label %}{% else %}{% firstof 'Решено вовремя для серии' as flame_label %}{% endif %}
+  {% if status == 'late' %}{% firstof 'Решено позже, чем засчитывается в серию (36 часов, в Клубе — 84)' as flame_label %}{% elif status == 'streak' %}{% firstof 'Решено вовремя, серия продолжается' as flame_label %}{% else %}{% firstof 'Решено вовремя для серии' as flame_label %}{% endif %}
   <span class="daily-solve-flame daily-solve-flame--{{ status }}"
         data-tooltip="{{ flame_label }}"
         role="img"

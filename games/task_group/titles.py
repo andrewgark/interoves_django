@@ -6,10 +6,6 @@ import re
 from django.utils.html import strip_tags
 
 NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad', 'censorly'})
-_RUSSIAN_MONTHS_GENITIVE = (
-    '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-)
 
 
 def _plain_text(value) -> str:
@@ -27,22 +23,11 @@ def raddle_share_title(game, task_group_number, task_number) -> str:
     return 'Лесенка {}.{}'.format(group_number, task_number)
 
 
-def task_group_page_title(game, placement, *, include_date=False) -> str:
+def task_group_page_title(game, placement) -> str:
     game_title = game.outside_name or game.name or game.pk
     if str(game.pk) in NUMBERED_EDITION_GAME_IDS:
-        title = '{} №{}'.format(game_title, placement.number)
-        if include_date:
-            from games.daily.page.section import MOSCOW, publish_at_for
-            published_at = publish_at_for(game, placement.number)
-            if published_at is not None:
-                published_date = published_at.astimezone(MOSCOW).date()
-                title += ' {} · {} {} {}'.format(
-                    game_title, published_date.day,
-                    _RUSSIAN_MONTHS_GENITIVE[published_date.month],
-                    published_date.year,
-                )
-        return title
-    return '{} · {}'.format(game_title, placement.name)
+        return '{} №{}'.format(game_title, placement.number)
+    return '{}: {}'.format(game_title, placement.name)
 
 
 def daily_edition_title(game, placement, play_number) -> str:

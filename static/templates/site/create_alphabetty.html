@@ -134,7 +134,7 @@
           '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
             ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
           '<div class="support-ladder-item__meta">' + escapeHtml(date) +
-            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            (o.admin_note ? ' — <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
             '</div>' +
           '<div class="support-ladder-item__preview">' + escapeHtml(o.comment || '') + '</div>' +
         '</div>' +
@@ -237,7 +237,7 @@
     if (offer.status_label && offer.status_label !== 'Черновик') subParts.push(offer.status_label);
     if (offer.admin_note) subParts.push(offer.admin_note);
     var subEl = document.getElementById('offer-edit-sub');
-    subEl.textContent = subParts.join(' · ');
+    subEl.textContent = subParts.join(', ');
     subEl.hidden = !subParts.length;
     document.getElementById('offer-edit-word').value = offer.word || '';
     document.getElementById('offer-edit-comment').value = offer.comment || '';

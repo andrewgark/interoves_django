@@ -239,7 +239,7 @@ class LadderOfferFlowTests(TestCase):
         c = Client()
         resp = c.get('/ladder/{}/'.format(offer.share_hash))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'data-task-label="Лесенка · Анна"')
+        self.assertContains(resp, 'data-task-label="Лесенка: Анна"')
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
@@ -251,7 +251,7 @@ class LadderOfferFlowTests(TestCase):
         c = Client()
         resp = c.get('/ladder/6824270918737837/')
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'data-task-label="Лесенка · Анна"')
+        self.assertContains(resp, 'data-task-label="Лесенка: Анна"')
         missing = c.get('/ladder/6824270918737838/')
         self.assertEqual(missing.status_code, 404)
 

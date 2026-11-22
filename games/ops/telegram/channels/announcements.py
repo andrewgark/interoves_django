@@ -103,7 +103,7 @@ def format_game_start_announcement(game) -> str:
         copy_conditions = game_conditions_copy_url(game)
         if copy_conditions:
             links.append(_link('Скопировать условия', copy_conditions))
-    lines.extend(['', ' · '.join(links)])
+    lines.extend(['', *links])
     return _join_lines(lines)
 
 

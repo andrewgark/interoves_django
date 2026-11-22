@@ -35,7 +35,7 @@
           <div class="new-game-schedule">
             {% timezone user_timezone %}
               <time class="new-game-schedule__when" datetime="{{ game.get_visible_start_time|date:'c' }}">
-                {{ game.get_visible_start_time|date:'d E Y' }} · {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+                {{ game.get_visible_start_time|date:'d E Y' }}, {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
               </time>
             {% endtimezone %}
           </div>

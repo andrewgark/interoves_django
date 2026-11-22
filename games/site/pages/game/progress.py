@@ -173,7 +173,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
             'results_url': _task_group_results_url(game, p.number, project_base=project_base),
             'is_fully_solved': False,
             'row_class': '',
-            'title': '{} · {}'.format(p.number, p.name),
+            'title': '{}. {}'.format(p.number, p.name),
             'progress_text': None,
             'difficulty': difficulties.get(p.pk),
             'like_totals': like_totals.get(p.task_group_id),

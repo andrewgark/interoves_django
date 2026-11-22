@@ -120,7 +120,7 @@ class AuthorWorkTests(TestCase):
         })
         self.assertIn('id="author"', html)
         self.assertIn('href="/ladder/7/"', html)
-        self.assertIn('Десяточки · 13', html)
+        self.assertIn('Десяточки: 13', html)
         self.assertIn('Ещё 3', html)
         self.assertNotIn('/games/des92/', html)
 

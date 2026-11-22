@@ -9,7 +9,7 @@
     {% else %}
       {{ game.get_outside_name|default:game.outside_name|default:game.name }}
     {% endif %}
-    · {% autoescape off %}{{ tg_name }}{% endautoescape %}
+    : {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
 {% block body_attrs %}{% if ladder_tutorial %}data-disable-track="1" {% endif %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}

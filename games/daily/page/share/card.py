@@ -190,13 +190,13 @@ def build_headline(
         return title
     clock = format_elapsed_compact(elapsed_seconds)
     if style == HEADLINE_COMPACT:
-        return '{} · {}'.format(title, clock)
+        return '{}, {}'.format(title, clock)
     verb = _SOLVED_VERB[kind][loc]
     return '{} {} {}'.format(title, verb, clock)
 
 
 def build_stats_line(parts: Iterable[str | None]) -> str:
-    return ' · '.join(part for part in parts if part)
+    return ', '.join(part for part in parts if part)
 
 
 def ladder_result_path(game, number, task=None) -> str:
@@ -260,7 +260,7 @@ def _base_payload(
         if elapsed_seconds is not None:
             clock = format_elapsed_compact(elapsed_seconds)
             if headline_style == HEADLINE_COMPACT:
-                headline = '{} · {}'.format(title, clock)
+                headline = '{}, {}'.format(title, clock)
             else:
                 headline = '{} {} {}'.format(title, _SOLVED_VERB[kind][loc], clock)
         else:

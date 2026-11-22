@@ -317,18 +317,18 @@ class WordSaladSectionTests(TestCase):
         rows = _ladder_task_group_rows(
             [link], game, item_label='Салатик',
         )
-        self.assertEqual(rows[0]['salad_meta'], 'Города России · 6 слов')
+        self.assertEqual(rows[0]['salad_meta'], 'Города России, 6 слов')
         html = render_to_string(
             'site/_task_group_rows.html',
             {'task_group_rows': rows, 'game': game},
         )
-        self.assertIn('Города России · 6 слов', html)
+        self.assertIn('Города России, 6 слов', html)
 
         self._ensure_login_modal_deps()
         resp = self.client.get('/salad/')
         self.assertEqual(resp.status_code, 200)
         page = resp.content.decode('utf-8')
-        self.assertIn('Города России · 6 слов', page)
+        self.assertIn('Города России, 6 слов', page)
         self.assertIn(
             'Сетка 4×4: найдите все слова на одну тему, проводя дорожки по соседним буквам',
             page,
@@ -347,7 +347,7 @@ class WordSaladSectionTests(TestCase):
                     'number': '1',
                     'play_url': '/salad/1/',
                     'title': 'Салатик №1',
-                    'salad_meta': 'Города России · 6 слов',
+                    'salad_meta': 'Города России, 6 слов',
                     'result_squares': '🟩2️⃣',
                     'elapsed_label': '3м 46с',
                     'is_fully_solved': True,
@@ -355,7 +355,7 @@ class WordSaladSectionTests(TestCase):
                 }],
             },
         )
-        self.assertIn('Города России · 6 слов', html)
+        self.assertIn('Города России, 6 слов', html)
         self.assertIn('🟩2️⃣', html)
         self.assertIn('⏱️ 3м 46с', html)
 

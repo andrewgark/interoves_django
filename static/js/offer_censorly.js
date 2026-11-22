@@ -94,7 +94,7 @@
       return '<div class="support-ladder-item"><div class="support-ladder-item__num">' + number + '</div>' +
         '<div class="support-ladder-item__body"><div class="support-ladder-item__title">' + esc(offer.wiki_title) +
         ' <span class="support-flag">' + esc(offer.status_label) + '</span></div><div class="support-ladder-item__meta">' +
-        esc(offer.created_at || '') + (offer.admin_note ? ' · ' + esc(offer.admin_note) : '') + '</div>' +
+        esc(offer.created_at || '') + (offer.admin_note ? ' — ' + esc(offer.admin_note) : '') + '</div>' +
         (offer.comment ? '<div class="support-ladder-item__preview">' + esc(offer.comment) + '</div>' : '') + '</div>' +
         '<div class="support-ladder-item__actions"><a class="new-btn new-btn--mini new-btn--ghost" href="' + esc(offer.play_url) + '" target="_blank" rel="noopener">Решить</a></div></div>';
     }).join('') : '<p class="support-empty">Пока нет предложений. Выберите статью выше.</p>';

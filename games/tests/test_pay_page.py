@@ -380,7 +380,7 @@ class HubPayCtaTests(TestCase):
         body = resp.content.decode()
         self.assertContains(resp, '<h1 class="new-heading new-heading--page">О нас</h1>', html=True)
         self.assertEqual(body.count('<h1'), 1)
-        self.assertIn('<title>О нас · Interoves</title>', body)
+        self.assertIn('<title>О нас — Interoves</title>', body)
         self.assertIn('name="description" content="Inter Oves — клуб сложных головоломок, где интернет разрешён.', body)
         self.assertIn('<link rel="canonical" href="https://interoves.com/about/">', body)
         self.assertIn('Inter Oves Locum Praesta — клуб сложных головоломок.', body)

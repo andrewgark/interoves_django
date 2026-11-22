@@ -396,7 +396,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         ),
         'back_url': '{}/games/{}/'.format(base, game.id),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
+        'page_title': '{}: {}'.format(game.outside_name or game.name, placement.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),

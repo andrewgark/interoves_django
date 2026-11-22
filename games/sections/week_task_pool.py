@@ -42,7 +42,7 @@ class WeekUnit:
     def display_name(self) -> str:
         base = (self.source_gtg_name or self.source_tg_label or 'Задание').strip()
         if self.major is not None:
-            return f'{base} · {self.major}'[:100]
+            return f'{base}, {self.major}'[:100]
         return base[:100]
 
 

@@ -312,7 +312,7 @@
           price.textContent = formatAmount(
             Number(radio.getAttribute('data-unit-price')),
             radio.getAttribute('data-currency') || 'RUB'
-          ) + (radio.value === 'tribute_card' ? ' · 1 покупка = 1 билет' : ' за билет');
+          ) + (radio.value === 'tribute_card' ? ', 1 покупка = 1 билет' : ' за билет');
         }
       });
       render();

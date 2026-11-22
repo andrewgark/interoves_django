@@ -49,7 +49,7 @@ stats_month_url (month JSON with GAME / MONTH placeholders), stats_owner_name.{%
         <div class="pgs-panel" id="pgs-panel-{{ game.game_id }}" {% if stats.games|length > 1 %}role="tabpanel" aria-labelledby="pgs-tab-{{ game.game_id }}"{% endif %} data-pgs-panel="{{ game.game_id }}"{% if not forloop.first %} hidden{% endif %}>
           <div class="pgs-grid{% if not game.has_month_view or not stats_month_url %} pgs-grid--single{% endif %}">
             <section class="new-card pgs-overall" aria-label="{{ game.name }}: за всё время">
-              <h3 class="pgs-card-title">{% if stats.games|length == 1 %}{{ game.name }} · {% endif %}За всё время</h3>
+              <h3 class="pgs-card-title">{% if stats.games|length == 1 %}{{ game.name }}: за всё время{% else %}За всё время{% endif %}</h3>
               <dl class="pgs-facts">
                 <div><dt>сыграно</dt><dd>{{ game.played }}</dd></div>
                 <div><dt>решено</dt><dd>{{ game.solved }}</dd></div>
@@ -60,7 +60,7 @@ stats_month_url (month JSON with GAME / MONTH placeholders), stats_owner_name.{%
               </dl>
               {% if game.duel %}
                 <div class="pgs-overall__duel">
-                  <p class="pgs-overall__duel-title">Вы и {{ stats_owner_name }} · {{ game.duel.common }} {{ game.duel.common|ru_plural:"общий выпуск,общих выпуска,общих выпусков" }}</p>
+                  <p class="pgs-overall__duel-title">Вы и {{ stats_owner_name }}: {{ game.duel.common }} {{ game.duel.common|ru_plural:"общий выпуск,общих выпуска,общих выпусков" }}</p>
                   <div class="pgs-duel pgs-duel--rows">
                     <span class="pgs-duel__item pgs-duel__item--win"><b>{{ game.duel.wins_pct }}%</b><small>вы впереди</small></span>
                     <span class="pgs-duel__item pgs-duel__item--tie"><b>{{ game.duel.ties_pct }}%</b><small>поровну</small></span>

@@ -183,7 +183,7 @@ class WeekTaskPoolSplitTests(TestCase):
         self.assertEqual(units[1].task_numbers, ('2',))
         self.assertEqual(units[2].major, '3')
         self.assertEqual(units[2].task_numbers, ('3.1', '3.2'))
-        self.assertEqual(units[0].display_name(), 'Последовательности · 1')
+        self.assertEqual(units[0].display_name(), 'Последовательности, 1')
 
     def test_proportions_split(self):
         gtg = _add_circle(

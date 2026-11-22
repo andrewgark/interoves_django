@@ -274,7 +274,7 @@
     if (metric === 'time' && releases.some(function (r) { return r.p && !r.p.solved; })) parts.push('× — не решено');
     if (releases.some(function (r) { return r.author; })) parts.push('✎ — автор выпуска');
     if (releases.some(function (r) { return r.pre; })) parts.push('т — играл до публикации');
-    note.textContent = parts.join(' · ');
+    note.textContent = parts.join(', ');
     note.hidden = !parts.length;
   }
 
@@ -345,7 +345,7 @@
     if (!body) return;
     var metric = state.metric;
     var table = html('table', 'pgs-table__grid');
-    var caption = html('caption', '', METRICS[metric].label + ' · ' + state.data.month_label);
+    var caption = html('caption', '', METRICS[metric].label + ', ' + state.data.month_label);
     table.appendChild(caption);
     var head = html('tr');
     ['Выпуск', 'Дата', state.ownerLabel, 'Медиана'].concat(state.hasViewer ? ['Вы'] : []).forEach(function (label) {
@@ -521,7 +521,7 @@
     var select = card.querySelector('[data-pgs-month]');
     select.textContent = '';
     data.months.forEach(function (month) {
-      var option = html('option', '', month.label + (month.played ? ' · ' + month.played : ''));
+      var option = html('option', '', month.label + (month.played ? ' (' + month.played + ')' : ''));
       option.value = month.key;
       option.selected = month.key === data.month;
       select.appendChild(option);

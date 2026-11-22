@@ -389,7 +389,7 @@
         pauseBtn.setAttribute('aria-label', stopped ? 'Продолжить (Esc)' : 'Пауза (Esc)');
       }
       if (pauseIcon) pauseIcon.className = stopped ? 'ph ph-play' : 'ph ph-pause';
-      if (pauseTip) pauseTip.textContent = stopped ? 'Продолжить · Esc' : 'Пауза · Esc';
+      if (pauseTip) pauseTip.textContent = stopped ? 'Продолжить (Esc)' : 'Пауза (Esc)';
       if (rootEl) {
         rootEl.hidden = completed;
         rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));

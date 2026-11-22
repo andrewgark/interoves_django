@@ -3,10 +3,10 @@
 {% block content %}
 <h1 class="new-heading new-heading--page">Обращение</h1>
 <p class="new-feedback-detail-meta">
-  <strong>{{ report.game.get_no_html_name }}</strong>
-  · задание {{ report.task.number }}
-  · {{ report.time|date:"d.m.Y H:i" }}
-  · <span class="new-pill {{ report.status_pill_class }}">{{ status_label }}</span>
+  <strong>{{ report.game.get_no_html_name }}</strong>,
+  задание {{ report.task.number }},
+  {{ report.time|date:"d.m.Y H:i" }}
+  <span class="new-pill {{ report.status_pill_class }}">{{ status_label }}</span>
 </p>
 {% if task_url %}
   <p class="new-login-hint new-login-hint--flush-top"><a class="new-link-dotted" href="{{ task_url }}">Открыть задание</a></p>
@@ -16,8 +16,8 @@
   {% for msg in thread %}
     <li class="new-feedback-msg new-feedback-msg--{{ msg.author_role }}">
       <div class="new-feedback-msg__meta">
-        {% if msg.author_role == 'admin' %}Андрей{% else %}Вы{% endif %}
-        · {{ msg.created_at|date:"d.m.Y H:i" }}
+        {% if msg.author_role == 'admin' %}Андрей{% else %}Вы{% endif %},
+        {{ msg.created_at|date:"d.m.Y H:i" }}
       </div>
       <p class="new-feedback-msg__text">{{ msg.text }}</p>
     </li>

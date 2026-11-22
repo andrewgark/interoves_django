@@ -29,7 +29,7 @@ def format_friend_request_notice(sender_profile) -> str:
         '',
         'Друзей видно отдельным фильтром в таблицах результатов.',
         '',
-        '<a href="{}">Кто это</a> · <a href="{}">Ответить на заявку</a>'.format(page, friends_page),
+        '<a href="{}">Кто это</a>, <a href="{}">ответить на заявку</a>'.format(page, friends_page),
     ])
 
 

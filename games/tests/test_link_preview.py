@@ -15,18 +15,18 @@ class PageOgTests(SimpleTestCase):
 
     def test_daily_archive_uses_plural_name(self):
         og = self.og('/ladder/')
-        self.assertEqual(og['title'], 'Лесенки · Inter Oves')
+        self.assertEqual(og['title'], 'Лесенки — Inter Oves')
         self.assertIn('цепочку слов', og['description'])
         self.assertIn('каждый день', og['description'])
 
     def test_numbered_edition_is_named_not_described(self):
-        self.assertEqual(self.og('/salad/123/')['title'], 'Салатик №123 · Inter Oves')
-        self.assertEqual(self.og('/censorly/45/')['title'], 'Цензурка №45 · Inter Oves')
+        self.assertEqual(self.og('/salad/123/')['title'], 'Салатик №123 — Inter Oves')
+        self.assertEqual(self.og('/censorly/45/')['title'], 'Цензурка №45 — Inter Oves')
 
     def test_entry_and_share_links_use_singular_name(self):
-        self.assertEqual(self.og('/alphabetty/first/')['title'], 'Алфавитка · Inter Oves')
-        self.assertEqual(self.og('/censorly/r/abc123/')['title'], 'Цензурка · Inter Oves')
-        self.assertEqual(self.og('/salad/0123456789abcdef/')['title'], 'Салатик · Inter Oves')
+        self.assertEqual(self.og('/alphabetty/first/')['title'], 'Алфавитка — Inter Oves')
+        self.assertEqual(self.og('/censorly/r/abc123/')['title'], 'Цензурка — Inter Oves')
+        self.assertEqual(self.og('/salad/0123456789abcdef/')['title'], 'Салатик — Inter Oves')
 
     def test_other_pages_fall_back_to_page_title(self):
         og = self.og('/profile/')
@@ -56,5 +56,5 @@ class BaseTemplateOgTests(TestCase):
         body = Client().get('/about/').content.decode()
         self.assertEqual(body.count('property="og:title"'), 1)
         self.assertEqual(body.count('name="description"'), 1)
-        self.assertIn('<meta property="og:title" content="О нас · Inter Oves">', body)
+        self.assertIn('<meta property="og:title" content="О нас — Inter Oves">', body)
         self.assertIn('og-1200x630.png', body)

@@ -179,7 +179,7 @@ class WordSaladTests(TestCase):
                 'words': ['КОСТРОМА', 'САМАРА'],
             }, ensure_ascii=False),
         )
-        self.assertEqual(archive_card_meta(task), 'Города России · 2 слова')
+        self.assertEqual(archive_card_meta(task), 'Города России, 2 слова')
         title_only = SimpleNamespace(
             theme='Салатик #3',
             checker_data=json.dumps({

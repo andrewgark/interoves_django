@@ -15,8 +15,8 @@
           {% if card.unread %}<span class="new-feedback-unread">новый ответ</span>{% endif %}
         </div>
         <p class="new-feedback-card__meta">
-          Задание {{ card.report.task.number }}
-          · {{ card.report.time|date:"d.m.Y H:i" }}
+          Задание {{ card.report.task.number }},
+          {{ card.report.time|date:"d.m.Y H:i" }}
         </p>
         <p class="new-feedback-card__preview">{{ card.preview }}</p>
       </a>

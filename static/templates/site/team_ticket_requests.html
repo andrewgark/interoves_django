@@ -2,10 +2,10 @@
 <ul class="new-list" id="team-ticket-requests-list">
 {% for ticket_request in ticket_requests_page %}
   <li>
-    {{ ticket_request.time|date:"d.m.Y H:i" }}
-    · {{ ticket_request.tickets }} шт.
-    · {{ ticket_request.money }} {{ ticket_request.currency|currency_symbol }}
-    · {{ ticket_request.status|payment_status_label }}
+    {{ ticket_request.time|date:"d.m.Y H:i" }},
+    {{ ticket_request.tickets }} шт.,
+    {{ ticket_request.money }} {{ ticket_request.currency|currency_symbol }},
+    {{ ticket_request.status|payment_status_label }}
   </li>
 {% endfor %}
 </ul>
@@ -13,8 +13,7 @@
 <div class="new-results-pager" id="team-ticket-requests-pager" role="navigation" aria-label="Страницы покупок билетов">
   <span class="new-results-pager__meta">
     {{ ticket_requests_page.start_index }}–{{ ticket_requests_page.end_index }} из {{ ticket_requests_total }}
-    <span class="new-results-pager__sep">·</span>
-    стр. {{ ticket_requests_page.number }}/{{ ticket_requests_paginator.num_pages }}
+    (стр. {{ ticket_requests_page.number }}/{{ ticket_requests_paginator.num_pages }})
   </span>
   <span class="new-results-pager__actions">
     {% if ticket_requests_page.has_previous %}

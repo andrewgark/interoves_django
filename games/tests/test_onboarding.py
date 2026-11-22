@@ -102,7 +102,7 @@ class OnboardingPageTests(TestCase):
         self.assertEqual(reverse('new_start'), '/start/')
 
         body = response.content.decode()
-        self.assertIn('<title>С чего начать · Interoves</title>', body)
+        self.assertIn('<title>С чего начать — Interoves</title>', body)
         self.assertIn('name="description" content="Начните знакомство', body)
         self.assertIn('<link rel="canonical" href="https://interoves.com/start/">', body)
         for game in ('salad', 'alphabetty', 'ladder', 'censorly'):

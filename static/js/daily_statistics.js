@@ -156,7 +156,7 @@
     var accessibleRows = rows.map(function (x) {
       var label = String(x.label == null ? x.attempts : x.label);
       var count = Number(x.count) || 0;
-      return '<li><span>' + esc(label) + '</span><span>' + esc(count + ' ' + playerWord(count) + ' · ' + percent(x.percent)) + '</span></li>';
+      return '<li><span>' + esc(label) + '</span><span>' + esc(count + ' ' + playerWord(count) + ' (' + percent(x.percent) + ')') + '</span></li>';
     }).join('');
     return '<div class="new-daily-statistics__histogram"><canvas data-attempts-chart role="img" aria-label="Распределение попыток"></canvas><div data-attempts-chart-fallback hidden></div><ul class="new-visually-hidden" data-attempts-chart-data>' + accessibleRows + '</ul></div>';
   }
@@ -181,7 +181,7 @@
       var width = Math.max(2, slot * .6);
       var y = bottom - height;
       var showLabel = index === 0 || index === rows.length - 1 || index % 5 === 0;
-      return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + width.toFixed(2) + '" height="' + height.toFixed(2) + '" rx="3" fill="' + esc(accent) + '"><title>' + esc(label + ': ' + count + ' ' + playerWord(count) + ' · ' + percent(item.percent)) + '</title></rect>' +
+      return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + width.toFixed(2) + '" height="' + height.toFixed(2) + '" rx="3" fill="' + esc(accent) + '"><title>' + esc(label + ': ' + count + ' ' + playerWord(count) + ' (' + percent(item.percent) + ')') + '</title></rect>' +
         (showLabel ? '<text x="' + (x + width / 2).toFixed(2) + '" y="210" text-anchor="middle" fill="' + esc(muted) + '">' + esc(label) + '</text>' : '');
     }).join('');
     fallback.innerHTML = '<svg viewBox="0 0 ' + chartWidth + ' ' + chartHeight + '" preserveAspectRatio="none" role="img" aria-label="Распределение попыток">' +
@@ -240,7 +240,7 @@
               label: function (context) {
                 var item = rows[context.dataIndex];
                 var count = Number(item.count) || 0;
-                return count + ' ' + playerWord(count) + ' · ' + percent(item.percent);
+                return count + ' ' + playerWord(count) + ' (' + percent(item.percent) + ')';
               }
             }
           }

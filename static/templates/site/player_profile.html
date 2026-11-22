@@ -16,7 +16,7 @@
         <p class="player-card__meta">
           {% if player_is_club %}<span class="player-card__badge"><i class="ph ph-crown" aria-hidden="true"></i> Резидент клуба</span>{% endif %}
           {% if player_since %}<span>С нами с {{ player_since|date:"E Y"|lower }}</span>{% endif %}
-          {% if player_friends_count %}<span>{{ player_friends_count }} {{ player_friends_count|ru_plural:"друг,друга,друзей" }}{% if player_mutual_friends_count %} · {{ player_mutual_friends_count }} {{ player_mutual_friends_count|ru_plural:"общий,общих,общих" }}{% endif %}</span>{% endif %}
+          {% if player_friends_count %}<span>{{ player_friends_count }} {{ player_friends_count|ru_plural:"друг,друга,друзей" }}{% if player_mutual_friends_count %}, {{ player_mutual_friends_count }} {{ player_mutual_friends_count|ru_plural:"общий,общих,общих" }}{% endif %}</span>{% endif %}
         </p>
       {% endif %}
     </div>

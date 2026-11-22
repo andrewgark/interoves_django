@@ -56,7 +56,7 @@
   function showNetworkError(message, response) {
     var requestId = response && response.headers && response.headers.get('X-Request-ID');
     var suffix = response && response.status ? ' (HTTP ' + response.status + ')' : '';
-    errorEl.textContent = message + suffix + (requestId ? ' · Код: ' + requestId : '');
+    errorEl.textContent = message + suffix + (requestId ? ' (код: ' + requestId + ')' : '');
     errorEl.hidden = false;
   }
 
@@ -77,7 +77,7 @@
     var openedByGuess = token.dataset.openedByGuess || '';
     if (openedAfterEl) {
       openedAfterEl.textContent = openedByGuess
-        ? ' · Было открыто после: «' + openedByGuess + '»' : '';
+        ? '. Было открыто после: «' + openedByGuess + '»' : '';
       openedAfterEl.hidden = !openedByGuess;
     }
     modal.querySelectorAll('input[name=censorly-word-report-reason]').forEach(function (input) {

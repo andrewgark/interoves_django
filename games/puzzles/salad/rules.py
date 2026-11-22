@@ -582,7 +582,7 @@ def theme_from_text(value):
 
 
 def archive_card_meta(task):
-    """Theme and word count for the public salad list, e.g. «Города России · 6 слов»."""
+    """Theme and word count for the public salad list, e.g. «Города России, 6 слов»."""
     try:
         _, words = parse_task_data(getattr(task, 'checker_data', None), '')
         n_words = len(words)
@@ -591,7 +591,7 @@ def archive_card_meta(task):
     theme = theme_from_text(getattr(task, 'theme', None))
     words_label = ru_count_label(n_words, 'слово', 'слова', 'слов') if n_words else ''
     if theme and words_label:
-        return '{} · {}'.format(theme, words_label)
+        return '{}, {}'.format(theme, words_label)
     return theme or words_label or None
 
 

@@ -155,8 +155,8 @@
           '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
             ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
           '<div class="support-ladder-item__meta">' + escapeHtml(date) +
-            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
-            ' · ' + o.word_count + ' сл.</div>' +
+            (o.admin_note ? ' — <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            ', ' + o.word_count + ' сл.</div>' +
           '<div class="support-ladder-item__preview">' + escapeHtml(o.words_preview || '') + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
@@ -447,7 +447,7 @@
     }
     if (offer.admin_note) subParts.push(offer.admin_note);
     var subEl = document.getElementById('offer-edit-sub');
-    subEl.textContent = subParts.join(' · ');
+    subEl.textContent = subParts.join(', ');
     subEl.hidden = !subParts.length;
     document.getElementById('offer-edit-intro').value = offer.intro || '';
     document.getElementById('offer-edit-author').value = offer.author || '';

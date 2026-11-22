@@ -371,7 +371,7 @@ function hotkeyTimer(doc, rootEl, extra) {
   assert.strictEqual(popover.hidden, true, 'pausing closes the time popover');
   assert.strictEqual(pauseBtn.hidden, false, 'the same button resumes');
   assert.strictEqual(pauseIcon.className, 'ph ph-play');
-  assert.strictEqual(pauseTip.textContent, 'Продолжить · Esc');
+  assert.strictEqual(pauseTip.textContent, 'Продолжить (Esc)');
   assert.strictEqual(toggleLabel.textContent, 'Продолжить');
   listeners.click();
   assert.strictEqual(ctrl.state().manually_paused, false);

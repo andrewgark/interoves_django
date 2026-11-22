@@ -183,7 +183,7 @@
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
             <div>
               <h3 id="new-sub-yookassa-title">ЮKassa</h3>
-              <p>Оплата российской картой · ₽</p>
+              <p>Оплата российской картой в ₽</p>
             </div>
             {% if not club_yookassa_enabled %}<span class="new-sub-provider__availability">Временно недоступна</span>{% elif preferred_provider == 'yookassa' %}<span class="new-sub-provider__badge">Рекомендуем</span>{% endif %}
           </header>
@@ -211,7 +211,7 @@
               <div class="new-sub-provider__plan-actions">
                 <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
                   {% csrf_token %}
-                  <button type="submit" class="new-btn">{{ monthly_cta_label }} · в месяц</button>
+                  <button type="submit" class="new-btn">{{ monthly_cta_label }} в месяц</button>
                 </form>
               </div>
             {% endif %}
@@ -223,7 +223,7 @@
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
             <div>
               <h3 id="new-sub-tribute-title">Tribute</h3>
-              <p>Оплата иностранной картой · €</p>
+              <p>Оплата иностранной картой в €</p>
             </div>
             {% if not club_checkout_enabled or not club_eur %}<span class="new-sub-provider__availability">Временно недоступна</span>{% elif preferred_provider == 'tribute' %}<span class="new-sub-provider__badge">Рекомендуем</span>{% endif %}
           </header>
@@ -271,7 +271,7 @@
         <span>{{ tribute_seller }}</span>
         <a href="{{ tribute_seller_url }}">Реквизиты</a>
       </p>
-      <p class="new-pay-order__meta">Inter Oves не получает и не хранит данные банковской карты. <a href="/privacy/" target="_blank">Политика конфиденциальности</a> · <a href="/refunds/" target="_blank">Возвраты</a></p>
+      <p class="new-pay-order__meta">Inter Oves не получает и не хранит данные банковской карты. <a href="/privacy/" target="_blank">Политика конфиденциальности</a>, <a href="/refunds/" target="_blank">Возвраты</a></p>
       <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
     </div>
   {% elif not approval_preview %}
@@ -338,7 +338,7 @@
               <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
               <div>
                 <h3>ЮKassa</h3>
-                <p>Оплата российской картой · ₽</p>
+                <p>Оплата российской картой в ₽</p>
               </div>
             </header>
             <div class="new-sub-provider__offers">
@@ -369,7 +369,7 @@
               <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
               <div>
                 <h3>Tribute</h3>
-                <p>Оплата иностранной картой · €</p>
+                <p>Оплата иностранной картой в €</p>
               </div>
             </header>
             <div class="new-sub-provider__offers">

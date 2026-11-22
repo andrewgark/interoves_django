@@ -6,7 +6,7 @@
   <h2 id="author-work-title" class="new-heading">Автор</h2>
   {% if author_work.daily %}
     <div class="new-card author-work__card">
-      <h3 class="pgs-card-title">Ежедневные игры · {{ author_work.daily_count }} {{ author_work.daily_count|ru_plural:"выпуск,выпуска,выпусков" }}</h3>
+      <h3 class="pgs-card-title">Ежедневные игры: {{ author_work.daily_count }} {{ author_work.daily_count|ru_plural:"выпуск,выпуска,выпусков" }}</h3>
       {% for game in author_work.daily %}
         <div class="author-work__group">
           <p class="author-work__game">{{ game.name }} <small>{{ game.items|length }}</small></p>
@@ -17,7 +17,7 @@
   {% endif %}
   {% if author_work.desyatochki %}
     <div class="new-card author-work__card">
-      <h3 class="pgs-card-title">Десяточки · {{ author_work.desyatochki|length }}</h3>
+      <h3 class="pgs-card-title">Десяточки: {{ author_work.desyatochki|length }}</h3>
       {% include "site/partials/author_work_list.html" with items=author_work.desyatochki %}
     </div>
   {% endif %}

@@ -8091,11 +8091,6 @@ a.new-btn.new-hub-next-game-vote__btn {
   min-width: 0;
 }
 
-.new-results-pager__sep {
-  opacity: 0.55;
-  margin: 0 0.15rem;
-}
-
 .new-results-pager__actions {
   display: inline-flex;
   flex-wrap: wrap;
