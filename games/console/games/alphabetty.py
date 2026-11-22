@@ -243,7 +243,12 @@ def reorder_alphabetty(
         .filter(game=game)
         .select_related('task_group')
     )
-    active = [link for link in existing if not link.is_deferred]
+    # Random games share the Game but carry a share hash instead of a day
+    # number; they are not schedule slots and the console never lists them.
+    active = [
+        link for link in existing
+        if not link.is_deferred and effective_schedule_number(link) is not None
+    ]
     by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise AlphabettySupportError(

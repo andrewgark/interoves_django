@@ -313,6 +313,30 @@ class AlphabettySupportTests(TestCase):
         with self.assertRaises(AlphabettySupportError):
             reorder_alphabetty(bad_order)
 
+    def test_reorder_ignores_random_games(self):
+        set_publish_start('2099-01-01')
+        generate_more(3)
+        from games.models import RandomAlphabettyGame
+
+        random_tg = TaskGroup.objects.create(label='alphabetty:random:слово')
+        RandomAlphabettyGame.objects.create(
+            word='СЛОВО', share_hash='61b25ff3b17b6669', task_group=random_tg,
+        )
+        random_link = GameTaskGroup.objects.create(
+            game=self.game,
+            task_group=random_tg,
+            number='61b25ff3b17b6669',
+            name='Случайная алфавитка #61b25ff3b17b6669',
+            share_hash='61b25ff3b17b6669',
+        )
+        ids = [r.link_id for r in list_alphabetty_rows()]
+        self.assertNotIn(random_link.pk, ids)
+        reorder_alphabetty(list(reversed(ids)))
+        self.assertEqual([r.link_id for r in list_alphabetty_rows()], list(reversed(ids)))
+        random_link.refresh_from_db()
+        self.assertEqual(random_link.number, '61b25ff3b17b6669')
+        self.assertEqual(random_link.name, 'Случайная алфавитка #61b25ff3b17b6669')
+
     def test_duplicate_word_rejected(self):
         generate_more(2)
         rows = list_alphabetty_rows()
