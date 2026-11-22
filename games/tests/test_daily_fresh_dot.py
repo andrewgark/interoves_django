@@ -6,7 +6,8 @@ from datetime import timedelta
 from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
-from django.test import Client, TestCase
+from django.template.loader import render_to_string
+from django.test import Client, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.models import GameTaskGroup, PlayerCompletedGame
@@ -107,3 +108,27 @@ class DailyFreshDotTests(TestCase):
                 app.sites.add(site)
         self.client.logout()
         self.assertNotIn('class="new-fresh-dot', self.client.get('/').content.decode())
+
+
+class DailyEditionNavPartialTests(SimpleTestCase):
+    """The date arrows are one partial for the game header and the results pages."""
+
+    def test_results_context_renders_plain_open_arrows(self):
+        html = render_to_string('site/partials/daily_edition_nav.html', {
+            'prev_task_group_url': '/ladder/1/results/',
+            'next_task_group_url': '/ladder/3/results/',
+        })
+
+        self.assertIn('href="/ladder/1/results/"', html)
+        self.assertIn('data-tooltip="Следующий выпуск"', html)
+        self.assertNotIn('new-fresh-dot', html)
+        self.assertNotIn('is-archive-locked', html)
+
+    def test_missing_neighbour_is_a_disabled_button(self):
+        html = render_to_string('site/partials/daily_edition_nav.html', {
+            'prev_task_group_url': '/ladder/1/',
+            'prev_task_group_unsolved': True,
+        })
+
+        self.assertIn('Предыдущий выпуск, ещё не решён', html)
+        self.assertRegex(html, r'<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая')

@@ -408,6 +408,7 @@
   })();
   </script>
   <script src="{% static "js/vote_stack.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script src="{% static "js/task_votes.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static "js/task_meta_fit.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static "js/daily_game_header_fit.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   {% if user.is_authenticated and unverified_telegram_handle %}

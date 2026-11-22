@@ -1,0 +1,10 @@
+{# «Ваш результат»: share lines with copy and share buttons, one card for every daily game. #}
+{# Optional: result_id (a card the page script fills, with result_id-share for the lines), #}
+{# result_hidden, share_card_json, share_template (server-rendered lines, one <div> each). #}
+<div class="new-raddle-result"{% if result_id %} id="{{ result_id }}"{% endif %} data-raddle-result{% if share_card_json %} data-share-card="{{ share_card_json|escape }}"{% endif %}{% if result_hidden %} hidden{% endif %}>
+  <div class="new-raddle-result__head">
+    <span class="new-raddle-result__label">Ваш результат</span>
+    {% include "site/partials/daily_share_actions.html" %}
+  </div>
+  <div class="new-raddle-result__share" data-raddle-share-text{% if result_id %} id="{{ result_id }}-share"{% endif %}>{% if share_template %}{% include share_template %}{% endif %}</div>
+</div>

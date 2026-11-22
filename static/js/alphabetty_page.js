@@ -716,7 +716,7 @@
     }
     elTaskMeta.setAttribute('data-solved', state.won ? '1' : '0');
     initAttemptsPopovers(elTaskMeta);
-    syncLikeButtons(elTaskMeta);
+    window.InterovesTaskVotes.sync(elTaskMeta);
   }
 
   function anchorForPop(pop) {
@@ -767,17 +767,13 @@
       });
     });
   }
-  function syncLikeButtons(scope) {
-    var root = scope || document;
-    root.querySelectorAll('[data-like-btn]').forEach(function (btn) {
-      btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
-    });
-    root.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
-      btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
-    });
-  }
   initAttemptsPopovers(elTaskMeta || document);
-  syncLikeButtons(elTaskMeta || document);
+  // ▲▼ votes on the task: static/js/task_votes.js.
+  window.InterovesTaskVotes.configure({
+    url: PAGE.likeDislikeUrl,
+    gameId: PAGE.gameId,
+    getAnonKey: function () { return anonKey || ''; },
+  });
   window.addEventListener('resize', function () {
     document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
       try {
@@ -787,113 +783,6 @@
       } catch (err) {}
     });
   });
-
-  function postLike(taskId, likesDelta, dislikesDelta) {
-    var body = new URLSearchParams();
-    body.set('likes', String(likesDelta));
-    body.set('dislikes', String(dislikesDelta));
-    body.set('game_id', PAGE.gameId);
-    body.set('anon_key', anonKey || '');
-    if (document.body.getAttribute('data-offer-share-hash')) {
-      body.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
-    }
-    var url = PAGE.likeDislikeUrl.replace('/0/', '/' + taskId + '/');
-    return fetch(url, {
-      method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': csrf(),
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      },
-      body: body.toString(),
-      credentials: 'same-origin',
-    }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    });
-  }
-  var likeRequestsInFlight = Object.create(null);
-  var likeStatusTimers = Object.create(null);
-  function setLikeBusy(taskId, busy) {
-    document.querySelectorAll(
-      '[data-like-btn][data-task-id="' + taskId + '"], ' +
-      '[data-dislike-btn][data-task-id="' + taskId + '"]'
-    ).forEach(function (btn) {
-      btn.disabled = busy;
-      if (busy) btn.setAttribute('aria-busy', 'true');
-      else btn.removeAttribute('aria-busy');
-    });
-  }
-  function clearLikeError(taskId) {
-    clearTimeout(likeStatusTimers[taskId]);
-    document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
-      status.hidden = true;
-      status.textContent = '';
-    });
-  }
-  function showLikeError(taskId) {
-    clearLikeError(taskId);
-    document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
-      status.textContent = 'Не удалось сохранить. Попробуйте ещё раз.';
-      status.hidden = false;
-    });
-    clearTimeout(likeStatusTimers[taskId]);
-    likeStatusTimers[taskId] = setTimeout(function () {
-      document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
-        status.hidden = true;
-      });
-    }, 5000);
-  }
-  function applyLikeUI(taskId, data) {
-    document.querySelectorAll('[data-like-count="' + taskId + '"]').forEach(function (count) {
-      if (typeof data.likes !== 'undefined') count.textContent = data.likes;
-    });
-    document.querySelectorAll('[data-dislike-count="' + taskId + '"]').forEach(function (count) {
-      if (typeof data.dislikes !== 'undefined') count.textContent = data.dislikes;
-    });
-    document.querySelectorAll('[data-like-btn][data-task-id="' + taskId + '"]').forEach(function (btn) {
-      if (typeof data.liked === 'undefined') return;
-      btn.setAttribute('data-liked', data.liked ? '1' : '0');
-      btn.classList.toggle('is-active', !!data.liked);
-    });
-    document.querySelectorAll('[data-dislike-btn][data-task-id="' + taskId + '"]').forEach(function (btn) {
-      if (typeof data.disliked === 'undefined') return;
-      btn.setAttribute('data-disliked', data.disliked ? '1' : '0');
-      btn.classList.toggle('is-active', !!data.disliked);
-    });
-    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
-  }
-  function submitLike(taskId, likesDelta, dislikesDelta) {
-    if (likeRequestsInFlight[taskId]) return;
-    likeRequestsInFlight[taskId] = true;
-    clearLikeError(taskId);
-    setLikeBusy(taskId, true);
-    postLike(taskId, likesDelta, dislikesDelta).then(function (data) {
-      applyLikeUI(taskId, data);
-    }).catch(function () {
-      showLikeError(taskId);
-    }).then(function () {
-      delete likeRequestsInFlight[taskId];
-      setLikeBusy(taskId, false);
-    });
-  }
-  document.addEventListener('click', function (e) {
-    var likeBtn = e.target && e.target.closest ? e.target.closest('[data-like-btn]') : null;
-    if (likeBtn) {
-      e.preventDefault();
-      var ltid = likeBtn.getAttribute('data-task-id');
-      var liked = likeBtn.getAttribute('data-liked') === '1';
-      submitLike(ltid, liked ? -1 : 1, 0);
-      return;
-    }
-    var dislikeBtn = e.target && e.target.closest ? e.target.closest('[data-dislike-btn]') : null;
-    if (dislikeBtn) {
-      e.preventDefault();
-      var dtid = dislikeBtn.getAttribute('data-task-id');
-      var disliked = dislikeBtn.getAttribute('data-disliked') === '1';
-      submitLike(dtid, 0, disliked ? -1 : 1);
-    }
-  }, true);
 
   function submitWord() {
     if (busy || state.won) return;

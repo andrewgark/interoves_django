@@ -4548,23 +4548,18 @@
       .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
   });
 
-  // Подсветка лайков/дизлайков с сервера (data-* → .is-active); без этого после F5 кнопки не зелёные.
-  document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
-    btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
-  });
-  document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
-    btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
+  // ▲▼ votes on tasks: static/js/task_votes.js.
+  window.InterovesTaskVotes.configure({
+    url: PAGE_URLS.likeDislike,
+    gameId: PAGE.gameId,
+    getAnonKey: function () { return anonKey; },
   });
 
-  // Like/dislike (пер-режим)
+  // Ladder clue likes post the same form as task votes.
   function csrf() {
     if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
     var el = document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]');
     return el ? el.value : '';
-  }
-  function postLike(taskId, likesDelta, dislikesDelta) {
-    var url = PAGE_URLS.likeDislike.replace('/0/', '/' + taskId + '/');
-    return postReaction(url, likesDelta, dislikesDelta);
   }
   function postReaction(url, likesDelta, dislikesDelta) {
     var body = new URLSearchParams();
@@ -4589,89 +4584,6 @@
       return r.json();
     });
   }
-  var likeRequestsInFlight = Object.create(null);
-  var likeStatusTimers = Object.create(null);
-  function setLikeBusy(taskId, busy) {
-    document.querySelectorAll(
-      '[data-like-btn][data-task-id=\"' + taskId + '\"], ' +
-      '[data-dislike-btn][data-task-id=\"' + taskId + '\"]'
-    ).forEach(function (btn) {
-      btn.disabled = busy;
-      if (busy) btn.setAttribute('aria-busy', 'true');
-      else btn.removeAttribute('aria-busy');
-    });
-  }
-  function clearLikeError(taskId) {
-    clearTimeout(likeStatusTimers[taskId]);
-    document.querySelectorAll('[data-like-status=\"' + taskId + '\"]').forEach(function (status) {
-      status.hidden = true;
-      status.textContent = '';
-    });
-  }
-  function showLikeError(taskId) {
-    clearLikeError(taskId);
-    document.querySelectorAll('[data-like-status=\"' + taskId + '\"]').forEach(function (status) {
-      status.textContent = 'Не удалось сохранить. Попробуйте ещё раз.';
-      status.hidden = false;
-    });
-    clearTimeout(likeStatusTimers[taskId]);
-    likeStatusTimers[taskId] = setTimeout(function () {
-      document.querySelectorAll('[data-like-status=\"' + taskId + '\"]').forEach(function (status) {
-        status.hidden = true;
-      });
-    }, 5000);
-  }
-  function applyLikeUI(taskId, data) {
-    document.querySelectorAll('[data-like-count=\"' + taskId + '\"]').forEach(function (count) {
-      if (typeof data.likes !== 'undefined') count.textContent = data.likes;
-    });
-    document.querySelectorAll('[data-dislike-count=\"' + taskId + '\"]').forEach(function (count) {
-      if (typeof data.dislikes !== 'undefined') count.textContent = data.dislikes;
-    });
-    document.querySelectorAll('[data-like-btn][data-task-id=\"' + taskId + '\"]').forEach(function (btn) {
-      if (typeof data.liked === 'undefined') return;
-      btn.setAttribute('data-liked', data.liked ? '1' : '0');
-      btn.classList.toggle('is-active', !!data.liked);
-    });
-    document.querySelectorAll('[data-dislike-btn][data-task-id=\"' + taskId + '\"]').forEach(function (btn) {
-      if (typeof data.disliked === 'undefined') return;
-      btn.setAttribute('data-disliked', data.disliked ? '1' : '0');
-      btn.classList.toggle('is-active', !!data.disliked);
-    });
-    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
-  }
-  function submitLike(taskId, likesDelta, dislikesDelta) {
-    if (likeRequestsInFlight[taskId]) return;
-    likeRequestsInFlight[taskId] = true;
-    clearLikeError(taskId);
-    setLikeBusy(taskId, true);
-    postLike(taskId, likesDelta, dislikesDelta).then(function (data) {
-      applyLikeUI(taskId, data);
-    }).catch(function () {
-      showLikeError(taskId);
-    }).then(function () {
-      delete likeRequestsInFlight[taskId];
-      setLikeBusy(taskId, false);
-    });
-  }
-  document.addEventListener('click', function (e) {
-    var likeBtn = e.target && e.target.closest ? e.target.closest('[data-like-btn]') : null;
-    if (likeBtn) {
-      e.preventDefault();
-      var ltid = likeBtn.getAttribute('data-task-id');
-      var liked = likeBtn.getAttribute('data-liked') === '1';
-      submitLike(ltid, liked ? -1 : 1, 0);
-      return;
-    }
-    var dislikeBtn = e.target && e.target.closest ? e.target.closest('[data-dislike-btn]') : null;
-    if (dislikeBtn) {
-      e.preventDefault();
-      var dtid = dislikeBtn.getAttribute('data-task-id');
-      var disliked = dislikeBtn.getAttribute('data-disliked') === '1';
-      submitLike(dtid, 0, disliked ? -1 : 1);
-    }
-  }, true);
-
   // Лайки подсказок лесенки: та же семантика, что у лайков задания, но на одну подсказку.
   var clueLikesInFlight = Object.create(null);
   function clueReactionButtons(taskId, hintIndex) {
@@ -5088,12 +5000,7 @@
         inp.value = anonKey;
       });
       applyHideSolved();
-      document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
-        btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
-      });
-      document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
-        btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
-      });
+      window.InterovesTaskVotes.sync();
     });
     return handledCount;
   }

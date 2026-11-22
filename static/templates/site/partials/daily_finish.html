@@ -1,0 +1,7 @@
+{# The end of a daily game: «Ваш результат» (result_template, when there is one) and «Оцените игру». #}
+{# The block shows only while it holds a visible result card (.new-daily-finish in new.css); #}
+{# offline_raddle_pack.js puts a fresh card at its start. #}
+<div class="new-daily-finish" data-daily-finish>
+  {% if result_template %}{% include result_template %}{% endif %}
+  {% if daily_statistics_url %}{% include "site/partials/daily_rate.html" %}{% endif %}
+</div>
