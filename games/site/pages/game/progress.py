@@ -212,11 +212,10 @@ def _archive_nav_context(request, game, prev_tg, next_tg, href_for, *,
     """Prev/next edition links of a daily page, for the date arrows and the pager.
 
     ``*_unsolved`` marks an open neighbour this actor has not finished yet:
-    there is more to play behind that arrow. An actor with no identity has
-    finished nothing.
+    there is more to play behind that arrow. Newcomers get no marks
+    (games.daily.fresh).
     """
-    from games.models import PlayerCompletedGame
-    from games.site.session.replay import actor_kwargs
+    from games.daily.fresh import finished_instances
 
     def instance_id(placement):
         # game_instance_id_for_task_group() without loading the task group.
@@ -231,20 +230,15 @@ def _archive_nav_context(request, game, prev_tg, next_tg, href_for, *,
         for placement, url, locked in targets.values()
         if placement and not locked
     }
-    actor = actor_kwargs(team=team, user=user, anon_key=anon_key)
-    finished = set()
-    if open_instances and actor is not None:
-        finished = set(
-            PlayerCompletedGame.objects.filter(
-                game_instance_id__in=open_instances, **actor,
-            ).values_list('game_instance_id', flat=True)
-        )
+    finished = None
+    if open_instances:
+        finished = finished_instances(open_instances, team=team, user=user, anon_key=anon_key)
     context = {}
     for side, (placement, url, locked) in targets.items():
         context[f'{side}_task_group_url'] = url
         context[f'{side}_task_group_locked'] = locked
         context[f'{side}_task_group_unsolved'] = bool(
-            placement and not locked
+            finished is not None and placement and not locked
             and instance_id(placement) not in finished
         )
     return context

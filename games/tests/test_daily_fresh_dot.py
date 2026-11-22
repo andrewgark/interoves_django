@@ -3,7 +3,9 @@
 import re
 from datetime import timedelta
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -88,3 +90,20 @@ class DailyFreshDotTests(TestCase):
         html = self.client.get('/').content.decode()
 
         self.assertNotIn('new-fresh-dot', self._nav_link(html, 'censorly'))
+
+    def test_newcomer_sees_no_dots(self):
+        # Nothing finished yet: every edition would be marked, so none is.
+        self.assertNotIn('class="new-fresh-dot', self._page())
+        self.assertNotIn('class="new-fresh-dot', self.client.get('/').content.decode())
+
+    def test_anonymous_visitor_without_games_sees_no_dots(self):
+        # The anonymous hub renders the login buttons.
+        site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'testserver', 'name': 'test'})
+        for provider, name in (('google', 'Google'), ('vk', 'VK'), ('yandex', 'Yandex')):
+            app, created = SocialApp.objects.get_or_create(
+                provider=provider, defaults={'name': name, 'client_id': 'test', 'secret': 'test'},
+            )
+            if created:
+                app.sites.add(site)
+        self.client.logout()
+        self.assertNotIn('class="new-fresh-dot', self.client.get('/').content.decode())
