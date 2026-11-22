@@ -818,6 +818,47 @@ def pending_queue(request):
 
 
 @support_console_required
+def bug_report_detail(request, report_id):
+    from games.models import BugReport
+    from games.ops.telegram.links import game_site_url, task_play_url
+
+    report = (
+        BugReport.objects
+        .select_related('task', 'task__task_group', 'game', 'team', 'user', 'user__profile')
+        .filter(pk=report_id)
+        .first()
+    )
+    if report is None:
+        raise Http404('Report not found')
+    if report.team_id:
+        actor_label = report.team.visible_name or report.team.name
+        actor_url = reverse('support:actor_team', kwargs={'team_name': report.team_id})
+    elif report.user_id:
+        profile = getattr(report.user, 'profile', None)
+        actor_label = (
+            '{} {}'.format(profile.first_name, profile.last_name).strip() if profile else ''
+        ) or report.user.username
+        actor_url = reverse('support:actor_user', kwargs={'user_id': report.user_id})
+    elif report.anon_key:
+        actor_label = 'Аноним ··{}'.format(report.anon_key[-8:])
+        actor_url = reverse('support:actor_anon', kwargs={'anon_key': report.anon_key})
+    else:
+        actor_label, actor_url = '—', ''
+    return render(request, 'support/bug_report.html', {
+        'page_title': 'Баг #{}'.format(report.pk),
+        'report': report,
+        'status_label': report.status_label_ru(),
+        'thread': list(report.messages.select_related('author_user', 'author_user__profile')),
+        'actor_label': actor_label,
+        'actor_url': actor_url,
+        'can_reply': bool(report.user_id),
+        'game_url': game_site_url(report.game) if report.game_id else '',
+        'task_url': task_play_url(report.game, report.task) if report.game_id and report.task_id else '',
+        'is_pending': report.status == BugReport.STATUS_PENDING,
+    })
+
+
+@support_console_required
 def live_dashboard(request):
     hours_raw = request.GET.get('hours', '2')
     try:

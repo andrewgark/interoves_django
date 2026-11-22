@@ -81,27 +81,27 @@ def _run_locked():
     )
     never_calculated = published.filter(calculated_at__isnull=True).count()
     if never_calculated and not refresh_skipped:
-        problems.append('{} published editions never calculated'.format(never_calculated))
+        problems.append('{} опубликованных выпусков ни разу не посчитаны'.format(never_calculated))
 
     due = due_daily_difficulty_queryset(now=now).count()
     if due and not refresh_skipped:
-        problems.append('{} due editions still queued'.format(due))
+        problems.append('{} выпусков ждут в очереди дольше срока'.format(due))
 
     failures = published.filter(refresh_fail_count__gt=0).count()
     if failures:
-        problems.append('{} published editions with calculation failures'.format(failures))
+        problems.append('{} опубликованных выпусков с ошибками подсчёта'.format(failures))
 
     status = DailyDifficultyQueueStatus.objects.filter(pk=1).first()
     if not status or not status.last_success_at or status.last_success_at < now - timedelta(hours=2):
-        problems.append('no successful worker heartbeat in the last 2 hours')
+        problems.append('воркер не отчитывался об успехе больше 2 часов')
 
     if problems:
         detail = '; '.join(problems)
         from games.ops.telegram.bot.notify import send_admin_message
         send_admin_message(
-            '⚠️ Не работает подсчёт сложности ежедневных заданий.\n'
-            'Автовосстановление не устранило проблему.\n'
-            'Причины: {}\n'
+            '⚠️ <b>Не работает подсчёт сложности ежедневных заданий</b>\n\n'
+            'Автовосстановление не помогло.\n'
+            'Причины: {}.\n'
             'Очередь: создано {}, исправлено сроков {}, готово к обработке {}.'.format(
                 detail,
                 repair_report['created'],

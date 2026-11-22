@@ -212,8 +212,9 @@ def _puzzle_number(public_id):
     return str(public_id or '').rsplit(':', 1)[-1]
 
 
-def likes_lines(since, until, *, weekly):
-    puzzles = _period_puzzles(since, until, per_game=7 if weekly else 1)
+def puzzle_votes(since, until, *, per_game):
+    """[(kind, number, likes, dislikes, low)] for the period's most-played daily editions."""
+    puzzles = _period_puzzles(since, until, per_game=per_game)
     if not puzzles:
         return []
     votes = {
@@ -222,16 +223,21 @@ def likes_lines(since, until, *, weekly):
         .values('task__task_group_id')
         .annotate(likes=Count('pk', filter=Q(value=1)), dislikes=Count('pk', filter=Q(value=-1)))
     }
-    entries = []
+    rows = []
     for kind, public_id, task_group_id in puzzles:
         likes, dislikes = votes.get(task_group_id, (0, 0))
         total = likes + dislikes
         low = total >= LOW_LIKE_MIN_VOTES and likes / total < LOW_LIKE_SHARE
-        if weekly and not low:
-            continue
-        entries.append('{} #{}: 👍{} 👎{}{}'.format(
-            DAILY_GAME_LABELS[kind], _puzzle_number(public_id), likes, dislikes, ' 🔴' if low else '',
-        ))
+        rows.append((kind, _puzzle_number(public_id), likes, dislikes, low))
+    return rows
+
+
+def likes_lines(since, until, *, weekly):
+    entries = [
+        '{} #{}: 👍{} 👎{}{}'.format(DAILY_GAME_LABELS[kind], number, likes, dislikes, ' 🔴' if low else '')
+        for kind, number, likes, dislikes, low in puzzle_votes(since, until, per_game=7 if weekly else 1)
+        if low or not weekly
+    ]
     if not entries:
         return []
     title = 'Выпуски недели с плохими оценками:' if weekly else 'Оценки выпусков:'

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from typing import Callable
 
@@ -30,14 +31,14 @@ def _safe_error(exc: BaseException) -> str:
 
 def _caption(payload: dict, *, kind_note: str = '') -> str:
     parts = [
-        '<b>Share card preview</b>',
-        'game: <code>{}</code>'.format(payload.get('game_kind') or payload.get('kind')),
-        'daily: <code>{}</code>'.format(payload.get('number') or '—'),
-        'locale: <code>{}</code>'.format(payload.get('locale') or 'ru'),
-        'size: {}×{}'.format(CARD_WIDTH, CARD_HEIGHT),
-        'renderer: v{}'.format(payload.get('renderer_version') or RENDERER_VERSION),
-        'source: {}'.format('synthetic' if payload.get('synthetic') else 'live'),
-        'headline: {}'.format(payload.get('headline') or ''),
+        '<b>Превью карточки для шеринга</b>',
+        'Игра: <code>{}</code>'.format(payload.get('game_kind') or payload.get('kind')),
+        'Выпуск: <code>{}</code>'.format(payload.get('number') or '—'),
+        'Язык: <code>{}</code>'.format(payload.get('locale') or 'ru'),
+        'Размер: {}×{}'.format(CARD_WIDTH, CARD_HEIGHT),
+        'Рендерер: v{}'.format(payload.get('renderer_version') or RENDERER_VERSION),
+        'Данные: {}'.format('синтетические' if payload.get('synthetic') else 'настоящие'),
+        'Заголовок: {}'.format(html.escape(str(payload.get('headline') or ''), quote=False)),
     ]
     if kind_note:
         parts.append(kind_note)
@@ -76,10 +77,9 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
                 png,
                 filename='ladder-social-{}.png'.format(ladder.number),
                 caption=(
-                    '<b>Existing social render</b>\n'
-                    'game: <code>ladder</code>\n'
-                    'daily: <code>{}</code>\n'
-                    'source: current teaser renderer'
+                    '<b>Текущий тизер для соцсетей</b>\n'
+                    'Игра: <code>ladder</code>\n'
+                    'Выпуск: <code>{}</code>'
                 ).format(ladder.number),
             )
             notes.append('ladder teaser #{}'.format(ladder.number))
@@ -102,10 +102,9 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
                 png,
                 filename='salad-social-{}.png'.format(salad.number),
                 caption=(
-                    '<b>Existing social render</b>\n'
-                    'game: <code>salad</code>\n'
-                    'daily: <code>{}</code>\n'
-                    'source: current teaser renderer'
+                    '<b>Текущий тизер для соцсетей</b>\n'
+                    'Игра: <code>salad</code>\n'
+                    'Выпуск: <code>{}</code>'
                 ).format(salad.number),
             )
             notes.append('salad teaser #{}'.format(salad.number))
@@ -135,9 +134,9 @@ def preview_daily_share_cards(
 
     try:
         intro(
-            '<b>Daily share-card visual QA</b>\n'
-            'Synthetic player results through the production JS renderer.\n'
-            'Production deploy is not part of this preview.'
+            '<b>Проверка карточек для шеринга</b>\n'
+            'Синтетические результаты через продовый JS-рендерер.\n'
+            'Это только превью, на прод ничего не выкатывается.'
         )
         notes = []
         if include_social:

@@ -172,6 +172,7 @@ urlpatterns = [
     path('queues/api/jobs/<int:job_id>/', queue_observatory_views.job_detail, name='queue_observatory_job_detail'),
     path('queues/recheck/<int:job_id>/', queue_observatory_views.job_detail_page, name='queue_observatory_job_page'),
     path('pending/', views.pending_queue, name='pending'),
+    path('reports/<int:report_id>/', views.bug_report_detail, name='bug_report'),
     path('live/', views.live_dashboard, name='live'),
     path('live/feed.json', views.live_feed_json, name='live_feed_json'),
     path('chain/attempt/<int:attempt_id>/', views.chain_attempt, name='chain'),

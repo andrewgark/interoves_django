@@ -913,6 +913,76 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(resp2.json()['reset']['attempts'], 1)
         self.assertEqual(Attempt.manager.filter(task=task).count(), 0)
 
+    def _sent_offer(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='Анна')
+        with patch('games.ops.telegram.bot.notify.notify_new_ladder_offer'):
+            with self.captureOnCommitCallbacks(execute=True):
+                send_offer(offer)
+        offer.refresh_from_db()
+        return offer
+
+    @patch('games.ops.telegram.transport.api.edit_message_reply_markup')
+    @patch('games.ops.telegram.transport.api.answer_callback_query')
+    def test_offer_is_accepted_from_telegram_button(self, answer_mock, edit_mock):
+        from games.ops.telegram.bot.callbacks import handle_callback_query
+        from games.ops.telegram.bot.notify import _offer_keyboard
+
+        offer = self._sent_offer()
+        button = _offer_keyboard('ladder', offer)['inline_keyboard'][0][0]
+        self.assertEqual(button['text'], '✅ Принять')
+        with self.captureOnCommitCallbacks(execute=True):
+            handle_callback_query({
+                'id': 'cb', 'data': button['callback_data'],
+                'message': {'chat': {'id': 12345}, 'message_id': 5},
+            })
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, LadderOffer.STATUS_ACCEPTED)
+        label = edit_mock.call_args.kwargs['reply_markup']['inline_keyboard'][0][0]['text']
+        self.assertEqual(label, '✅ Принята №{}'.format(offer.accepted_link.number))
+
+        # A second tap is refused with the service's own message, nothing changes.
+        handle_callback_query({
+            'id': 'cb2', 'data': button['callback_data'],
+            'message': {'chat': {'id': 12345}, 'message_id': 5},
+        })
+        self.assertTrue(answer_mock.call_args.kwargs.get('show_alert'))
+
+    @override_settings(TELEGRAM_ADMIN_CHAT_ID='12345', TELEGRAM_BOT_TOKEN='t', TELEGRAM_WEBHOOK_SECRET='secret')
+    @patch('games.ops.telegram.transport.api.send_message')
+    @patch('games.ops.telegram.transport.api.answer_callback_query')
+    def test_offer_goes_back_for_revision_with_the_replied_note(self, _answer_mock, send_mock):
+        from games.ops.telegram.bot.callbacks import handle_callback_query
+        from games.ops.telegram.bot.notify import _offer_keyboard
+
+        offer = self._sent_offer()
+        button = _offer_keyboard('ladder', offer)['inline_keyboard'][0][1]
+        self.assertEqual(button['text'], '↩️ На доработку')
+        handle_callback_query({
+            'id': 'cb', 'data': button['callback_data'],
+            'message': {'chat': {'id': 12345}, 'message_id': 5},
+        })
+        prompt = send_mock.call_args.args[1]
+        self.assertTrue(prompt.startswith('↩️ На доработку: лесенка #{}'.format(offer.pk)))
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, LadderOffer.STATUS_SENT)  # nothing until the note arrives
+
+        with patch('games.ops.telegram.bot.replies.send_message'), \
+                patch('games.ops.telegram.bot.offers.logger'), \
+                patch('games.ops.telegram.transport.api.send_message') as confirm_mock:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post('/telegram/webhook/secret/', data={'message': {
+                    'message_id': 9,
+                    'chat': {'id': 12345, 'type': 'group'},
+                    'from': {'id': 1},
+                    'text': 'Подсказка к→р слишком прямая',
+                    'reply_to_message': {'from': {'is_bot': True}, 'text': prompt},
+                }}, content_type='application/json')
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, LadderOffer.STATUS_DRAFT)
+        self.assertEqual(offer.admin_note, 'Подсказка к→р слишком прямая')
+        self.assertIn('возвращено автору', confirm_mock.call_args.args[1])
+
     def test_send_offer_notifies_admin(self):
         from unittest.mock import patch
 
@@ -928,3 +998,14 @@ class LadderOfferFlowTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 send_offer(offer)
             mock_notify.assert_called_once_with(offer.pk)
+
+        from games.ops.telegram.bot.notify import format_ladder_offer_message
+
+        offer.refresh_from_db()
+        text = format_ladder_offer_message(offer)
+        self.assertIn('Новая лесенка на проверку', text)
+        self.assertIn('/support/actor/user/{}/'.format(self.user.pk), text)
+        self.assertIn('к→р → <tg-spoiler>РОТ</tg-spoiler>', text)
+        self.assertIn('Старт: <tg-spoiler>КОТ</tg-spoiler>', text)
+        self.assertIn('Проверьте пожалуйста', text)
+        self.assertIn('/support/ladders/', text)

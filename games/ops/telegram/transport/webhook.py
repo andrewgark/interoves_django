@@ -117,6 +117,13 @@ def _dispatch_update(update: dict) -> None:
     if not text:
         return
 
+    # Edits are ignored here: an edited reply must not post a second answer.
+    if 'message' in update and is_admin_chat(chat_id):
+        from games.ops.telegram.bot.replies import handle_admin_reply
+
+        if handle_admin_reply(message):
+            return
+
     if not text.startswith('/'):
         return
 

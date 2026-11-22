@@ -185,22 +185,23 @@ def build_stuck_tickets_alert(*, minutes=None) -> str | None:
 
     lines = [
         '<b>⚠️ Зависшие заявки на билеты</b>',
-        'Pending с payment id старше {} мин: {}'.format(threshold, total),
+        'Оплата начата больше {} мин назад, заявка всё ещё ждёт: {}'.format(threshold, total),
         '',
     ]
     for ticket in qs[:10]:
-        team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
+        from games.ops.telegram.bot.people import moscow_time, team_html
+
         lines.append(
             '#{} · {} · {} {} · {}'.format(
                 ticket.pk,
-                team,
+                team_html(ticket.team),
                 ticket.money,
                 ticket.currency,
-                ticket.time.strftime('%d.%m %H:%M'),
+                moscow_time(ticket.time, '%d.%m %H:%M'),
             )
         )
     if total > 10:
         lines.append('… и ещё {}'.format(total - 10))
     lines.append('')
-    lines.append('Проверьте webhook YooKassa / NOWPayments / Tribute и логи accept_ticket_request.')
+    lines.append('Проверьте вебхуки ЮKassa / NOWPayments / Tribute и логи <code>accept_ticket_request</code>.')
     return '\n'.join(lines)

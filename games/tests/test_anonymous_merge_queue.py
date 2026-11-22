@@ -109,7 +109,7 @@ class AnonymousMergeQueueTests(TestCase):
         kwargs = publish.call_args.kwargs
         self.assertEqual(kwargs['alert'], 'merge_job_failed')
         self.assertIn(str(job.pk), kwargs['dedupe_key'])
-        self.assertIn('merge_queue_user', kwargs['payload']['text'])
+        self.assertIn('/support/actor/user/{}/'.format(self.user.pk), kwargs['payload']['text'])
         self.assertIn('boom', kwargs['payload']['text'])
 
     def test_http_claim_is_fast_and_returns_persistent_job(self):

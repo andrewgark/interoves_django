@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -10,6 +11,8 @@ from django.db import transaction
 
 from games.club.offers.profiles import profile_ready_for_offers
 from games.models import CensorlyOffer, RandomCensorlyGame
+
+logger = logging.getLogger('application')
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,20 @@ def create_offer(user: User, party: RandomCensorlyGame, *, comment: str = '') ->
     ).order_by('-updated_at').first()
     if existing is not None:
         return existing
-    return CensorlyOffer.objects.create(user=user, party=party, comment=(comment or '').strip()[:4000])
+    offer = CensorlyOffer.objects.create(user=user, party=party, comment=(comment or '').strip()[:4000])
+    offer_id = offer.pk
+
+    def _notify():
+        try:
+            from games.ops.telegram.bot.notify import notify_new_censorly_offer
+
+            notify_new_censorly_offer(offer_id)
+        except Exception:
+            # Telegram must not fail the player's submission.
+            logger.exception('Failed to notify admin about censorly offer %s', offer_id)
+
+    transaction.on_commit(_notify)
+    return offer
 
 
 def serialize_offer(offer: CensorlyOffer) -> CensorlyOfferRow:

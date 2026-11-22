@@ -21,7 +21,7 @@ from games.models import (
     TicketRequest,
 )
 from games.ops.telegram.bot.callbacks import handle_callback_query
-from games.ops.telegram.bot.commands import handle_admin_command, registration_milestone_reached
+from games.ops.telegram.bot.commands import handle_admin_command
 from games.ops.telegram.bot.notify import (
     format_alphabetty_dict_suggestion_message,
     format_bug_report_message,
@@ -102,9 +102,9 @@ class TelegramNotifyTests(TestCase):
         self.assertFalse(send_announce_photo(b'png'))
         self.assertEqual(send_mock.call_count, 2)
 
-    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message_result')
     def test_notify_bug_report_with_keyboard(self, send_message_mock):
-        send_message_mock.return_value = True
+        send_message_mock.return_value = {'message_id': 1}
         from games.models import GameTaskGroup
         GameTaskGroup.objects.create(
             game=self.game, task_group=self.task_group, number='1', name='Section',
@@ -126,11 +126,13 @@ class TelegramNotifyTests(TestCase):
         text = send_message_mock.call_args.args[1]
         self.assertIn('Something broke', text)
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), text)
-        self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
+        self.assertIn('/support/preview/games/{}/1/'.format(self.game.id), text)
+        self.assertTrue(text.startswith('🐞 <b>Баг #{}</b>'.format(report.pk)))
+        self.assertNotIn('/admin/', text)
 
-    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message_result')
     def test_notify_censorly_word_report_with_review_keyboard(self, send_message_mock):
-        send_message_mock.return_value = True
+        send_message_mock.return_value = {'message_id': 1}
         report = BugReport.objects.create(
             report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH,
             game=self.game,
@@ -156,7 +158,8 @@ class TelegramNotifyTests(TestCase):
         notify_new_bug_report(report)
         text = send_message_mock.call_args.args[1]
         keyboard = str(send_message_mock.call_args.kwargs['reply_markup'])
-        self.assertIn('FALSE POSITIVE', text)
+        self.assertIn('Жалоба на Цензурку #{}</b>: лишнее открытие'.format(report.pk), text)
+        self.assertIn('Что поправить: <code>SEMANTIC_SPLIT</code>', text)
         self.assertIn('поддержка', text)
         self.assertIn('держать', text)
         self.assertIn('censorly:confirm:{}'.format(report.pk), keyboard)
@@ -184,8 +187,10 @@ class TelegramNotifyTests(TestCase):
         self.assertEqual(report.status, BugReport.STATUS_FIXED)
         answer_mock.assert_called()
         edit_markup_mock.assert_called_once()
-        send_message_mock.assert_called()
-        self.assertIn('Fixed', send_message_mock.call_args.args[1])
+        keyboard = edit_markup_mock.call_args.kwargs['reply_markup']
+        self.assertEqual(keyboard['inline_keyboard'][0][0]['text'], '✅ Исправлено')
+        # The decision shows on the message itself; no extra chat message.
+        send_message_mock.assert_not_called()
 
     @patch('games.puzzles.censorly.offline.tools.review_pair.record_review_case')
     @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
@@ -257,7 +262,8 @@ class TelegramNotifyTests(TestCase):
         self.assertEqual(send_message_mock.call_count, 1)
 
         msg = format_alphabetty_dict_suggestion_message(suggestion)
-        self.assertIn('pendingalphabettydictsuggestion', msg)
+        self.assertIn('Голосов: 2', msg)
+        self.assertNotIn('/admin/', msg)
 
     @patch('games.ops.telegram.bot.notify.send_message')
     def test_alphabetty_dict_suggestion_notify_on_create(self, send_message_mock):
@@ -269,7 +275,7 @@ class TelegramNotifyTests(TestCase):
             )
         self.assertEqual(send_message_mock.call_count, 1)
         text = send_message_mock.call_args.args[1]
-        self.assertIn('Предложение в словарь Алфавитки', text)
+        self.assertIn('Слово для словаря Алфавитки', text)
         self.assertIn('РЕДКОЕСЛОВОДЛЯАЛФАВИТКИ', text)
         keyboard = send_message_mock.call_args.kwargs['reply_markup']
         self.assertIn('abdict:approve:{}'.format(suggestion.pk), str(keyboard))
@@ -336,17 +342,13 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('href="https://interoves.com/games/{}/2/#new-task-{}"'.format(
             self.game.id, self.task.pk,
         ), text)
-        self.assertIn('href="https://interoves.com/admin/games/task/{}/change/"'.format(
-            self.task.pk,
-        ), text)
-        self.assertIn('href="https://interoves.com/admin/games/taskgroup/{}/change/"'.format(
-            self.task_group.pk,
-        ), text)
-        self.assertIn('href="https://interoves.com/admin/games/game/{}/change/"'.format(
+        self.assertIn('href="https://interoves.com/support/preview/games/{}/2/"'.format(
             self.game.id,
         ), text)
-        self.assertIn('href="https://interoves.com/profile/reports/{}/"'.format(report.pk), text)
-        self.assertIn('Support', text)
+        self.assertIn('href="https://interoves.com/support/game/{}/"'.format(self.game.id), text)
+        self.assertIn('href="https://interoves.com/support/actor/team/{}/"'.format(self.team.name), text)
+        self.assertIn('href="https://interoves.com/support/reports/{}/"'.format(report.pk), text)
+        self.assertNotIn('/admin/', text)
 
     def test_format_bug_report_message_sections_game_uses_root_games_url(self):
         from games.models import GameTaskGroup
@@ -392,11 +394,128 @@ class TelegramNotifyTests(TestCase):
         )
         self.assertNotIn('/sections/', text)
 
+    @patch('games.ops.telegram.bot.notify.send_message', return_value=True)
+    def test_censorly_offer_is_announced_with_the_article_under_a_spoiler(self, send_message_mock):
+        from games.club.offers.censorly import create_offer
+        from games.models import Profile, RandomCensorlyGame
+
+        user = User.objects.create(username='censorly_author')
+        Profile.objects.create(user=user, first_name='Цен', last_name='Зор', telegram_username='cenzor')
+        group = TaskGroup.objects.create(label='censorly random')
+        Task.objects.create(task_group=group, number='1', task_type='censorly', text='')
+        party = RandomCensorlyGame.objects.create(wiki_title='Москва', share_hash='cenhash1', task_group=group)
+        puzzle = {'wiki_title': 'Москва', 'body_text': 'Москва — столица.', 'title_tokens': []}
+        with patch('games.club.offers.censorly.profile_ready_for_offers', return_value=(True, [])), \
+                patch('games.puzzles.censorly.play.puzzle_from_task', return_value=puzzle), \
+                self.captureOnCommitCallbacks(execute=True):
+            create_offer(user, party, comment='Хорошая статья')
+            create_offer(user, party)  # the same article again: no second alert
+        send_message_mock.assert_called_once()
+        text = send_message_mock.call_args.args[1]
+        self.assertIn('Новая цензурка на проверку', text)
+        self.assertIn('(@cenzor)', text)
+        self.assertIn('Статья: <tg-spoiler>Москва</tg-spoiler>', text)
+        self.assertIn('Хорошая статья', text)
+        self.assertIn('/support/censorly/', text)
+
+    @patch('games.ops.telegram.bot.notify.send_message_result')
+    def test_user_reply_is_threaded_under_the_report_message(self, send_mock):
+        from games.models import BugReportMessage, Profile
+
+        user = User.objects.create(username='thread_author')
+        Profile.objects.create(user=user, first_name='Тред', last_name='Автор')
+        send_mock.return_value = {'message_id': 4242}
+        with self.captureOnCommitCallbacks(execute=True):
+            report = BugReport.objects.create(game=self.game, task=self.task, user=user, text='Первое')
+        report.refresh_from_db()
+        self.assertEqual(report.metadata['telegram_message_id'], 4242)
+
+        send_mock.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            BugReportMessage.objects.create(
+                report=report, author_user=user, author_role=BugReportMessage.ROLE_USER, text='Ещё деталь',
+            )
+        self.assertEqual(send_mock.call_args.kwargs['reply_to_message_id'], 4242)
+        self.assertIn('Ещё деталь', send_mock.call_args.args[1])
+
+    def test_weekly_stale_bugs_lists_only_reports_waiting_for_an_answer(self):
+        from datetime import timedelta
+
+        from games.models import BugReportMessage, Profile
+        from games.ops.telegram.bot.reports import build_stale_bugs_message
+
+        now = timezone.now()
+        user = User.objects.create(username='stale_author')
+        Profile.objects.create(user=user, first_name='Ждёт', last_name='Ответа')
+
+        def report(text, days, **fields):
+            item = BugReport.objects.create(game=self.game, task=self.task, user=user, text=text, **fields)
+            BugReport.objects.filter(pk=item.pk).update(time=now - timedelta(days=days))
+            return item
+
+        waiting = report('Висит давно', 10)
+        answered = report('Уже ответили', 10)
+        BugReportMessage.objects.create(
+            report=answered, author_role=BugReportMessage.ROLE_ADMIN, text='Смотрим',
+        )
+        report('Свежий', 2)
+        report('Исправлен', 10, status=BugReport.STATUS_FIXED)
+        report('Жалоба на матчинг', 10, report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH)
+        report('Совсем старый', 200)
+
+        text = build_stale_bugs_message(now=now)
+        self.assertIn('Баги без ответа больше 7 дней: 2', text)
+        self.assertIn('/support/reports/{}/">#{}</a> · 10 дн.'.format(waiting.pk, waiting.pk), text)
+        for absent in ('Уже ответили', 'Свежий', 'Исправлен', 'Жалоба на матчинг', 'Совсем старый'):
+            self.assertNotIn(absent, text)
+        self.assertIn('Ещё 1 старше 60 дней', text)
+
+    @patch('games.ops.telegram.transport.api.requests.post')
+    def test_rejected_html_is_resent_as_plain_text(self, post_mock):
+        from requests import HTTPError
+
+        from games.ops.telegram.transport.api import send_message
+
+        bad = type('Resp', (), {})()
+        bad.raise_for_status = lambda: (_ for _ in ()).throw(HTTPError('400 Client Error'))
+        bad.json = lambda: {'ok': False, 'description': "Bad Request: can't parse entities: unclosed tag"}
+        good = type('Resp', (), {})()
+        good.raise_for_status = lambda: None
+        good.json = lambda: {'ok': True, 'result': {}}
+        post_mock.side_effect = [bad, good]
+
+        with self.assertLogs('application', level='WARNING') as logs:
+            self.assertTrue(send_message('12345', '<b>Баг #1</b> &lt;тег&gt; <i>оборван'))
+        self.assertIn("can't parse entities", '\n'.join(logs.output))
+        fallback = post_mock.call_args_list[1].kwargs['json']
+        self.assertEqual(fallback['text'], 'Баг #1 <тег> оборван')
+        self.assertNotIn('parse_mode', fallback)
+
+    def test_bug_report_links_the_page_it_came_from(self):
+        report = BugReport.objects.create(
+            game=self.game, task=self.task, team=self.team, text='x',
+            page_url='/games/tg_test_game/1/?x=1',
+        )
+        text = format_bug_report_message(report)
+        self.assertIn(
+            'Страница: <a href="https://interoves.com/games/tg_test_game/1/?x=1">interoves.com/games/tg_test_game/1/?x=1</a>',
+            text,
+        )
+
+    def test_pending_command_links_bugs_to_support(self):
+        report = BugReport.objects.create(game=self.game, task=self.task, team=self.team, text='Сломалась картинка')
+        text = handle_admin_command('/pending')
+        self.assertIn('<b>Ждут разбора</b>', text)
+        self.assertIn('/support/reports/{}/">#{}</a>'.format(report.pk, report.pk), text)
+        self.assertIn('Сломалась картинка', text)
+
     @patch('games.ops.telegram.bot.notify.send_message')
     def test_send_admin_message_respects_mute(self, send_message_mock):
-        from games.ops.telegram.transport.config import set_admin_mute
+        from games.ops.telegram.transport.config import clear_admin_mute, set_admin_mute
 
         set_admin_mute(30)
+        # The mute lives in the shared cache; leaving it set silences later test modules.
+        self.addCleanup(clear_admin_mute)
         self.assertFalse(send_admin_message('muted'))
         send_message_mock.assert_not_called()
 
@@ -428,7 +547,7 @@ class TelegramNotifyTests(TestCase):
         self.assertTrue(notify_admin_site_error(request))
 
         text = publish_mock.call_args.kwargs['payload']['text']
-        self.assertIn('Время: <b>23.09.2026 12:34:56</b>', text)
+        self.assertIn('Время: 23.09.2026 12:34:56', text)
 
     @override_settings(SITE_DEPLOY_VERSION='salad-alert-test')
     @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
@@ -442,8 +561,8 @@ class TelegramNotifyTests(TestCase):
         send_message_mock.assert_called_once()
         text = send_message_mock.call_args.args[0]
         self.assertIn('missing_or_invalid_offer_share', text)
-        self.assertIn('Incident: <code>abc123</code>', text)
-        self.assertIn('application log', text)
+        self.assertIn('Инцидент: <code>abc123</code>', text)
+        self.assertIn('логе приложения', text)
 
     @patch('games.ops.telegram.bot.alerts.boto3.client')
     def test_custom_salad_submission_error_is_published_to_integrations_queue(self, client_mock):
@@ -471,9 +590,10 @@ class TelegramNotifyTests(TestCase):
         text = publish_mock.call_args.kwargs['payload']['text']
         self.assertIn('Тип: необработанное исключение', text)
         self.assertIn('Request ID: <code>telegram-diagnostic-id</code>', text)
-        self.assertIn('Инстанс: <code>green-test-instance</code>', text)
-        self.assertIn('Среда: <code>green</code>', text)
-        self.assertIn('Версия: <code>deploy-test</code>', text)
+        self.assertIn(
+            'Инстанс: <code>green-test-instance</code> · среда <code>green</code> · версия <code>deploy-test</code>',
+            text,
+        )
         self.assertIn('Время обработки: 123 мс', text)
         self.assertIn('RuntimeError: database down', text)
         self.assertNotIn('secret-answer', text)
@@ -531,9 +651,18 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Условия', start)
         self.assertNotIn('Скопировать условия', start)
 
-    def test_registration_milestone(self):
-        self.assertEqual(registration_milestone_reached(9, 10), 10)
-        self.assertIsNone(registration_milestone_reached(10, 11))
+    def test_every_registration_is_announced_with_the_total(self):
+        from games.models import Registration, Team
+
+        Registration.objects.create(team=Team.objects.create(name='first_reg_team'), game=self.game)
+        team = Team.objects.create(name='second_reg_team', visible_name='Вторые')
+        with patch('games.ops.telegram.channels.scheduling.send_admin_message', return_value=True) as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                Registration.objects.create(team=team, game=self.game)
+        text = send.call_args.args[0]
+        self.assertIn('Новая регистрация на игру', text)
+        self.assertIn('/support/actor/team/second_reg_team/">Вторые</a>', text)
+        self.assertIn('Всего команд: <b>2</b>', text)
 
     def test_is_admin_chat(self):
         self.assertTrue(is_admin_chat('12345'))
@@ -591,7 +720,80 @@ class TelegramWebhookTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         send_message_mock.assert_called_once()
-        self.assertIn('Admin mode', send_message_mock.call_args.args[1])
+        self.assertIn('Команды админ-чата', send_message_mock.call_args.args[1])
+
+    def _reply_to_bot(self, original_text, text, *, chat_id=12345, sender_id=777, edited=False):
+        message = {
+            'chat': {'id': chat_id, 'type': 'group'},
+            'from': {'id': sender_id},
+            'text': text,
+            'reply_to_message': {'from': {'id': 1, 'is_bot': True}, 'text': original_text},
+        }
+        return self.client.post(
+            '/telegram/webhook/secret/',
+            data={'edited_message' if edited else 'message': message},
+            content_type='application/json',
+        )
+
+    def _report(self, **fields):
+        _ensure_reference_rows()
+        game, _ = Game.objects.get_or_create(id='tg_reply_game', defaults={'name': 'Reply Game', 'author': 'a'})
+        task = Task.objects.create(task_group=TaskGroup.objects.create(label='reply'), number='1', text='t')
+        return BugReport.objects.create(game=game, task=task, **fields)
+
+    def _report_with_author(self):
+        from games.models import Profile
+
+        user = User.objects.create(username='reporter')
+        Profile.objects.create(user=user, first_name='Рита', last_name='Репорт')
+        admin = User.objects.create(username='admin_in_tg')
+        Profile.objects.create(user=admin, first_name='Админ', last_name='А', telegram_user_id=777)
+        return self._report(user=user, text='Не грузится картинка'), admin
+
+    @patch('games.ops.telegram.bot.replies.send_message')
+    def test_reply_to_bug_message_becomes_admin_reply(self, send_message_mock):
+        from games.models import BugReportMessage
+
+        report, admin = self._report_with_author()
+        with patch('games.notifications.service.notify') as notify_mock, \
+                self.captureOnCommitCallbacks(execute=True):
+            response = self._reply_to_bot('🐞 Баг #{}\n\nИгра: …'.format(report.pk), 'Починили, спасибо!')
+        self.assertEqual(response.status_code, 200)
+        reply = BugReportMessage.objects.get(report=report, author_role=BugReportMessage.ROLE_ADMIN)
+        self.assertEqual(reply.text, 'Починили, спасибо!')
+        self.assertEqual(reply.author_user, admin)
+        notify_mock.assert_called_once()
+        self.assertIn('отправлен автору', send_message_mock.call_args.args[1])
+
+    @patch('games.ops.telegram.bot.replies.send_message')
+    def test_reply_follows_the_bot_header_not_the_players_text(self, _send_message_mock):
+        from games.models import BugReportMessage
+
+        report, _admin = self._report_with_author()
+        other = self._report(text='другой', user=report.user)
+        self._reply_to_bot('💬 Ответ по багу #{} от автора\n\n🐞 Баг #{}'.format(report.pk, other.pk), 'Ок')
+        self.assertTrue(BugReportMessage.objects.filter(report=report, author_role='admin').exists())
+        self.assertFalse(BugReportMessage.objects.filter(report=other, author_role='admin').exists())
+
+    @patch('games.ops.telegram.bot.replies.send_message')
+    def test_reply_is_ignored_outside_admin_chat_and_on_edits(self, _send_message_mock):
+        from games.models import BugReportMessage
+
+        report, _admin = self._report_with_author()
+        header = '🐞 Баг #{}'.format(report.pk)
+        with patch('games.ops.telegram.transport.webhook.send_message'):
+            self._reply_to_bot(header, 'чужой чат', chat_id=-100999)
+        self._reply_to_bot(header, 'правка', edited=True)
+        self.assertFalse(BugReportMessage.objects.filter(report=report, author_role='admin').exists())
+
+    @patch('games.ops.telegram.bot.replies.send_message')
+    def test_reply_to_anonymous_report_explains_it_cannot_be_delivered(self, send_message_mock):
+        from games.models import BugReportMessage
+
+        report = self._report(anon_key='anon-key-1', text='без входа')
+        self._reply_to_bot('🐞 Баг #{}'.format(report.pk), 'ответ')
+        self.assertFalse(BugReportMessage.objects.filter(report=report, author_role='admin').exists())
+        self.assertIn('не вошёл в аккаунт', send_message_mock.call_args.args[1])
 
     @patch('games.ops.telegram.transport.webhook.send_message')
     def test_group_chat_rejects_commands(self, send_message_mock):

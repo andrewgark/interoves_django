@@ -201,7 +201,7 @@ def build_daily_digest(since=None) -> str:
         '<b>Регистрации и оплаты</b>',
         'Регистрации на игры: {}'.format(stats['registrations']),
         'Новые аккаунты: {}'.format(stats['new_accounts']),
-        'Билеты: {} pending · {} accepted · {} RUB · {} ֏'.format(
+        'Билеты: ждут {} · приняты {} · {} ₽ · {} ֏'.format(
             stats['tickets_pending'],
             stats['tickets_accepted'],
             stats['tickets_revenue'],
@@ -209,7 +209,7 @@ def build_daily_digest(since=None) -> str:
         ),
         '',
         '<b>Модерация</b>',
-        'Баг-репорты за сутки: {} ({} pending)'.format(stats['bugs_total'], stats['bugs_pending']),
+        'Баг-репорты за сутки: {} (не разобраны {})'.format(stats['bugs_total'], stats['bugs_pending']),
         'Корпоративные заявки: {}'.format(stats['corporate_orders']),
         'Сейчас в очереди: 🐞 {} · 🎫 {}'.format(
             stats['pending_bugs_now'],
@@ -218,7 +218,7 @@ def build_daily_digest(since=None) -> str:
     ]
     if stats['stuck_tickets_now']:
         lines.extend([
-            '⚠️ Зависшие билеты (pending + payment id &gt; 30 мин): <b>{}</b>'.format(
+            '⚠️ Зависшие заявки на билеты (оплата начата больше 30 мин назад): <b>{}</b>'.format(
                 stats['stuck_tickets_now'],
             ),
         ])

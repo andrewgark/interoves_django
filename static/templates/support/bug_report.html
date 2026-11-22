@@ -1,0 +1,48 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">{{ page_title }}</h1>
+<p class="support-lead">
+  {{ status_label }} · {{ report.time|date:"d.m.Y H:i" }} ·
+  {% if actor_url %}<a href="{{ actor_url }}">{{ actor_label }}</a>{% else %}{{ actor_label }}{% endif %}
+</p>
+
+<div class="support-links">
+  {% if game_url %}<a href="{{ game_url }}" target="_blank" rel="noopener">Игра на сайте</a>{% endif %}
+  {% if task_url %}<a href="{{ task_url }}" target="_blank" rel="noopener">Задание на сайте</a>{% endif %}
+  {% if report.page_url %}<a href="{{ report.page_url }}" target="_blank" rel="noopener">Страница, с которой пришёл репорт</a>{% endif %}
+  {% if report.game_id %}<a href="{% url 'support:game' report.game_id %}">Игра в support</a>{% endif %}
+</div>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Переписка</h2>
+  {% for message in thread %}
+    <div class="support-thread-message">
+      <p class="support-hint support-hint--flush-top">
+        {% if message.author_role == 'admin' %}Ответ поддержки{% else %}Автор{% endif %}
+        · {{ message.created_at|date:"d.m.Y H:i" }}
+      </p>
+      <p>{{ message.text|linebreaksbr }}</p>
+    </div>
+  {% empty %}
+    <p>{{ report.text|linebreaksbr }}</p>
+  {% endfor %}
+</section>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Ответить</h2>
+  {% if can_reply %}
+    {% include "support/partials/bug_reply_form.html" with object_id=report.pk next_url=request.get_full_path %}
+    <p class="support-hint">Ответ увидит автор на сайте и в Telegram. Можно ответить и в админ-чате: реплаем на сообщение бота об этом баге.</p>
+  {% else %}
+    <p class="support-empty">Автор не вошёл в аккаунт: ответ ему не дойдёт.</p>
+  {% endif %}
+  {% if is_pending %}
+    <div class="support-action-row support-action-row--mt-sm">
+      {% include "support/partials/action_form.html" with kind='bug' object_id=report.pk action='bug_reviewed' next_url=request.get_full_path %}
+      {% include "support/partials/action_form.html" with kind='bug' object_id=report.pk action='bug_fixed' next_url=request.get_full_path %}
+      {% include "support/partials/action_form.html" with kind='bug' object_id=report.pk action='bug_dismissed' next_url=request.get_full_path %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

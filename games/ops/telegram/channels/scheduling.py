@@ -663,7 +663,6 @@ def process_game_announcements(now=None) -> dict[str, int]:
         stats['censorly_scheduled'] = 0
         stats['daily_review_sent'] = 0
         stats['alphabetty_buffer_added'] = 0
-        stats['week_task_buffer_added'] = 0
         stats['social_queue'] = {'shadow': 1}
         return stats
 
@@ -691,9 +690,9 @@ def process_game_announcements(now=None) -> dict[str, int]:
         logger.exception('Daily admin review tick failed')
         stats['daily_review_sent'] = 0
 
-    # Алфавитка / задание недели: около полуночи МСК досэмплить буфер.
+    # Алфавитка: около полуночи МСК досэмплить буфер. Задания недели больше
+    # не генерируются: раздел убран из интерфейса.
     stats['alphabetty_buffer_added'] = 0
-    stats['week_task_buffer_added'] = 0
     try:
         from zoneinfo import ZoneInfo
 
@@ -710,18 +709,6 @@ def process_game_announcements(now=None) -> dict[str, int]:
                     stats['alphabetty_buffer_added'] = int(buf.get('added') or 0)
             except Exception:
                 logger.exception('Alphabetty buffer ensure failed')
-            try:
-                from games.console.games.week import (
-                    ensure_future_buffer as week_task_ensure_future_buffer,
-                )
-                from games.daily.catalog.week_task import WEEK_TASK_GAME_ID
-
-                wt_game = Game.objects.filter(pk=WEEK_TASK_GAME_ID).first()
-                if wt_game and _try_mark(wt_game, f'week_task_buffer:{day_key}'):
-                    wt_buf = week_task_ensure_future_buffer(now=now)
-                    stats['week_task_buffer_added'] = int(wt_buf.get('added') or 0)
-            except Exception:
-                logger.exception('Week task buffer ensure failed')
     except Exception:
         logger.exception('Daily buffer ensure failed')
 
@@ -743,7 +730,7 @@ def notify_admin_game_lifecycle(game, event: str) -> bool:
     return send_admin_message(format_admin_game_lifecycle_message(game, event))
 
 
-def notify_admin_registration_milestone(game, count: int) -> None:
-    from games.ops.telegram.bot.notify import format_admin_registration_milestone_message
+def notify_admin_registration(registration, count: int) -> bool:
+    from games.ops.telegram.bot.notify import format_admin_registration_message
 
-    send_admin_message(format_admin_registration_milestone_message(game, count))
+    return send_admin_message(format_admin_registration_message(registration, count))

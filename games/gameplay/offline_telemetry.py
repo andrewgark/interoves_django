@@ -134,13 +134,24 @@ def _alert_allowed(actor_key, kind):
         return False
 
 
-def _alert(kind, actor_key, detail, path):
+def _actor_html(request, actor_key):
+    from games.ops.telegram.bot.people import anon_html, user_html
+
+    user = getattr(request, 'user', None)
+    if user is not None and getattr(user, 'is_authenticated', False):
+        return user_html(user)
+    if actor_key.startswith('anon:'):
+        return anon_html(actor_key[5:])
+    return 'неизвестный игрок'
+
+
+def _alert(kind, actor_key, detail, path, actor_label=''):
     from games.ops.telegram.bot.alerts import publish_admin_alert
 
     text = '\n'.join([
         '📴 <b>Офлайн-режим: {}</b>'.format(html.escape(CLIENT_KINDS[kind][0])),
         '',
-        'Игрок: <code>{}</code>'.format(html.escape(actor_key[:40])),
+        'Игрок: {}'.format(actor_label or '<code>{}</code>'.format(html.escape(actor_key[:40]))),
         'Страница: <code>{}</code>'.format(html.escape(path[:200])),
         'Подробности: <code>{}</code>'.format(html.escape(
             json.dumps(detail, ensure_ascii=False, sort_keys=True)[:800]
@@ -183,7 +194,7 @@ def record_client_events(request, events):
         log_auth_event('offline_client_event', request, kind=kind, actor=actor_key, details=detail)
         if CLIENT_KINDS[kind][1] and _alert_allowed(actor_key, kind):
             try:
-                _alert(kind, actor_key, detail, path)
+                _alert(kind, actor_key, detail, path, _actor_html(request, actor_key))
             except Exception:
                 logger.exception('event=offline_telemetry_alert_failed kind=%s', kind)
         accepted += 1

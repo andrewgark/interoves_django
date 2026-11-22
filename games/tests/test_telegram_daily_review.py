@@ -171,7 +171,7 @@ class TelegramDailyReviewTests(TestCase):
         self.assertIn('нет выпуска №1', text)
         self.assertIn('Готово выпусков: 3 из 4', text)
 
-    def test_includes_week_task_only_on_the_eve_of_its_publication(self):
+    def test_week_tasks_are_left_out(self):
         self._create_edition(
             game_id='week_task',
             game_name='Задание недели',
@@ -183,16 +183,30 @@ class TelegramDailyReviewTests(TestCase):
             text='Назовите столицу России',
         )
 
-        friday_text, _ = build_daily_review(self.now.date().replace(day=28))
         monday_text, monday_keyboard = build_daily_review(self.now.date().replace(day=31))
 
-        self.assertNotIn('Задание недели №1', friday_text)
-        self.assertIn('Задание недели №1', monday_text)
-        self.assertIn('Назовите столицу России', monday_text)
-        self.assertIn('<tg-spoiler>МОСКВА</tg-spoiler>', monday_text)
-        self.assertEqual(
-            monday_keyboard['inline_keyboard'][1][0]['url'],
-            'https://interoves.com/support/week-tasks/',
+        self.assertNotIn('Задание недели', monday_text)
+        self.assertEqual(len(monday_keyboard['inline_keyboard']), 1)
+
+    def test_author_of_an_accepted_offer_is_named_with_profile_link_and_handle(self):
+        from django.contrib.auth.models import User
+
+        from games.models import LadderOffer, Profile
+
+        user = User.objects.create(username='author')
+        Profile.objects.create(user=user, first_name='Анна', last_name='Автор', telegram_username='anna_tg')
+        link = GameTaskGroup.objects.get(game_id='ladder', number='1')
+        LadderOffer.objects.create(
+            user=user, share_hash='ladderhash', task_group=link.task_group,
+            status=LadderOffer.STATUS_ACCEPTED, accepted_link=link,
+        )
+
+        text, _keyboard = build_daily_review(self.now.date().replace(day=28))
+
+        self.assertIn(
+            'Автор: <a href="https://interoves.com/support/actor/user/{}/">Анна Автор</a> (@anna_tg)'
+            ' · подпись «Редактор»'.format(user.pk),
+            text,
         )
 
     @patch('games.ops.telegram.channels.review.send_admin_message')

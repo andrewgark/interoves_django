@@ -167,9 +167,8 @@ class TicketTelegramCallbackTests(TestCase):
         cls.team = Team.objects.create(name='tg_ticket_team', visible_name='TG Ticket Team', tickets=0)
 
     @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
-    @patch('games.ops.telegram.bot.callbacks.send_admin_message')
     @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
-    def test_telegram_accept_credits_tickets(self, answer_mock, _admin_mock, _edit_mock):
+    def test_telegram_accept_credits_tickets(self, answer_mock, edit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
             tickets=3,
@@ -183,6 +182,8 @@ class TicketTelegramCallbackTests(TestCase):
         self.assertEqual(ticket.status, 'Accepted')
         self.assertEqual(self.team.tickets, 3)
         answer_mock.assert_called_once()
+        keyboard = edit_mock.call_args.kwargs['reply_markup']
+        self.assertEqual(keyboard['inline_keyboard'][0][0]['text'], '✅ Принята')
 
 
 class YooKassaWebhookTests(TestCase):

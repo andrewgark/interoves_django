@@ -48,18 +48,20 @@ class TelegramAdminReportTests(TestCase):
     def test_daily_report_has_both_comparison_dimensions_and_required_games(self):
         text, kind, _period = build_admin_report(now=self.now)
         self.assertEqual(kind, TelegramAdminReport.REPORT_DAILY)
-        self.assertIn('вчера / неделя', text)
-        self.assertIn('Сравнения:', text)
-        self.assertIn('«Лесенки»', text)
-        self.assertIn('«Салатики»', text)
-        self.assertIn('«Алфавитки»', text)
+        self.assertIn('<b>📊 Понедельник, 7 сентября</b>', text)
+        self.assertIn('Изменения: к воскресенью · к прошлому понедельнику', text)
+        self.assertIn('🪜 Лесенка:', text)
+        self.assertIn('🥗 Салатик:', text)
+        self.assertIn('🔤 Алфавитка:', text)
+        self.assertIn('📰 Цензурка:', text)
         self.assertLess(len(text), 4096)
 
     def test_monday_is_weekly_and_tick_sends_only_once(self):
         monday = datetime(2026, 9, 7, 0, 25, tzinfo=MOSCOW)
         text, kind, period = build_admin_report(now=monday)
         self.assertEqual(kind, TelegramAdminReport.REPORT_WEEKLY)
-        self.assertIn('пред. неделя:', text)
+        self.assertIn('<b>📊 Неделя 31 августа — 6 сентября</b>', text)
+        self.assertIn('Изменения: к прошлой неделе', text)
         with patch('games.ops.telegram.bot.reports.send_admin_message', return_value=True) as send:
             self.assertEqual(process_admin_report_tick(now=monday), {'sent': 1, 'skipped': 0})
             self.assertEqual(process_admin_report_tick(now=monday.replace(minute=26)), {'sent': 0, 'skipped': 1})
@@ -67,6 +69,8 @@ class TelegramAdminReportTests(TestCase):
         self.assertEqual(TelegramAdminReport.objects.count(), 1)
 
     def test_comparison_format(self):
-        self.assertEqual(format_comparison(0, 0), '⚪️ 0')
-        self.assertIn('🟢📈 +2 (+100%)', format_comparison(4, 2))
-        self.assertIn('🔴📉 −1 (−50%)', format_comparison(1, 2))
+        self.assertEqual(format_comparison(0, 0), '=')
+        self.assertEqual(format_comparison(4, 2), '↑100%')
+        self.assertEqual(format_comparison(1, 2), '↓50%')
+        self.assertEqual(format_comparison(3, 0), 'новое')
+        self.assertEqual(format_comparison(1001, 1000), '↑&lt;1%')

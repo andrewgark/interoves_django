@@ -2,24 +2,27 @@
 
 from __future__ import annotations
 
-import html
 from datetime import date, datetime, timedelta
 
 from django.db import IntegrityError
 from django.utils import timezone
-from django.utils.html import strip_tags
 
 from games.daily.page.section import (
     ALPHABETTY_SCHEDULE,
     CENSORLY_SCHEDULE,
     LADDER_SCHEDULE,
     MOSCOW,
-    WEEK_TASK_SCHEDULE,
     WORD_SALAD_SCHEDULE,
 )
-from games.models import Game, GameTaskGroup, Task
+from games.models import Game, GameTaskGroup
 from games.ops.telegram.bot.notify import send_admin_message
-from games.ops.telegram.links import admin_url, task_admin_url
+from games.ops.telegram.channels.puzzle_text import (
+    PUZZLE_LINES,
+    author_html,
+    escape,
+    first_task,
+)
+from games.ops.telegram.links import SECTION_SUPPORT_PATHS, support_url
 from games.ops.telegram.models import TelegramDailyReview
 
 REVIEW_HOUR = 22
@@ -39,25 +42,13 @@ WEEKDAYS_RU = (
     'пятница', 'суббота', 'воскресенье',
 )
 
+# game id -> (emoji, title, task type)
 SECTION_META = {
-    LADDER_SCHEDULE.game_id: ('🪜', 'Лесенка', '/support/ladders/'),
-    ALPHABETTY_SCHEDULE.game_id: ('🔤', 'Алфавитка', '/support/alphabetty/'),
-    WORD_SALAD_SCHEDULE.game_id: ('🥗', 'Салатик', '/support/salad/'),
-    CENSORLY_SCHEDULE.game_id: ('📰', 'Цензурка', '/support/censorly/'),
-    WEEK_TASK_SCHEDULE.game_id: ('📅', 'Задание недели', '/support/week-tasks/'),
+    LADDER_SCHEDULE.game_id: ('🪜', 'Лесенка', 'raddle'),
+    ALPHABETTY_SCHEDULE.game_id: ('🔤', 'Алфавитка', 'alphabetty'),
+    WORD_SALAD_SCHEDULE.game_id: ('🥗', 'Салатик', 'word_salad'),
+    CENSORLY_SCHEDULE.game_id: ('📰', 'Цензурка', 'censorly'),
 }
-
-
-def _escape(value) -> str:
-    return html.escape(str(value or ''), quote=False)
-
-
-def _plain_text(value) -> str:
-    return ' '.join(html.unescape(strip_tags(str(value or ''))).split())
-
-
-def _spoiler(value) -> str:
-    return '<tg-spoiler>{}</tg-spoiler>'.format(_escape(value))
 
 
 def _date_label(target_date: date) -> str:
@@ -67,11 +58,6 @@ def _date_label(target_date: date) -> str:
         MONTHS_RU[target_date.month],
         target_date.year,
     )
-
-
-def _task_for_link(link: GameTaskGroup, preferred_type: str) -> Task | None:
-    tasks = Task.objects.visible().filter(task_group_id=link.task_group_id)
-    return tasks.filter(task_type=preferred_type).order_by('id').first() or tasks.order_by('id').first()
 
 
 def _resolve_edition(schedule, target_date: date):
@@ -92,165 +78,46 @@ def _resolve_edition(schedule, target_date: date):
     return game, number, link, ''
 
 
-def _format_ladder(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    from games.puzzles.raddle.engine import parse_raddle_data
-
-    task = _task_for_link(link, 'raddle')
+def edition_section(schedule, number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
+    """One edition: title, author, the puzzle with spoilers, a link to its /support page."""
+    emoji, title, task_type = SECTION_META[schedule.game_id]
+    header = '{} <b>{} №{}</b>'.format(emoji, title, number)
+    task = first_task(link.task_group_id, task_type)
     if task is None:
-        return ['⚠️ Нет задания в выпуске.'], False
-    parsed = parse_raddle_data(task)
-    if not parsed:
-        return ['⚠️ Не удалось разобрать данные лесенки.'], False
-
-    words = parsed.get('words') or []
-    hints = parsed.get('hints') or []
-    lines = ['🪜 <b>Лесенка №{}</b>'.format(number)]
-    intro = _plain_text(task.text)
-    if intro:
-        lines.append('Вводная: {}'.format(_escape(intro)))
-    author = (task.tags or {}).get('author')
-    if author:
-        lines.append('Автор: {}'.format(_escape(author)))
-    lines.extend(['', '<b>Цепочка:</b>'])
-    if words:
-        lines.append('Старт: {}'.format(_spoiler(words[0])))
-    for index, hint in enumerate(hints, start=1):
-        answer = words[index] if index < len(words) else '⚠️ нет ответа'
-        lines.append('{}. {} → {}'.format(index, _escape(hint), _spoiler(answer)))
-    lines.extend(['', '<a href="{}">Редактировать выпуск</a>'.format(task_admin_url(task))])
-    return lines, bool(words) and len(words) == len(hints) + 1
-
-
-def _format_alphabetty(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    task = _task_for_link(link, 'alphabetty')
-    if task is None:
-        return ['⚠️ Нет задания в выпуске.'], False
-    answer = (task.answer or task.checker_data or '').strip().splitlines()
-    answer = answer[0].strip() if answer else ''
+        return [header, '⚠️ Нет задания в выпуске.'], False
+    body, ready = PUZZLE_LINES[task_type](task)
     lines = [
-        '🔤 <b>Алфавитка №{}</b>'.format(number),
-        'Задание: найти загаданное слово бинарным поиском.',
-        'Ответ: {}'.format(_spoiler(answer or '⚠️ не заполнен')),
+        header,
+        'Автор: {}'.format(author_html(task_group_id=link.task_group_id, link_id=link.pk, task=task)),
+        *body,
         '',
-        '<a href="{}">Редактировать выпуск</a>'.format(task_admin_url(task)),
+        '<a href="{}">Открыть в /support</a>'.format(escape(support_url(SECTION_SUPPORT_PATHS[schedule.game_id]))),
     ]
-    return lines, bool(answer)
-
-
-def _format_salad(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    from games.puzzles.salad.rules import format_grid_text, parse_task_data, theme_from_text
-
-    task = _task_for_link(link, 'word_salad')
-    if task is None:
-        return ['⚠️ Нет задания в выпуске.'], False
-    try:
-        grid, words = parse_task_data(task.checker_data, task.answer or '')
-    except ValueError:
-        return ['⚠️ Не удалось разобрать сетку и ответы салатика.'], False
-
-    lines = ['🥗 <b>Салатик №{}</b>'.format(number)]
-    theme = theme_from_text(task.theme)
-    if theme:
-        lines.append('Тема: {}'.format(_escape(theme)))
-    lines.extend([
-        '<pre>{}</pre>'.format(_escape(format_grid_text(grid))),
-        'Ответы ({}): {}'.format(len(words), _spoiler(' · '.join(words) or '⚠️ не заполнены')),
-        '',
-        '<a href="{}">Редактировать выпуск</a>'.format(task_admin_url(task)),
-    ])
-    return lines, len(grid) == 16 and bool(words)
-
-
-def _format_censorly(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    task = _task_for_link(link, 'censorly')
-    if task is None:
-        return ['⚠️ Нет статьи в выпуске.'], False
-    from games.puzzles.censorly.play import puzzle_from_task
-
-    payload = puzzle_from_task(task)
-    title = _plain_text((payload or {}).get('wiki_title'))
-    body = _plain_text((payload or {}).get('body_text'))
-    lines = ['📰 <b>Цензурка №{}</b>'.format(number)]
-    if title:
-        lines.append('Статья: {}'.format(_spoiler(title)))
-    else:
-        lines.append('⚠️ Не удалось получить название статьи.')
-    lines.extend([
-        '',
-        '<a href="{}">Редактировать статью</a>'.format(task_admin_url(task)),
-    ])
-    return lines, bool(title and body and (payload or {}).get('title_tokens') is not None)
-
-
-def _format_week_task(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    tasks = list(
-        Task.objects.visible()
-        .filter(task_group_id=link.task_group_id)
-        .order_by('number', 'id')
-    )
-    if not tasks:
-        return ['⚠️ Нет заданий в выпуске.'], False
-
-    lines = ['📅 <b>Задание недели №{}</b>'.format(number)]
-    ready = True
-    for task in tasks:
-        condition = _plain_text(task.text) or '⚠️ условие не заполнено'
-        answer = (task.answer or '').strip()
-        ready = ready and bool(_plain_text(task.text)) and bool(answer)
-        lines.extend([
-            '',
-            '<b>{}.</b> {}'.format(_escape(task.number), _escape(condition)),
-            'Ответ: {}'.format(_spoiler(answer or '⚠️ не заполнен')),
-        ])
-    lines.extend(['', '<a href="{}">Редактировать выпуск</a>'.format(
-        admin_url('/support/week-tasks/{}/'.format(link.pk)),
-    )])
     return lines, ready
-
-
-FORMATTERS = {
-    LADDER_SCHEDULE.game_id: _format_ladder,
-    ALPHABETTY_SCHEDULE.game_id: _format_alphabetty,
-    WORD_SALAD_SCHEDULE.game_id: _format_salad,
-    CENSORLY_SCHEDULE.game_id: _format_censorly,
-    WEEK_TASK_SCHEDULE.game_id: _format_week_task,
-}
-
-
-def _schedules_for_date(target_date: date):
-    schedules = list(DAILY_SCHEDULES)
-    game = Game.objects.filter(pk=WEEK_TASK_SCHEDULE.game_id).first()
-    if game is None:
-        return schedules
-    number = WEEK_TASK_SCHEDULE.number_for_date(game, target_date)
-    publish_at = WEEK_TASK_SCHEDULE.publish_at(game, number) if number is not None else None
-    if publish_at is not None and publish_at.date() == target_date:
-        schedules.append(WEEK_TASK_SCHEDULE)
-    return schedules
 
 
 def build_daily_review(target_date: date) -> tuple[str, dict]:
     """Return an HTML review and editor keyboard for one Moscow calendar date."""
     sections: list[list[str]] = []
     ready_count = 0
-    schedules = _schedules_for_date(target_date)
+    schedules = list(DAILY_SCHEDULES)
 
     for schedule in schedules:
-        emoji, title, _dashboard_path = SECTION_META[schedule.game_id]
+        emoji, title, _task_type = SECTION_META[schedule.game_id]
         _game, number, link, error = _resolve_edition(schedule, target_date)
         if error:
             sections.append([
                 '{} <b>{}</b>'.format(emoji, title),
-                '⚠️ {}'.format(_escape(error)),
+                '⚠️ {}'.format(escape(error)),
             ])
             continue
-        lines, ready = FORMATTERS[schedule.game_id](number, link)
+        lines, ready = edition_section(schedule, number, link)
         sections.append(lines)
         ready_count += int(ready)
 
     lines = [
         '🗓 <b>Задания на завтра</b>',
-        _escape(_date_label(target_date)),
+        escape(_date_label(target_date)),
         '',
         'Публикация в 00:00 МСК. Ответы скрыты — нажмите, чтобы раскрыть.',
     ]
@@ -265,22 +132,13 @@ def build_daily_review(target_date: date) -> tuple[str, dict]:
             ready_count, len(schedules),
         ))
 
-    button_rows = [[
+    keyboard = {'inline_keyboard': [[
         {
             'text': '{} {}'.format(SECTION_META[s.game_id][0], SECTION_META[s.game_id][1]),
-            'url': admin_url(SECTION_META[s.game_id][2]),
+            'url': support_url(SECTION_SUPPORT_PATHS[s.game_id]),
         }
-        for s in schedules if s.game_id != WEEK_TASK_SCHEDULE.game_id
-    ]]
-    if WEEK_TASK_SCHEDULE in schedules:
-        button_rows.append([{
-            'text': '{} {}'.format(
-                SECTION_META[WEEK_TASK_SCHEDULE.game_id][0],
-                SECTION_META[WEEK_TASK_SCHEDULE.game_id][1],
-            ),
-            'url': admin_url(SECTION_META[WEEK_TASK_SCHEDULE.game_id][2]),
-        }])
-    keyboard = {'inline_keyboard': button_rows}
+        for s in schedules
+    ]]}
     return '\n'.join(lines), keyboard
 
 

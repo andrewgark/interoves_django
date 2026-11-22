@@ -71,7 +71,7 @@ class SubscriptionGiftAdminAlertTests(TestCase):
         self.assertEqual(self._alerts(), [(gift.pk, 'paid', 'sent')])
         text = publish.call_args.kwargs['payload']['text']
         self.assertIn('Куплен подарок', text)
-        self.assertIn('gift-buyer', text)
+        self.assertIn('/support/actor/user/{}/'.format(self.buyer.pk), text)
         self.assertIn('@giftbuyer', text)
         self.assertIn('600 RUB', text)
         self.assertIn('1 месяц', text)
@@ -90,8 +90,10 @@ class SubscriptionGiftAdminAlertTests(TestCase):
 
         claimed_text = publish.call_args_list[-1].kwargs['payload']['text']
         self.assertIn('активирован', claimed_text)
-        self.assertIn('Активировал: <b>gift-recipient</b>', claimed_text)
-        self.assertIn('От: <b>gift-buyer</b>', claimed_text)
+        self.assertIn('Активировал: <a href="https://interoves.com/support/actor/user/{}/">'.format(
+            self.recipient.pk), claimed_text)
+        self.assertIn('(@giftrecipient)', claimed_text)
+        self.assertIn('От: <a href="https://interoves.com/support/actor/user/{}/">'.format(self.buyer.pk), claimed_text)
         self.assertIn('Доступ: до ', claimed_text)
 
     def test_admin_forever_gift_claim_is_reported_as_manual(self):

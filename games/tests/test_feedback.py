@@ -384,17 +384,17 @@ class FeedbackNotifyTests(TestCase):
         TELEGRAM_ADMIN_CHAT_ID='12345',
         SITE_BASE_URL='https://interoves.com',
     )
-    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message_result')
     def test_user_reply_pings_admin_not_as_new_report(self, send_mock):
-        send_mock.return_value = True
+        send_mock.return_value = {'message_id': 1}
         send_mock.reset_mock()
         with self.captureOnCommitCallbacks(execute=True):
             add_user_reply(self.report, self.user, 'Ещё подробности')
         self.assertEqual(send_mock.call_count, 1)
         text = send_mock.call_args.args[1]
-        self.assertIn('Ответ пользователя', text)
-        self.assertNotIn('Новый репорт о баге', text)
-        self.assertIn('/profile/reports/{}/'.format(self.report.pk), text)
+        self.assertIn('Ответ по багу #{}</b> от автора'.format(self.report.pk), text)
+        self.assertNotIn('🐞', text)
+        self.assertIn('/support/reports/{}/'.format(self.report.pk), text)
         self.assertIsNone(send_mock.call_args.kwargs.get('reply_markup'))
 
     @override_settings(
@@ -467,7 +467,21 @@ class FeedbackSupportReplyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Баг #{}'.format(self.bug.pk))
         self.assertContains(response, 'name="reply_text"')
-        self.assertContains(response, '/profile/reports/{}/'.format(self.bug.pk))
+        self.assertContains(response, '/support/reports/{}/'.format(self.bug.pk))
+
+    def test_report_page_shows_thread_reply_form_and_status_actions(self):
+        response = self.client.get(reverse('support:bug_report', args=[self.bug.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Баг #{}'.format(self.bug.pk))
+        self.assertContains(response, 'что-то сломалось')
+        self.assertContains(response, 'Игрок Сайт')
+        self.assertContains(response, 'name="reply_text"')
+        self.assertContains(response, 'value="bug_fixed"')
+
+    def test_report_page_requires_support_access(self):
+        other = Client()
+        response = other.get(reverse('support:bug_report', args=[self.bug.pk]))
+        self.assertNotEqual(response.status_code, 200)
 
     def test_bug_reply_action_creates_public_message(self):
         response = self.client.post(reverse('support:action'), {

@@ -20,23 +20,48 @@ def _safe_error_text(error: Exception) -> str:
     return text.replace(token, '[redacted]') if token else text
 
 
-def _post(method: str, payload: dict) -> dict | None:
+def _error_description(response) -> str:
+    """Telegram's own reason for a rejected call ("can't parse entities: …")."""
+    try:
+        return str((response.json() or {}).get('description') or '')[:300]
+    except Exception:
+        return ''
+
+
+def _post_detailed(method: str, payload: dict) -> tuple[dict | None, str]:
+    """POST a Bot API call: (body, '') on success, (None, Telegram's reason) on failure."""
     if not settings.TELEGRAM_BOT_TOKEN:
         logger.debug('Telegram API skipped: TELEGRAM_BOT_TOKEN is empty')
-        return None
+        return None, ''
+    response = None
     try:
         response = requests.post(_api_url(method), json=payload, timeout=TELEGRAM_API_TIMEOUT)
         response.raise_for_status()
         body = response.json()
         if not body.get('ok'):
             logger.error('Telegram API %s error: %s', method, body)
-            return None
-        return body
+            return None, str(body.get('description') or '')
+        return body, ''
     except Exception as error:
+        description = _error_description(response) if response is not None else ''
         # The bot token is part of the request URL and requests includes that
         # URL in connection errors. Never put it into application logs.
-        logger.error('Telegram API %s failed: %s', method, _safe_error_text(error))
-        return None
+        logger.error(
+            'Telegram API %s failed: %s%s', method, _safe_error_text(error),
+            ' description={!r}'.format(description) if description else '',
+        )
+        return None, description
+
+
+def _post(method: str, payload: dict) -> dict | None:
+    return _post_detailed(method, payload)[0]
+
+
+def _plain_text(text: str) -> str:
+    import html
+    import re
+
+    return html.unescape(re.sub(r'<[^>]+>', '', text or ''))
 
 
 def _post_multipart(method: str, data: dict, files: dict) -> dict | None:
@@ -61,14 +86,16 @@ def _post_multipart(method: str, data: dict, files: dict) -> dict | None:
         return None
 
 
-def send_message(
+def send_message_result(
     chat_id,
     text: str,
     *,
     parse_mode: str = 'HTML',
     disable_web_page_preview: bool = True,
     reply_markup: dict | None = None,
-) -> bool:
+    reply_to_message_id: int | None = None,
+) -> dict | None:
+    """Send a message; the sent Message object (with ``message_id``) or None."""
     payload: dict[str, Any] = {
         'chat_id': chat_id,
         'text': text,
@@ -77,7 +104,39 @@ def send_message(
     }
     if reply_markup is not None:
         payload['reply_markup'] = reply_markup
-    return _post('sendMessage', payload) is not None
+    if reply_to_message_id:
+        # The original may have been deleted; the message still goes out, unthreaded.
+        payload['reply_parameters'] = {
+            'message_id': int(reply_to_message_id), 'allow_sending_without_reply': True,
+        }
+    body, description = _post_detailed('sendMessage', payload)
+    if body is not None:
+        return body.get('result') or {}
+    reason = description.lower()
+    if parse_mode == 'HTML' and ("can't parse entities" in reason or 'message is too long' in reason):
+        # Better an unformatted message than a lost one: alerts are not retried.
+        logger.warning('Telegram sendMessage resent as plain text: %s', description)
+        fallback = dict(payload, text=_plain_text(text)[:4000])
+        fallback.pop('parse_mode', None)
+        body = _post('sendMessage', fallback)
+        return (body.get('result') or {}) if body is not None else None
+    return None
+
+
+def send_message(
+    chat_id,
+    text: str,
+    *,
+    parse_mode: str = 'HTML',
+    disable_web_page_preview: bool = True,
+    reply_markup: dict | None = None,
+    reply_to_message_id: int | None = None,
+) -> bool:
+    return send_message_result(
+        chat_id, text, parse_mode=parse_mode,
+        disable_web_page_preview=disable_web_page_preview,
+        reply_markup=reply_markup, reply_to_message_id=reply_to_message_id,
+    ) is not None
 
 
 SEND_OK = 'ok'

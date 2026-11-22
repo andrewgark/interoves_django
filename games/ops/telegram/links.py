@@ -94,6 +94,68 @@ def task_play_url(game, task) -> str:
     return admin_url('{}#new-task-{}'.format(path, task.pk))
 
 
+SECTION_SUPPORT_PATHS = {
+    'ladder': '/support/ladders/',
+    'alphabetty': '/support/alphabetty/',
+    'salad': '/support/salad/',
+    'censorly': '/support/censorly/',
+}
+
+
+def support_url(path: str = '/support/') -> str:
+    """Absolute link into the /support console, the admin's working tool."""
+    return admin_url(path)
+
+
+def user_support_url(user) -> str:
+    return support_url('/support/actor/user/{}/'.format(user.pk))
+
+
+def team_support_url(team) -> str:
+    from urllib.parse import quote
+
+    return support_url('/support/actor/team/{}/'.format(quote(str(team.name), safe='')))
+
+
+def game_support_url(game) -> str:
+    game_id = getattr(game, 'id', game)
+    section = SECTION_SUPPORT_PATHS.get(str(game_id))
+    if section:
+        return support_url(section)
+    return support_url('/support/game/{}/'.format(game_id))
+
+
+def task_support_url(task, game=None) -> str:
+    """Where the admin edits or previews a task: the daily section or the task group preview."""
+    game_id = getattr(game, 'id', None) or getattr(task, 'game_id', None)
+    if not game_id and getattr(task, 'task_group_id', None):
+        from games.models import GameTaskGroup
+
+        game_id = (
+            GameTaskGroup.objects.filter(task_group_id=task.task_group_id)
+            .values_list('game_id', flat=True).first()
+        )
+    section = SECTION_SUPPORT_PATHS.get(str(game_id or ''))
+    if section:
+        return support_url(section)
+    if game_id and getattr(task, 'task_group_id', None):
+        from games.models import GameTaskGroup
+
+        number = (
+            GameTaskGroup.objects.filter(game_id=game_id, task_group_id=task.task_group_id)
+            .values_list('number', flat=True).first()
+        )
+        if number:
+            return support_url('/support/preview/games/{}/{}/'.format(game_id, number))
+    if game_id:
+        return support_url('/support/game/{}/'.format(game_id))
+    return support_url()
+
+
+def bug_report_support_url(report) -> str:
+    return support_url('/support/reports/{}/'.format(getattr(report, 'pk', report)))
+
+
 def task_admin_url(task) -> str:
     return admin_url('/admin/games/task/{}/change/'.format(task.pk))
 

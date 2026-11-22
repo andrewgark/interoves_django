@@ -11,7 +11,6 @@ from games.models import (
     Registration,
     TicketRequest,
 )
-from games.ops.telegram.bot.commands import registration_milestone_reached
 from games.ops.telegram.bot.notify import (
     notify_new_alphabetty_dict_suggestion,
     notify_new_bug_report,
@@ -19,7 +18,7 @@ from games.ops.telegram.bot.notify import (
     notify_new_donation,
     notify_new_ticket_request,
 )
-from games.ops.telegram.channels.scheduling import notify_admin_game_lifecycle, notify_admin_registration_milestone
+from games.ops.telegram.channels.scheduling import notify_admin_game_lifecycle, notify_admin_registration
 
 
 @receiver(post_save, sender=BugReport)
@@ -113,16 +112,23 @@ def telegram_notify_game_lifecycle(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Registration)
-def telegram_notify_registration_milestone(sender, instance, created, **kwargs):
+def telegram_notify_registration(sender, instance, created, **kwargs):
     if not created or instance.game_id is None:
         return
+    registration_id = instance.pk
 
     def after_commit():
         from games.models import Registration as RegistrationModel
 
-        count = RegistrationModel.objects.filter(game_id=instance.game_id).count()
-        milestone = registration_milestone_reached(count - 1, count)
-        if milestone is not None:
-            notify_admin_registration_milestone(instance.game, milestone)
+        registration = (
+            RegistrationModel.objects
+            .select_related('game', 'team', 'with_referent')
+            .filter(pk=registration_id)
+            .first()
+        )
+        if registration is None or registration.game is None:
+            return
+        count = RegistrationModel.objects.filter(game_id=registration.game_id).count()
+        notify_admin_registration(registration, count)
 
     transaction.on_commit(after_commit)

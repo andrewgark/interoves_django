@@ -84,19 +84,16 @@ def is_network_outage(details: dict) -> bool:
 
 
 def _actor_label(request) -> tuple[str, str]:
-    """Return (throttle key, human label) for the reporting player."""
+    """Return (throttle key, HTML label for the admin chat) for the reporting player."""
+    from games.ops.telegram.bot.people import anon_html, user_html
+
     user = getattr(request, 'user', None)
     if user is not None and getattr(user, 'is_authenticated', False):
-        profile = getattr(user, 'profile', None)
-        name = ' '.join(filter(None, (
-            getattr(profile, 'first_name', ''), getattr(profile, 'last_name', ''),
-        ))) if profile else ''
-        label = '{} (user #{})'.format(name or user.get_username(), user.pk)
-        return 'user:{}'.format(user.pk), label
+        return 'user:{}'.format(user.pk), user_html(user)
     anon_key = str(gameplay_anon_key(request) or '')
     if anon_key:
-        return 'anon:{}'.format(anon_key[:64]), 'anon {}'.format(anon_key[:12])
-    return 'unknown', 'unknown player'
+        return 'anon:{}'.format(anon_key[:64]), anon_html(anon_key)
+    return 'unknown', 'неизвестный игрок'
 
 
 def _alert_allowed(actor_key: str, path: str, reason: str) -> bool:
@@ -126,7 +123,7 @@ def _alert_text(*, reason, actor_label, path, details, user_agent) -> str:
         '⏱ <b>Таймер решения не идёт</b>',
         '',
         'Причина: {}'.format(html.escape(CLIENT_REPORT_REASONS[reason])),
-        'Игрок: <b>{}</b>'.format(html.escape(actor_label)),
+        'Игрок: {}'.format(actor_label),
         'Страница: <code>{}</code>'.format(html.escape(path)),
         'Браузер: {}'.format(html.escape(browser)),
         'Диагностика: <code>{}</code>'.format(html.escape(

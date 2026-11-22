@@ -79,14 +79,13 @@ class TelegramNotifyTests(TransactionTestCase):
         mock_post.assert_called_once()
         payload = mock_post.call_args.kwargs['json']
         self.assertEqual(payload['chat_id'], '123456789')
-        self.assertIn('Новый репорт о баге', payload['text'])
+        self.assertIn('Баг #{}'.format(report.pk), payload['text'])
         self.assertIn('Опечатка в условии', payload['text'])
-        self.assertIn('/admin/games/bugreport/{}/change/'.format(report.pk), payload['text'])
-        self.assertIn('/profile/reports/{}/'.format(report.pk), payload['text'])
+        self.assertIn('/support/reports/{}/'.format(report.pk), payload['text'])
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), payload['text'])
-        self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), payload['text'])
-        self.assertIn('/admin/games/taskgroup/{}/change/'.format(self.task_group.pk), payload['text'])
-        self.assertIn('/admin/games/game/{}/change/'.format(self.game.id), payload['text'])
+        self.assertIn('/support/preview/games/{}/1/'.format(self.game.id), payload['text'])
+        self.assertIn('/support/game/{}/'.format(self.game.id), payload['text'])
+        self.assertNotIn('/admin/', payload['text'])
         self.assertIn('1. Section (1)', payload['text'])
 
     @patch('games.ops.telegram.transport.api.requests.post')
@@ -103,7 +102,7 @@ class TelegramNotifyTests(TransactionTestCase):
 
         mock_post.assert_called_once()
         payload = mock_post.call_args.kwargs['json']
-        self.assertIn('Новая заявка на билеты', payload['text'])
+        self.assertIn('Заявка на билеты #', payload['text'])
         self.assertIn('Team A', payload['text'])
         self.assertIn(str(ticket_request.pk), payload['text'])
 

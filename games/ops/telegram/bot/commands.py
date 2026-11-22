@@ -20,8 +20,15 @@ from games.models import (
     Task,
     TicketRequest,
 )
-from games.ops.telegram.bot.notify import REGISTRATION_MILESTONES, _escape, _join_lines
-from games.ops.telegram.links import admin_url, game_site_url
+from games.ops.telegram.bot.notify import _escape, _join_lines
+from games.ops.telegram.bot.people import moscow_time, team_html
+from games.ops.telegram.links import (
+    admin_url,
+    bug_report_support_url,
+    game_site_url,
+    game_support_url,
+    support_url,
+)
 from games.ops.telegram.transport.config import (
     admin_is_muted,
     announce_chat_ids,
@@ -33,10 +40,10 @@ from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
 
 def _help_text() -> str:
     return _join_lines([
-        '<b>Admin mode — команды</b>',
+        '<b>Команды админ-чата</b>',
         '',
         '/status — health, деплой, очереди',
-        '/pending — pending баги, билеты, корпоратив',
+        '/pending — неразобранные баги, билеты, корпоративы',
         '/game &lt;id&gt; — сводка по игре',
         '/stuck &lt;id&gt; [мин] — команды без прогресса',
         '/preflight &lt;id&gt; — чеклист перед стартом',
@@ -53,9 +60,11 @@ def _help_text() -> str:
         '/unmute — включить уведомления',
         '/gift [@username] 1|N|forever — создать код подарка',
         '',
+        'Ответ на баг: ответьте (Reply) на сообщение бота о баге — текст уйдёт автору.',
+        '',
         'Публичные (личка и чаты): /des, /des_results',
         'Чат-мод: бот шлёт анонсы в группы из TELEGRAM_ANNOUNCE_CHAT_IDS.',
-        'Включить анонсы игры: tags.telegram_announce = true в админке.',
+        'Включить анонсы игры: tags.telegram_announce = true у игры.',
     ])
 
 
@@ -227,89 +236,87 @@ def _cmd_status(_args) -> str:
     version = getattr(settings, 'SITE_DEPLOY_VERSION', '') or '—'
 
     return _join_lines([
-        '<b>Status</b>',
+        '<b>Состояние</b>',
         '',
-        'Deploy: <code>{}</code>'.format(_escape(version)),
-        'DB: {}'.format('OK' if db_ok else 'FAIL'),
-        'Admin mute: {}'.format(mute),
-        'Pending: 🐞 {} · 🎫 {} · 🏢 {} · 🔤 {}'.format(
-            pending_bugs, pending_tickets, pending_orders, pending_dict,
-        ),
-        'Stuck tickets (&gt;30m): {}'.format(stuck_tickets),
-        'Announce chats: {}'.format(len(announce_chat_ids())),
+        'Версия: <code>{}</code>'.format(_escape(version)),
+        'База: {}'.format('✅ отвечает' if db_ok else '❌ не отвечает'),
+        'Уведомления заглушены: {}'.format(mute),
+        'Ждут разбора: 🐞 {} · 🎫 {} · 🔤 {}'.format(pending_bugs, pending_tickets, pending_dict),
+        'Корпоративные заявки без письма: {}'.format(pending_orders),
+        'Зависшие билеты (оплата &gt; 30 мин): {}'.format(stuck_tickets),
+        'Чатов для анонсов: {}'.format(len(announce_chat_ids())),
         'Webhook: {}'.format(_escape(webhook.get('url') or '—')),
+        '<a href="{}">Очередь в /support</a>'.format(_escape(support_url('/support/pending/'))),
     ])
 
 
-def _cmd_pending(_args) -> str:
-    lines = ['<b>Pending</b>', '']
+def _ticket_line(ticket) -> str:
+    return '#{} · {} · {} {}'.format(
+        ticket.pk, team_html(ticket.team), ticket.money, _escape(ticket.currency),
+    )
 
-    bugs = BugReport.objects.filter(status='Pending').order_by('-time')[:5]
+
+def _cmd_pending(_args) -> str:
+    from games.models import AlphabettyDictSuggestion
+
+    lines = ['<b>Ждут разбора</b>', '']
+
+    pending_bugs = BugReport.objects.filter(status='Pending')
+    bugs = pending_bugs.select_related('task').order_by('-time')[:5]
     if bugs:
         lines.append('<b>Баги:</b>')
         for bug in bugs:
-            lines.append('#{} · {} · task #{}'.format(
-                bug.pk, _escape(bug.game_id), _escape(getattr(bug.task, 'number', bug.task_id)),
+            lines.append('<a href="{}">#{}</a> · {} · задание {} · {}'.format(
+                _escape(bug_report_support_url(bug)), bug.pk, _escape(bug.game_id),
+                _escape(getattr(bug.task, 'number', bug.task_id)),
+                _escape(' '.join((bug.text or '').split())[:60]),
             ))
-        extra = BugReport.objects.filter(status='Pending').count() - len(bugs)
+        extra = pending_bugs.count() - len(bugs)
         if extra > 0:
             lines.append('… и ещё {}'.format(extra))
         lines.append('')
 
-    tickets = TicketRequest.objects.filter(status='Pending').order_by('-time')[:5]
-    stuck = list(stuck_pending_ticket_requests()[:5])
+    stuck = list(stuck_pending_ticket_requests().select_related('team')[:5])
     if stuck:
-        lines.append('<b>Зависшие билеты (&gt;30 мин):</b>')
-        for ticket in stuck:
-            team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
-            lines.append('#{} · {} · {} {}'.format(
-                ticket.pk, _escape(team), ticket.money, _escape(ticket.currency),
-            ))
+        lines.append('<b>Зависшие билеты (оплата &gt; 30 мин):</b>')
+        lines.extend(_ticket_line(ticket) for ticket in stuck)
         extra_stuck = stuck_pending_ticket_count() - len(stuck)
         if extra_stuck > 0:
             lines.append('… и ещё {}'.format(extra_stuck))
         lines.append('')
 
+    tickets = TicketRequest.objects.filter(status='Pending').select_related('team').order_by('-time')[:5]
     if tickets:
         lines.append('<b>Билеты:</b>')
-        for ticket in tickets:
-            team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
-            lines.append('#{} · {} · {} {}'.format(
-                ticket.pk, _escape(team), ticket.money, _escape(ticket.currency),
-            ))
+        lines.extend(_ticket_line(ticket) for ticket in tickets)
         lines.append('')
 
-    from games.models import AlphabettyDictSuggestion
-
-    dict_suggestions = (
-        AlphabettyDictSuggestion.objects
-        .filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
-        .order_by('-updated_at')[:5]
-    )
+    pending_dict = AlphabettyDictSuggestion.objects.filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
+    dict_suggestions = pending_dict.order_by('-updated_at')[:5]
     if dict_suggestions:
         lines.append('<b>Словарь Алфавитки:</b>')
         for item in dict_suggestions:
-            lines.append('#{} · <code>{}</code> · ×{}'.format(
+            lines.append('#{} · <code>{}</code> · голосов {}'.format(
                 item.pk, _escape(item.word), item.suggest_count,
             ))
-        extra_dict = (
-            AlphabettyDictSuggestion.objects
-            .filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
-            .count()
-            - len(dict_suggestions)
-        )
+        extra_dict = pending_dict.count() - len(dict_suggestions)
         if extra_dict > 0:
             lines.append('… и ещё {}'.format(extra_dict))
         lines.append('')
 
-    orders = CorporateGameOrder.objects.order_by('-created_at')[:5]
+    orders = CorporateGameOrder.objects.order_by('-created_at')[:3]
     if orders:
-        lines.append('<b>Корпоратив (последние):</b>')
+        lines.append('<b>Корпоративные заявки (последние):</b>')
         for order in orders:
-            lines.append('#{} · {}'.format(order.pk, _escape(order.company_name)))
+            lines.append('#{} · {} · {}'.format(
+                order.pk, _escape(order.company_name), moscow_time(order.created_at, '%d.%m'),
+            ))
+        lines.append('')
 
     if len(lines) == 2:
         lines.append('Очереди пусты.')
+    else:
+        lines.append('<a href="{}">Очередь в /support</a>'.format(_escape(support_url('/support/pending/'))))
     return _join_lines(lines)
 
 
@@ -334,13 +341,13 @@ def _cmd_game(args) -> str:
         'Старт: {} · Конец: {}'.format(start, end),
         'Статус: {}{}'.format(
             'идёт' if started and not ended else ('завершена' if ended else 'ещё не началась'),
-            '' if game.is_ready else ' · ⚠️ not ready',
+            '' if game.is_ready else ' · ⚠️ не готова (is_ready выключен)',
         ),
         'Регистрации: {}'.format(registrations),
-        'Pending баги: {}'.format(pending_bugs),
-        '<a href="{}">Сайт</a> · <a href="{}">Админка</a>'.format(
+        'Неразобранные баги: {}'.format(pending_bugs),
+        '<a href="{}">Сайт</a> · <a href="{}">Открыть в /support</a>'.format(
             _escape(game_site_url(game)),
-            admin_url('/admin/games/game/{}/change/'.format(game.id)),
+            _escape(game_support_url(game)),
         ),
     ])
 
@@ -604,10 +611,3 @@ def _cmd_mute(args) -> str:
 def _cmd_unmute(_args) -> str:
     clear_admin_mute()
     return 'Admin-уведомления снова включены.'
-
-
-def registration_milestone_reached(old_count: int, new_count: int) -> int | None:
-    for milestone in REGISTRATION_MILESTONES:
-        if old_count < milestone <= new_count:
-            return milestone
-    return None
