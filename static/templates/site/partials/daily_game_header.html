@@ -1,6 +1,6 @@
 {# Compact shared header for daily single-task games. #}
 {% load static %}
-<div class="new-daily-game-header" data-daily-game-header>
+<div class="new-daily-game-header" data-daily-game-header data-game-id="{{ game.id }}"{% if not next_task_group_url %} data-newest-edition{% endif %}>
   <div class="new-daily-game-header__topline">
     <div class="new-daily-game-header__title-wrap">
       <h1 class="new-heading new-heading--page">
@@ -24,38 +24,8 @@
     <div class="new-daily-game-header__controls">
       {% if not custom_daily_task and not hide_daily_navigation %}
       {% include "site/partials/daily_edition_nav.html" %}
-      <script>
-      // Finishing a game nudges the open edition arrows once: there is more to play.
-      // Not on a return visit to a finished edition (its result card is shown
-      // by DOMContentLoaded). Finishing the newest edition also clears this
-      // game's dot in the site nav.
-      (function () {
-        var nav = document.currentScript && document.currentScript.previousElementSibling;
-        var newest = {% if next_task_group_url %}false{% else %}true{% endif %};
-        var gameId = '{{ game.id|escapejs }}';
-        function start() {
-          if (!nav || !window.interovesOnDailyResult) return;
-          var finishedBefore = !!document.querySelector('[data-raddle-result]:not([hidden])');
-          window.interovesOnDailyResult(function () {
-            if (newest && gameId) {
-              document.querySelectorAll('.new-nav__section[data-nav-game="' + gameId + '"]').forEach(function (link) {
-                var dot = link.querySelector('.new-fresh-dot');
-                if (!dot) return;
-                dot.remove();
-                link.setAttribute('aria-label', (link.getAttribute('aria-label') || '').replace(', новый выпуск ещё не решён', ''));
-              });
-            }
-            if (finishedBefore || !nav.querySelector('a.new-daily-game-header__nav-button:not(.is-archive-locked)')) return;
-            window.setTimeout(function () {
-              nav.classList.add('is-calling');
-              window.setTimeout(function () { nav.classList.remove('is-calling'); }, 3000);
-            }, 900);
-          });
-        }
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-        else start();
-      })();
-      </script>
+      {# Plain, not deferred: it must run during parsing to see whether the result card was there before. #}
+      <script src="{% static 'js/daily_edition_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
       {% endif %}
       {% if daily_timing_enabled %}{% include "site/partials/daily_solve_timer.html" %}{% endif %}
       {% include "site/partials/replay_controls.html" with custom_reset_url=custom_reset_url custom_reset_enabled=custom_reset_enabled %}

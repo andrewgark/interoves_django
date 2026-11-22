@@ -29,6 +29,43 @@ def finished_instances(instance_ids, *, team=None, user=None, anon_key=None):
     return finished
 
 
+def request_actor(request) -> dict:
+    """The daily-game actor of a request: the logged-in user, else the browser's anonymous key.
+
+    The same rule as games.site.views.daily.common.resolve_actor.
+    """
+    user = getattr(request, 'user', None)
+    if user is not None and user.is_authenticated:
+        return {'user': user}
+    from games.ops.analytics.identity import gameplay_anon_key
+    return {'anon_key': gameplay_anon_key(request)}
+
+
+def instance_id(game, placement) -> str:
+    """game_instance_id_for_task_group() without loading the task group."""
+    return '{}:{}'.format(game.id, placement.task_group_id)
+
+
+def unfinished_placements(game, placements, *, team=None, user=None, anon_key=None) -> set:
+    """Pks of the given placements this actor has not finished.
+
+    Empty for a newcomer, so the dots stay hidden until a first finished game.
+    """
+    placements = [placement for placement in placements if placement is not None]
+    if not placements:
+        return set()
+    finished = finished_instances(
+        {instance_id(game, placement) for placement in placements},
+        team=team, user=user, anon_key=anon_key,
+    )
+    if finished is None:
+        return set()
+    return {
+        placement.pk for placement in placements
+        if instance_id(game, placement) not in finished
+    }
+
+
 def unfinished_latest_game_ids(*, user=None, anon_key=None) -> frozenset:
     """Daily games whose newest released edition this player has not finished.
 
@@ -46,8 +83,7 @@ def unfinished_latest_game_ids(*, user=None, anon_key=None) -> frozenset:
     for game in games:
         links = link_cache.visible_game_links(game)
         if links:
-            # game_instance_id_for_task_group() without loading the task group.
-            game_by_instance['{}:{}'.format(game.id, links[0].task_group_id)] = game.id
+            game_by_instance[instance_id(game, links[0])] = game.id
     if not game_by_instance:
         return frozenset()
     finished = finished_instances(game_by_instance, user=user, anon_key=anon_key)

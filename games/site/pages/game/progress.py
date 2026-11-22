@@ -129,8 +129,14 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None, back_label
     )
 
 
-def _task_group_results_nav_context(game, placement, *, back_label=None):
-    """Navigation between adjacent daily task result pages."""
+def _task_group_results_nav_context(request, game, placement, *, back_label=None):
+    """Navigation between adjacent daily task result pages.
+
+    The arrows carry the same «not finished yet» dot as on the game pages.
+    """
+    from games.club.access.archive import user_can_access_scheduled_number
+    from games.daily.fresh import request_actor, unfinished_placements
+
     if (
         not isinstance(placement, GameTaskGroup)
         or not is_scheduled_game(game.id)
@@ -140,8 +146,18 @@ def _task_group_results_nav_context(game, placement, *, back_label=None):
     links = list(visible_links(_game_task_group_links(game), game))
     prev_tg, next_tg = _neighbors_by_pk(links, placement)
     published_at = publish_at_for(game, placement.number)
+    unfinished = unfinished_placements(
+        game,
+        [
+            neighbour for neighbour in (prev_tg, next_tg)
+            if neighbour and user_can_access_scheduled_number(request.user, game, neighbour.number)
+        ],
+        **request_actor(request),
+    )
     return {
         'daily_results_navigation': True,
+        'prev_task_group_unsolved': bool(prev_tg and prev_tg.pk in unfinished),
+        'next_task_group_unsolved': bool(next_tg and next_tg.pk in unfinished),
         'daily_publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
         'prev_task_group_url': (
             _task_group_results_url(game, prev_tg.number) if prev_tg else None
@@ -215,32 +231,22 @@ def _archive_nav_context(request, game, prev_tg, next_tg, href_for, *,
     there is more to play behind that arrow. Newcomers get no marks
     (games.daily.fresh).
     """
-    from games.daily.fresh import finished_instances
-
-    def instance_id(placement):
-        # game_instance_id_for_task_group() without loading the task group.
-        return '{}:{}'.format(game.id, placement.task_group_id)
+    from games.daily.fresh import unfinished_placements
 
     targets = {}
     for side, placement in (('prev', prev_tg), ('next', next_tg)):
         href = href_for(placement.number) if placement else None
         targets[side] = (placement, *_archive_nav_target(request, game, placement, href))
-    open_instances = {
-        instance_id(placement)
-        for placement, url, locked in targets.values()
-        if placement and not locked
-    }
-    finished = None
-    if open_instances:
-        finished = finished_instances(open_instances, team=team, user=user, anon_key=anon_key)
+    unfinished = unfinished_placements(
+        game,
+        [placement for placement, url, locked in targets.values() if not locked],
+        team=team, user=user, anon_key=anon_key,
+    )
     context = {}
     for side, (placement, url, locked) in targets.items():
         context[f'{side}_task_group_url'] = url
         context[f'{side}_task_group_locked'] = locked
-        context[f'{side}_task_group_unsolved'] = bool(
-            finished is not None and placement and not locked
-            and instance_id(placement) not in finished
-        )
+        context[f'{side}_task_group_unsolved'] = bool(placement and placement.pk in unfinished)
     return context
 
 

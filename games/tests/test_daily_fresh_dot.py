@@ -2,6 +2,7 @@
 
 import re
 from datetime import timedelta
+from unittest.mock import patch
 
 from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
@@ -91,6 +92,23 @@ class DailyFreshDotTests(TestCase):
         html = self.client.get('/').content.decode()
 
         self.assertNotIn('new-fresh-dot', self._nav_link(html, 'censorly'))
+
+    def test_results_navigation_marks_unfinished_neighbours(self):
+        from django.test import RequestFactory
+
+        from games.site.pages.game.progress import _task_group_results_nav_context
+
+        self._finish('1')
+        request = RequestFactory().get('/')
+        request.user = self.user
+        placement = GameTaskGroup.objects.get(game=self.game, task_group=self.task_groups['2'])
+        # _make_puzzle_task also registers each article as a random game.
+        with patch('games.site.pages.game.progress.is_random_daily_placement', return_value=False):
+            context = _task_group_results_nav_context(request, self.game, placement)
+
+        self.assertTrue(context['daily_results_navigation'])
+        self.assertFalse(context['prev_task_group_unsolved'])
+        self.assertTrue(context['next_task_group_unsolved'])
 
     def test_newcomer_sees_no_dots(self):
         # Nothing finished yet: every edition would be marked, so none is.

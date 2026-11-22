@@ -404,7 +404,7 @@ def _render_task_group_results_page(request, game, number, back_url, placement=N
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
-        **_task_group_results_nav_context(game, placement, back_label='К заданию'),
+        **_task_group_results_nav_context(request, game, placement, back_label='К заданию'),
     })
 
 
@@ -674,7 +674,7 @@ def ladder_word_results_page(request, task_group_number):
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
-        **_task_group_results_nav_context(game, placement, back_label='К Лесенке'),
+        **_task_group_results_nav_context(request, game, placement, back_label='К Лесенке'),
     })
 
 

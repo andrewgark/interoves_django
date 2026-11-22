@@ -242,13 +242,9 @@ def ui_section_games(request):
     from django.utils.functional import SimpleLazyObject
 
     def unfinished_daily_games():
-        from games.daily.fresh import unfinished_latest_game_ids
-        from games.ops.analytics.identity import gameplay_anon_key
-        user = getattr(request, 'user', None)
+        from games.daily.fresh import request_actor, unfinished_latest_game_ids
         try:
-            if user is not None and user.is_authenticated:
-                return unfinished_latest_game_ids(user=user)
-            return unfinished_latest_game_ids(anon_key=gameplay_anon_key(request))
+            return unfinished_latest_game_ids(**request_actor(request))
         except Exception:
             logger.exception('Daily nav dots failed')
             return frozenset()
