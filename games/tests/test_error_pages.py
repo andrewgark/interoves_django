@@ -18,3 +18,26 @@ class ErrorPageTests(TestCase):
         html = render_to_string('500.html')
         self.assertIn('Что-то сломалось', html)
         self.assertIn('name="viewport"', html)
+
+    def test_missing_page_does_not_run_context_processors(self):
+        # A raising context processor made Django turn the 404 into a 500
+        # with no traceback (/sitemap_index.xml/, Nov 21, 2026).
+        with self.settings(TEMPLATES=_templates_with_processor(
+            'games.tests.test_error_pages.raising_context_processor',
+        )):
+            response = self.client.get('/sitemap_index.xml/')
+        self.assertEqual(response.status_code, 404)
+        self.assertIn('Такой страницы нет', response.content.decode())
+
+
+def raising_context_processor(request):
+    raise RuntimeError('context processor failed')
+
+
+def _templates_with_processor(path):
+    import copy
+
+    from django.conf import settings
+    templates = copy.deepcopy(settings.TEMPLATES)
+    templates[0]['OPTIONS']['context_processors'].append(path)
+    return templates

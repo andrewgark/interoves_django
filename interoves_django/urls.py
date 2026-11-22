@@ -192,3 +192,5 @@ if settings.DEBUG and not getattr(settings, "IS_PROD", False):
     urlpatterns += staticfiles_urlpatterns()
     if getattr(settings, 'MEDIA_ROOT', None):
         urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+handler404 = 'games.site.http.errors.page_not_found'
