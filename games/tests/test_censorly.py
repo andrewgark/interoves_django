@@ -3735,15 +3735,18 @@ class CensorlyUxDailyTests(TestCase):
         cache.clear()
         self.client.force_login(self.staff)
 
-        def report(last_ok_age_s):
+        def report(last_ok_age_s, site_ok_age_s=None):
+            details = {
+                'last_network': True,
+                'last_error_name': 'TypeError',
+                'last_ok_age_s': last_ok_age_s,
+            }
+            if site_ok_age_s is not None:
+                details['site_ok_age_s'] = site_ok_age_s
             return json.dumps({
                 'action': 'client_report',
                 'reason': 'start_failed',
-                'details': {
-                    'last_network': True,
-                    'last_error_name': 'TypeError',
-                    'last_ok_age_s': last_ok_age_s,
-                },
+                'details': details,
             })
 
         with patch(
@@ -3759,13 +3762,27 @@ class CensorlyUxDailyTests(TestCase):
                 '/censorly/998/timing/', data=report(20),
                 content_type='application/json',
             )
+            # Offline according to the site probe too.
+            offline = self.client.post(
+                '/censorly/997/timing/', data=report(210, 200),
+                content_type='application/json',
+            )
+            # The rest of the site answered: only the timer endpoint failed.
+            endpoint = self.client.post(
+                '/censorly/996/timing/', data=report(210, 5),
+                content_type='application/json',
+            )
 
         self.assertEqual(outage.status_code, 200, outage.content)
         self.assertEqual(recent.status_code, 200, recent.content)
-        self.assertEqual(publish.call_count, 1)
-        self.assertIn('/censorly/998/', publish.call_args.kwargs['payload']['text'])
+        self.assertEqual(offline.status_code, 200, offline.content)
+        self.assertEqual(endpoint.status_code, 200, endpoint.content)
+        alerted = [call.kwargs['payload']['text'] for call in publish.call_args_list]
+        self.assertEqual(len(alerted), 2)
+        self.assertIn('/censorly/998/', alerted[0])
+        self.assertIn('/censorly/996/', alerted[1])
         logged = [line for line in logs.output if 'daily_timer_client_report' in line]
-        self.assertEqual(len(logged), 2)
+        self.assertEqual(len(logged), 4)
         self.assertIn('"network_outage":true', logged[0])
         self.assertIn('"last_ok_age_s":210', logged[0])
 

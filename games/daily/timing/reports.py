@@ -38,7 +38,7 @@ DETAIL_KEYS = (
     'failed_start_rounds', 'stopped_for_s', 'session_id', 'capability',
     'page_age_s', 'response_status', 'hidden_via', 'hidden_age_s',
     'visible_via', 'visible_age_s', 'frozen_age_s', 'request_timeout_s',
-    'last_ok_age_s',
+    'last_ok_age_s', 'site_ok_age_s',
 )
 DETAIL_VALUE_MAX = 120
 PER_ACTOR_WINDOW_S = 6 * 60 * 60
@@ -46,6 +46,8 @@ GLOBAL_ALERTS_PER_HOUR = 30
 # No answer from the server for this long while the last send failed on the
 # network: the player's connection was down (iOS Brave, 2026-11-21: nothing
 # reached the proxy for 3.5 min, then the IP changed). Logged, not alerted.
+# When the client also probed the rest of the site (site_ok_age_s), that has
+# to have been silent too: otherwise only the timer endpoint was failing.
 NETWORK_OUTAGE_MIN_S = 90
 
 
@@ -64,14 +66,21 @@ def sanitize_details(raw) -> dict:
     return details
 
 
-def is_network_outage(details: dict) -> bool:
-    age = details.get('last_ok_age_s')
+def _silent_for_outage(age) -> bool:
     return (
-        details.get('last_network') is True
-        and isinstance(age, (int, float))
+        isinstance(age, (int, float))
         and not isinstance(age, bool)
         and age >= NETWORK_OUTAGE_MIN_S
     )
+
+
+def is_network_outage(details: dict) -> bool:
+    if details.get('last_network') is not True:
+        return False
+    if not _silent_for_outage(details.get('last_ok_age_s')):
+        return False
+    site_age = details.get('site_ok_age_s')
+    return site_age is None or _silent_for_outage(site_age)
 
 
 def _actor_label(request) -> tuple[str, str]:

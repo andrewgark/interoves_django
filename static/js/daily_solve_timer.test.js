@@ -1827,6 +1827,7 @@ asyncTest(async function testStartFailureReportTellsHowLongTheServerWasSilent() 
   var retries = [];
   var recoveries = [];
   var reports = [];
+  var probes = 0;
   Date.now = function () { return now; };
   global.setTimeout = function (callback, delay) {
     (delay < timer.HEARTBEAT_MS ? retries : recoveries).push(callback);
@@ -1839,9 +1840,10 @@ asyncTest(async function testStartFailureReportTellsHowLongTheServerWasSilent() 
         reports.push(body);
         return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
       }
-      now += 10000;
+      if (url === '/meta/deploy-version/') probes += 1;
+      else now += 10000;
       return Promise.reject(new TypeError('Load failed'));
-    });
+    }, { probeUrl: '/meta/deploy-version/' });
     ctrl.startIfAllowed();
     await flush();
     while (retries.length) {
@@ -1858,6 +1860,58 @@ asyncTest(async function testStartFailureReportTellsHowLongTheServerWasSilent() 
     assert.strictEqual(reports[0].details.last_network, true);
     assert.strictEqual(reports[0].details.last_error_name, 'TypeError');
     assert.ok(reports[0].details.last_ok_age_s >= 90, reports[0].details.last_ok_age_s);
+    // The rest of the site did not answer either: the player was offline.
+    assert.ok(probes >= 2, probes);
+    assert.ok(reports[0].details.site_ok_age_s >= 90, reports[0].details.site_ok_age_s);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+    Date.now = oldNow;
+  }
+});
+
+asyncTest(async function testStartFailureReportTellsTheSiteStillAnswered() {
+  // Only the timer endpoint fails while the rest of the site answers: that
+  // is a timer bug, and the report must not look like the player was offline.
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 9000000;
+  var retries = [];
+  var recoveries = [];
+  var reports = [];
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    (delay < timer.HEARTBEAT_MS ? retries : recoveries).push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (url === '/meta/deploy-version/') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ version: 'x' }); } });
+      }
+      now += 10000;
+      return Promise.reject(new TypeError('Load failed'));
+    }, { probeUrl: '/meta/deploy-version/' });
+    ctrl.startIfAllowed();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    recoveries.shift()();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    assert.strictEqual(reports.length, 1);
+    assert.ok(reports[0].details.last_ok_age_s >= 90, reports[0].details.last_ok_age_s);
+    assert.ok(reports[0].details.site_ok_age_s < 30, reports[0].details.site_ok_age_s);
     ctrl.destroy();
   } finally {
     global.setTimeout = oldSetTimeout;

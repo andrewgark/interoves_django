@@ -36,6 +36,8 @@
   // A request on a silently dead connection can hang for half a minute and
   // hold the whole queue; give up early so a retry can use a fresh one.
   var REQUEST_TIMEOUT_MS = 10000;
+  // At most one reachability probe per this gap while timing sends fail.
+  var PROBE_MIN_GAP_MS = 15000;
   // After timeouts in a row the connection is slow rather than dead: Yandex
   // on Android (2026-11-15, /replacements/167/) had a start reach the server
   // 27 s after it was sent, long after the client gave up on it at 10 s, and
@@ -257,6 +259,13 @@
     // load counts). A report long after it describes a lost connection, not
     // a timer bug: the report itself only gets through once the link is back.
     var lastServerAnswerAt = createdAt;
+    // The same for the rest of the site, checked with a GET of probeUrl
+    // while timing sends fail on the network. Silence on both means the
+    // player was offline; a site that answered means the timer endpoint
+    // itself failed, which admins must hear about.
+    var probeUrl = options.probeUrl || '';
+    var lastSiteAnswerAt = createdAt;
+    var lastProbeAt = 0;
     var reportsSent = {};
     var watchdogTimer = null;
     var watchdogDueAt = 0;
@@ -557,6 +566,7 @@
         headers: headers,
       };
       var timeoutMs = requestTimeoutMs();
+      var sentAt = Date.now();
       try {
         if (root.AbortSignal && typeof root.AbortSignal.timeout === 'function') {
           init.signal = root.AbortSignal.timeout(timeoutMs);
@@ -591,7 +601,7 @@
       var answered = fetchFn(url, init).then(function (res) {
         if (!res || !res.json) return { data: null, status: 0, retryable: false };
         var responseStatus = Number(res.status) || 0;
-        if (responseStatus) lastServerAnswerAt = Date.now();
+        if (responseStatus) noteServerAnswer(sentAt, timeoutMs);
         var responseRetryAfterMs = res.headers && res.headers.get
           ? parseRetryAfter(res.headers.get('Retry-After'), Date.now())
           : 0;
@@ -637,6 +647,38 @@
         else if (!result.networkError) requestTimeouts = 0;
         return result;
       });
+    }
+
+    // Only a prompt answer proves the link worked then. iOS Brave
+    // (2026-11-21) held requests sent while offline and delivered them all
+    // once the link was back, just as the report went out.
+    function noteServerAnswer(sentAt, timeoutMs) {
+      if (Date.now() - sentAt > timeoutMs) return;
+      lastServerAnswerAt = Date.now();
+      lastSiteAnswerAt = lastServerAnswerAt;
+    }
+
+    function probeSite() {
+      if (!reportProblems || !probeUrl || !fetchFn || destroyed || options.offline) return;
+      var now = Date.now();
+      if (now - lastProbeAt < PROBE_MIN_GAP_MS) return;
+      lastProbeAt = now;
+      var timeoutMs = requestTimeoutMs();
+      var init = {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      };
+      try {
+        if (root.AbortSignal && typeof root.AbortSignal.timeout === 'function') {
+          init.signal = root.AbortSignal.timeout(timeoutMs);
+        }
+      } catch (e) {}
+      try {
+        fetchFn(probeUrl, init).then(function (res) {
+          if (res && Number(res.status) && Date.now() - now <= timeoutMs) lastSiteAnswerAt = Date.now();
+        }, function () {});
+      } catch (e) {}
     }
 
     function expireOverdueRequest() {
@@ -717,6 +759,7 @@
                 errorName: result.errorName || '',
                 at: Date.now(),
               };
+              if (result.networkError) probeSite();
             }
             // navigator.onLine can be stuck at false while the network works
             // (seen in Chrome with VPN/virtual adapters). Gating sends on it
@@ -1141,6 +1184,7 @@
         last_error_name: lastFailure ? lastFailure.errorName : null,
         last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
         last_ok_age_s: Math.round((Date.now() - lastServerAnswerAt) / 1000),
+        site_ok_age_s: probeUrl ? Math.round((Date.now() - lastSiteAnswerAt) / 1000) : null,
         start_failures: startFailures,
         request_timeout_s: Math.round(requestTimeoutMs() / 1000),
         failed_start_rounds: failedStartRounds,
@@ -1488,6 +1532,7 @@
       // snapshot, with its own retries and keepalive fallback; a late answer
       // is then ignored, so it cannot overwrite the started state.
       var bootAnswered = false;
+      var bootSentAt = Date.now();
       var bootTimedOut = false;
       var init = { credentials: 'same-origin', headers: headers };
       try {
@@ -1503,7 +1548,7 @@
         }, REQUEST_TIMEOUT_MS);
       }
       fetchFn(getUrl, init).then(function (res) {
-        if (res && Number(res.status)) lastServerAnswerAt = Date.now();
+        if (res && Number(res.status)) noteServerAnswer(bootSentAt, REQUEST_TIMEOUT_MS);
         // An error body (403 club_required, 503 busy, ...) is not a timing
         // snapshot: applying it would e.g. flip `exists` to true.
         if (!res || !res.json || res.ok === false) return null;
@@ -1611,6 +1656,7 @@
       overlayText: doc.querySelector('[data-daily-pause-text]'),
       boardEl: board,
       reportProblems: true,
+      probeUrl: '/meta/deploy-version/',
     });
     controller.boot();
     api.current = controller;
