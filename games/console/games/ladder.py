@@ -27,6 +27,7 @@ from games.console.http.schedule import (
     restore_deferred_slot,
     save_publish_start_date,
     shift_links,
+    withdraw_offer_slot,
 )
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
@@ -656,6 +657,16 @@ def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRo
         error_cls=LadderSupportError,
         not_found_msg='Лесенка не найдена',
         published_msg='Нельзя удалять уже вышедшую Лесенку №{number}',
+        now=now,
+    )
+
+
+def withdraw_ladder_for_revision(link: GameTaskGroup, *, now: datetime | None = None) -> bool:
+    """Убрать из расписания ещё не вышедший выпуск, отправленный на доработку."""
+    return withdraw_offer_slot(
+        link,
+        is_number_published=is_ladder_number_published,
+        delete_slot=delete_ladder,
         now=now,
     )
 

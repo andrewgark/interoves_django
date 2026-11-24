@@ -22,6 +22,7 @@ from games.console.games.salad import (
     ensure_word_salad_game,
     get_word_salad_game,
     list_word_salad_rows,
+    withdraw_word_salad_for_revision,
 )
 from games.daily.catalog.word_salad import word_salad_publish_at
 from games.daily.page.section import WORD_SALAD_GAME_ID
@@ -524,6 +525,15 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
 def request_revision(offer: WordSaladOffer, *, admin_note: str = '') -> WordSaladOffer:
     if offer.status not in (WordSaladOffer.STATUS_SENT, WordSaladOffer.STATUS_ACCEPTED):
         raise WordSaladOfferError('На доработку можно отправить только отправленный или принятый')
+    # Будущий выпуск уходит из расписания целиком: слот удаляется, следующие
+    # сдвигаются. После доработки и повторного accept он встаёт заново.
+    if offer.accepted_link_id:
+        try:
+            withdrawn = withdraw_word_salad_for_revision(offer.accepted_link)
+        except WordSaladSupportError as exc:
+            raise WordSaladOfferError(str(exc)) from exc
+        if withdrawn:
+            offer.refresh_from_db()
     offer.status = WordSaladOffer.STATUS_DRAFT
     offer.admin_note = (admin_note or '').strip()
     offer.save(update_fields=['status', 'admin_note', 'updated_at'])

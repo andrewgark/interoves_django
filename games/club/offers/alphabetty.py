@@ -20,6 +20,7 @@ from games.console.games.alphabetty import (
     attach_existing_task_group,
     get_alphabetty_game,
     scheduled_words,
+    withdraw_alphabetty_for_revision,
 )
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
@@ -325,6 +326,15 @@ def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> Alp
 def request_revision(offer: AlphabettyOffer, *, admin_note: str = '') -> AlphabettyOffer:
     if offer.status not in (AlphabettyOffer.STATUS_SENT, AlphabettyOffer.STATUS_ACCEPTED):
         raise AlphabettyOfferError('На доработку можно отправить только отправленную или принятую')
+    # Будущий выпуск уходит из расписания целиком: слот удаляется, следующие
+    # сдвигаются. После доработки и повторного accept он встаёт заново.
+    if offer.accepted_link_id:
+        try:
+            withdrawn = withdraw_alphabetty_for_revision(offer.accepted_link)
+        except AlphabettySupportError as exc:
+            raise AlphabettyOfferError(str(exc)) from exc
+        if withdrawn:
+            offer.refresh_from_db()
     offer.status = AlphabettyOffer.STATUS_DRAFT
     offer.admin_note = (admin_note or '').strip()
     offer.save(update_fields=['status', 'admin_note', 'updated_at'])

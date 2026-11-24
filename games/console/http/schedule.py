@@ -354,35 +354,25 @@ def shift_links(
 def cascade_delete_link(link: GameTaskGroup) -> None:
     """Удалить связку GameTaskGroup → TaskGroup → Task.
 
-    Если TaskGroup — предложение Лесенки (LadderOffer) или Салатика
-    (WordSaladOffer), удаляем только слот расписания: Task/посылки/лайки
-    и сам offer сохраняем.
+    Если TaskGroup — авторское предложение (Лесенка, Салатик, Алфавитка),
+    удаляем только слот расписания: Task/посылки/лайки и сам offer сохраняем.
     """
     tg_id = link.task_group_id
     link.delete()
     if not tg_id:
         return
-    from games.models import LadderOffer, WordSaladOffer
-    offer = LadderOffer.objects.filter(task_group_id=tg_id).first()
-    if offer is not None:
+    from games.models import AlphabettyOffer, LadderOffer, WordSaladOffer
+    for offer_model in (LadderOffer, WordSaladOffer, AlphabettyOffer):
+        offer = offer_model.objects.filter(task_group_id=tg_id).first()
+        if offer is None:
+            continue
         # Отвязать от расписания, вернуть в «отправлена» для повторного accept.
         offer.accepted_link = None
-        if offer.status == LadderOffer.STATUS_ACCEPTED:
-            offer.status = LadderOffer.STATUS_SENT
+        if offer.status == offer_model.STATUS_ACCEPTED:
+            offer.status = offer_model.STATUS_SENT
             if not offer.sent_at:
-                from django.utils import timezone
                 offer.sent_at = timezone.now()
         offer.save(update_fields=['accepted_link', 'status', 'sent_at', 'updated_at'])
-        return
-    salad_offer = WordSaladOffer.objects.filter(task_group_id=tg_id).first()
-    if salad_offer is not None:
-        salad_offer.accepted_link = None
-        if salad_offer.status == WordSaladOffer.STATUS_ACCEPTED:
-            salad_offer.status = WordSaladOffer.STATUS_SENT
-            if not salad_offer.sent_at:
-                from django.utils import timezone
-                salad_offer.sent_at = timezone.now()
-        salad_offer.save(update_fields=['accepted_link', 'status', 'sent_at', 'updated_at'])
         return
     Task.objects.filter(task_group_id=tg_id).delete()
     TaskGroup.objects.filter(pk=tg_id).delete()
@@ -424,7 +414,30 @@ def delete_future_slot(
         )
         if row.pk != link_id
     ]
+    was_deferred = link.is_deferred
     cascade_delete_link(link)
     if remaining:
         renumber_links(remaining)
+    if was_deferred:
+        _renumber_deferred_links(game)
     return list_rows(now=now)
+
+
+def withdraw_offer_slot(link, *, is_number_published, delete_slot, now=None) -> bool:
+    """Снять с расписания ещё не вышедший слот предложения, ушедшего на доработку.
+
+    Будущие выпуски после него сдвигаются на один день раньше; вышедший слот
+    остаётся на месте. Возвращает True, если слот удалён.
+    """
+    if link is None:
+        return False
+    # The caller's link may carry a stale cached Game (publish start in tags).
+    link = GameTaskGroup.objects.select_related('game').filter(pk=link.pk).first()
+    if link is None:
+        return False
+    if not link.is_deferred:
+        number = effective_schedule_number(link)
+        if number is None or is_number_published(link.game, number, now):
+            return False
+    delete_slot(link.pk, now=now)
+    return True

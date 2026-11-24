@@ -9,7 +9,17 @@ from django.urls import reverse
 from games.console.games import ladder as ladder_svc
 from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
-from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
+from games.models import (
+    Attempt,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    LadderOffer,
+    Profile,
+    Project,
+    Task,
+)
 
 
 def _ensure_reference_rows():
@@ -376,7 +386,7 @@ class LadderSupportViewTests(TestCase):
         self.assertEqual(linked['telegram_handle'], 'astrolabe12')
         self.assertContains(response, 'Telegram: @')
 
-    def test_returned_offer_has_separate_dashboard_list(self):
+    def _accepted_author_ladder(self, username):
         from games.club.offers.ladder import (
             accept_offer,
             create_offer,
@@ -384,25 +394,46 @@ class LadderSupportViewTests(TestCase):
             update_offer_content,
         )
 
-        author = User.objects.create_user('revision_author', password='x')
+        author = User.objects.create_user(username, password='x')
         Profile.objects.create(
             user=author,
             first_name='Влад',
             last_name='Чесноков',
-            telegram_handle='revision_author',
+            telegram_handle=username,
             telegram_verified=True,
         )
         offer = create_offer(author)
         update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='Влад Чесноков')
         send_offer(offer)
-        offer = accept_offer(offer)
+        return accept_offer(offer, at_number=2)
+
+    def test_revision_from_schedule_removes_slot_and_shifts_later_ladders(self):
+        first = ladder_svc.create_ladder(at_number=1, words=['ДОМ', 'СОМ'], hints=['x'])
+        last = ladder_svc.create_ladder(at_number=2, words=['ЛЕС', 'БЕС'], hints=['x'])
+        offer = self._accepted_author_ladder('revision_author')
+        link_id = offer.accepted_link_id
+        self.assertEqual(GameTaskGroup.objects.get(pk=link_id).number, '2')
+
         returned = self.client.post(
-            reverse('support:ladder_link_request_revision', args=[offer.accepted_link_id]),
+            reverse('support:ladder_link_request_revision', args=[link_id]),
             data=json.dumps({'admin_note': 'Поправьте подсказку'}),
             content_type='application/json',
         )
         self.assertEqual(returned.status_code, 200)
-        self.assertEqual([row['id'] for row in returned.json()['revisions']], [offer.pk])
+        payload = returned.json()
+        self.assertEqual([row['id'] for row in payload['revisions']], [offer.pk])
+        self.assertEqual(
+            [(row['link_id'], row['number']) for row in payload['ladders']],
+            [(first['link_id'], 1), (last['link_id'], 2)],
+        )
+        self.assertFalse(GameTaskGroup.objects.filter(pk=link_id).exists())
+        offer.refresh_from_db()
+        self.assertIsNone(offer.accepted_link_id)
+        self.assertEqual(offer.status, LadderOffer.STATUS_DRAFT)
+        self.assertEqual(offer.admin_note, 'Поправьте подсказку')
+        self.assertTrue(offer.can_author_edit())
+        # The content stays with the offer for the author to fix.
+        self.assertTrue(Task.objects.filter(task_group_id=offer.task_group_id).exists())
 
         response = self.client.get(reverse('support:ladders'))
         self.assertEqual(response.status_code, 200)
@@ -410,11 +441,48 @@ class LadderSupportViewTests(TestCase):
         revisions = response.context['revision_offers_json']
         self.assertEqual([row['id'] for row in revisions], [offer.pk])
         self.assertEqual(revisions[0]['status_label'], 'На доработке')
-        self.assertEqual(
-            response.context['offer_by_link_json'][str(offer.accepted_link_id)]['status'],
-            'draft',
-        )
+        self.assertNotIn(str(link_id), response.context['offer_by_link_json'])
         self.assertContains(response, 'data-tab="revision"')
+
+    def test_revised_offer_is_scheduled_again_at_the_end(self):
+        from games.club.offers.ladder import accept_offer, request_revision, send_offer
+
+        ladder_svc.create_ladder(at_number=1, words=['ДОМ', 'СОМ'], hints=['x'])
+        offer = self._accepted_author_ladder('revision_again')
+        ladder_svc.create_ladder(at_number=3, words=['ЛЕС', 'БЕС'], hints=['x'])
+        request_revision(offer)
+        offer.refresh_from_db()
+        send_offer(offer)
+        offer = accept_offer(offer)
+        self.assertEqual(GameTaskGroup.objects.get(pk=offer.accepted_link_id).number, '3')
+
+    def test_revision_of_published_ladder_keeps_its_slot(self):
+        from games.club.offers.ladder import request_revision
+
+        offer = self._accepted_author_ladder('revision_published')
+        link_id = offer.accepted_link_id
+        ladder_svc.set_publish_start('2020-01-01')
+        request_revision(offer, admin_note='поздно')
+        offer.refresh_from_db()
+        self.assertEqual(offer.accepted_link_id, link_id)
+        self.assertEqual(offer.status, LadderOffer.STATUS_DRAFT)
+        self.assertTrue(GameTaskGroup.objects.filter(pk=link_id).exists())
+
+    def test_revision_of_deferred_ladder_compacts_deferred_queue(self):
+        from games.club.offers.ladder import request_revision
+
+        ladder_svc.create_ladder(at_number=1, words=['ДОМ', 'СОМ'], hints=['x'])
+        offer = self._accepted_author_ladder('revision_deferred')
+        other = ladder_svc.create_ladder(at_number=3, words=['ЛЕС', 'БЕС'], hints=['x'])
+        ladder_svc.defer_ladder(offer.accepted_link_id)
+        ladder_svc.defer_ladder(other['link_id'])
+        offer.refresh_from_db()
+        request_revision(offer)
+        offer.refresh_from_db()
+        self.assertIsNone(offer.accepted_link_id)
+        self.assertEqual(
+            GameTaskGroup.objects.get(pk=other['link_id']).deferred_number, '1',
+        )
 
     def test_sent_offer_contains_author_telegram(self):
         from games.club.offers.ladder import create_offer, send_offer, update_offer_content

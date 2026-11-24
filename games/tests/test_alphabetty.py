@@ -938,6 +938,41 @@ class AlphabettyPlayApiTests(TestCase):
         allowed = owner.get(f'/alphabetty/{offer.share_hash}/')
         self.assertEqual(allowed.status_code, 200)
 
+    def test_revision_removes_future_slot_but_keeps_offer_task(self):
+        from games.club.offers.alphabetty import request_revision
+        from games.models import AlphabettyOffer
+
+        tags = dict(self.game.tags or {})
+        tags[ALPHABETTY_PUBLISH_START_TAG] = '2099-01-01T00:00:00+03:00'
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        user = User.objects.create_user('ab_revision', 'revision@example.com', 'x')
+        Profile.objects.create(
+            user=user, first_name='А', last_name='Б',
+            telegram_handle='ab_revision', telegram_verified=True,
+        )
+        self.client.force_login(user)
+        offer_id = self.client.post(
+            '/create_alphabetty/create/', content_type='application/json', data='{}',
+        ).json()['offer']['id']
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/',
+            content_type='application/json',
+            data=json.dumps({'word': _FAKE_WORD, 'comment': ''}),
+        )
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/send/', content_type='application/json', data='{}',
+        )
+        offer = accept_alphabetty_offer(AlphabettyOffer.objects.get(pk=offer_id))
+        link_id = offer.accepted_link_id
+        request_revision(offer, admin_note='другое слово')
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, AlphabettyOffer.STATUS_DRAFT)
+        self.assertIsNone(offer.accepted_link_id)
+        self.assertFalse(GameTaskGroup.objects.filter(pk=link_id).exists())
+        self.assertTrue(Task.objects.filter(task_group_id=offer.task_group_id).exists())
+        self.assertNotIn(link_id, [row.link_id for row in list_alphabetty_rows()])
+
     def test_play_page_pager_neighbors(self):
         _ensure_login_modal_deps()
         checker = CheckerType.objects.get(id='alphabetty')

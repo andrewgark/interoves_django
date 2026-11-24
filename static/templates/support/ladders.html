@@ -167,10 +167,7 @@
       });
     }
     if (tab === 'revision') return revisionOffers.slice();
-    return scheduleUi.rowsForTab(allRows, tab).filter(function (row) {
-      var offer = offerByLink[String(row.link_id)];
-      return !offer || offer.status !== 'draft';
-    });
+    return scheduleUi.rowsForTab(allRows, tab);
   }
   function isScheduleView() {
     return viewTab === 'schedule';
@@ -316,7 +313,11 @@
     if (tab) tab.textContent = 'На доработке' + (revisionOffers.length ? ' (' + revisionOffers.length + ')' : '');
   }
   function rememberOffer(offer) {
-    if (offer && offer.accepted_link_id) {
+    if (!offer) return;
+    Object.keys(offerByLink).forEach(function (linkId) {
+      if (offerByLink[linkId] && offerByLink[linkId].id === offer.id) delete offerByLink[linkId];
+    });
+    if (offer.accepted_link_id) {
       offerByLink[String(offer.accepted_link_id)] = offer;
     }
   }
@@ -404,6 +405,7 @@
           sentOffers = data.offers || sentOffers;
           setRevisionOffers(data.revisions);
           rememberOffer(data.offer);
+          if (data.ladders) allRows = data.ladders;
           refreshView();
           alert('Отправлено на доработку');
         })
@@ -611,6 +613,7 @@
         setRevisionOffers(data.revisions);
         rememberOffer(data.offer);
         closeModal();
+        if (data.ladders) allRows = data.ladders;
         refreshView();
       })
       .catch(function (e) { alert(e.message || String(e)); })
@@ -828,6 +831,7 @@
         setRevisionOffers(data.revisions);
         rememberOffer(data.offer);
         closeOfferModal();
+        if (data.ladders) allRows = data.ladders;
         refreshView();
       })
       .catch(function (e) { alert(e.message || String(e)); })

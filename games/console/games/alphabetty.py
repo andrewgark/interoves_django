@@ -20,6 +20,7 @@ from games.console.http.schedule import (
     restore_deferred_slot,
     save_publish_start_date,
     shift_links,
+    withdraw_offer_slot,
 )
 from games.console.people.banned import (
     add_banned_word,
@@ -562,6 +563,16 @@ def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[Alph
         error_cls=AlphabettySupportError,
         not_found_msg='Алфавитка не найдена',
         published_msg='Нельзя удалять уже вышедшую Алфавитку №{number}',
+        now=now,
+    )
+
+
+def withdraw_alphabetty_for_revision(link: GameTaskGroup, *, now: datetime | None = None) -> bool:
+    """Убрать из расписания ещё не вышедший выпуск, отправленный на доработку."""
+    return withdraw_offer_slot(
+        link,
+        is_number_published=is_alphabetty_number_published,
+        delete_slot=delete_alphabetty,
         now=now,
     )
 

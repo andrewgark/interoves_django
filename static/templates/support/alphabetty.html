@@ -436,7 +436,7 @@
           if (data.offer && data.offer.accepted_link_id) {
             offerByLink[String(data.offer.accepted_link_id)] = data.offer;
           }
-          refreshView();
+          if (data.rows) setRows(data.rows); else refreshView();
           alert('Отправлено на доработку');
         })
         .catch(function (err) { alert(err.message || String(err)); })
@@ -553,6 +553,7 @@
       admin_note: document.getElementById('ab-offer-admin-note').value
     })
       .then(function (data) {
+        if (data.rows) allRows = data.rows;
         setOffers(data.offers || []);
         closeOfferEdit();
       })

@@ -27,6 +27,7 @@ from games.console.games.ladder import (
     get_ladder_game,
     list_ladder_rows,
     validate_ladder_content,
+    withdraw_ladder_for_revision,
 )
 from games.daily.catalog.ladder import LADDER_GAME_ID, ladder_publish_at
 from games.models import (
@@ -409,6 +410,15 @@ def request_revision(offer: LadderOffer, *, admin_note: str = '') -> LadderOffer
         raise LadderOfferError('На доработку можно отправить только отправленную или принятую')
     # Контент на том же Task. Если слот уже вышел — автор править не сможет
     # (can_author_edit=False); правки через staff allow_non_draft.
+    # Будущий выпуск уходит из расписания целиком: слот удаляется, следующие
+    # сдвигаются. После доработки и повторного accept он встаёт заново.
+    if offer.accepted_link_id:
+        try:
+            withdrawn = withdraw_ladder_for_revision(offer.accepted_link)
+        except LadderSupportError as exc:
+            raise LadderOfferError(str(exc)) from exc
+        if withdrawn:
+            offer.refresh_from_db()
     offer.status = LadderOffer.STATUS_DRAFT
     offer.admin_note = (admin_note or '').strip()
     offer.save(update_fields=['status', 'admin_note', 'updated_at'])

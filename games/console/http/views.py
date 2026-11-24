@@ -78,6 +78,7 @@ from games.console.games.alphabetty import (
     forbid_alphabetty,
     generate_more as alphabetty_generate_more,
     get_alphabetty_detail,
+    list_alphabetty_rows,
     reorder_alphabetty,
     restore_alphabetty,
     set_publish_start as alphabetty_set_publish_start_service,
@@ -110,6 +111,7 @@ from games.console.games.ladder import (
     defer_ladder,
     delete_ladder,
     get_ladder_detail,
+    list_ladder_rows,
     reorder_ladders,
     restore_ladder,
     set_publish_start,
@@ -663,6 +665,7 @@ def word_salad_offer_request_revision(request, offer_id):
         'ok': True,
         'offer': serialize_word_salad_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+        'rows': [r.to_dict() for r in list_word_salad_rows()],
     })
 
 
@@ -703,6 +706,7 @@ def word_salad_link_request_revision(request, link_id):
         'ok': True,
         'offer': serialize_word_salad_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+        'rows': [r.to_dict() for r in list_word_salad_rows()],
     })
 
 
@@ -1036,6 +1040,7 @@ def ladder_offer_request_revision(request, offer_id):
         'offer': serialize_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_offers()],
         'revisions': [r.to_dict() for r in list_revision_offers()],
+        'ladders': [r.to_dict() for r in list_ladder_rows()],
     })
 
 
@@ -1059,6 +1064,7 @@ def ladder_link_request_revision(request, link_id):
         'offer': serialize_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_offers()],
         'revisions': [r.to_dict() for r in list_revision_offers()],
+        'ladders': [r.to_dict() for r in list_ladder_rows()],
     })
 
 
@@ -1352,6 +1358,7 @@ def alphabetty_offer_request_revision(request, offer_id):
         'ok': True,
         'offer': serialize_alphabetty_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+        'rows': [r.to_dict() for r in list_alphabetty_rows()],
     })
 
 
@@ -1390,6 +1397,7 @@ def alphabetty_link_request_revision(request, link_id):
         'ok': True,
         'offer': serialize_alphabetty_offer(offer).to_dict(),
         'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+        'rows': [r.to_dict() for r in list_alphabetty_rows()],
     })
 
 

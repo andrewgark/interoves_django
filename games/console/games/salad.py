@@ -18,6 +18,7 @@ from games.console.http.schedule import (
     renumber_links,
     restore_deferred_slot,
     save_publish_start_date,
+    withdraw_offer_slot,
 )
 from games.daily.catalog.word_salad import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
@@ -632,6 +633,16 @@ def delete_word_salad(
         error_cls=WordSaladSupportError,
         not_found_msg='Салатик не найден',
         published_msg='Нельзя удалять уже вышедший Салатик №{number}',
+        now=now,
+    )
+
+
+def withdraw_word_salad_for_revision(link: GameTaskGroup, *, now: datetime | None = None) -> bool:
+    """Убрать из расписания ещё не вышедший выпуск, отправленный на доработку."""
+    return withdraw_offer_slot(
+        link,
+        is_number_published=is_word_salad_number_published,
+        delete_slot=delete_word_salad,
         now=now,
     )
 

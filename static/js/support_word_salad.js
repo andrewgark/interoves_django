@@ -530,8 +530,9 @@
       setBusy(true);
       support.postJson(endpoint(endpoints.linkRevision, parseInt(revisionLink.dataset.revisionLink, 10)), { admin_note: note })
         .then(function (data) {
-          setOffers(data.offers || sentOffers);
           if (data.offer) upsertOfferMap(data.offer);
+          if (data.rows) setRows(data.rows);
+          setOffers(data.offers || sentOffers);
         })
         .catch(function (error) { alert(error.message || String(error)); })
         .finally(function () { setBusy(false); });
@@ -700,6 +701,7 @@
     support.postJson(endpoint(endpoints.offerRevision, editOfferId), {
       admin_note: document.getElementById('word-salad-offer-admin-note').value
     }).then(function (data) {
+      if (data.rows) setRows(data.rows);
       setOffers(data.offers || sentOffers);
       offerModal.close();
     }).catch(function (error) {
