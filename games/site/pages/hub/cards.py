@@ -193,6 +193,9 @@ def _build_hub_section_cards(request, *, team):
         by_id[i] for i in HUB_FROM_DESYATOCHKI_SECTION_IDS if i in by_id
     ]
     daily_grid = [by_id[i] for i in HUB_DAILY_SECTION_IDS if i in by_id]
+    # Two columns: an odd last card takes the whole row instead of half of it.
+    if len(daily_grid) % 2 == 1 and len(daily_grid) > 1:
+        daily_grid[-1]['wide'] = True
     return {
         'daily_hub_cards': daily,
         'daily_hub_primary_card': None,

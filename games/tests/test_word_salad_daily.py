@@ -165,7 +165,7 @@ class WordSaladSectionTests(TestCase):
     def test_hub_meta_and_daily_order(self):
         self.assertEqual(
             DAILY_NAV_SECTION_IDS,
-            ('ladder', WORD_SALAD_GAME_ID, 'censorly', 'alphabetty'),
+            ('ladder', WORD_SALAD_GAME_ID, 'censorly', 'alphabetty', 'advent'),
         )
         meta = SECTION_HUB_META[WORD_SALAD_GAME_ID]
         self.assertEqual(meta['title'], 'Салатики')

@@ -476,7 +476,8 @@
                 data.task_id || attemptFeedbackTaskId,
                 submittedAttemptText,
                 data.attempt_status,
-                submittedAttemptFormKey
+                submittedAttemptFormKey,
+                data.attempt_message
               );
             }
             try {
@@ -3090,6 +3091,8 @@
     Wrong: { text: 'Неверно.', css: 'new-attempt-msg--wrong' },
     Partial: { text: 'Частично верно.', css: 'new-attempt-msg--partial' },
     Pending: { text: 'Отправлено на проверку.', css: 'new-attempt-msg--pending' },
+    // Intermediate answer of the puzzlehunt checker; the server may send its own text.
+    KeepGoing: { text: 'Продолжайте!', css: 'new-attempt-msg--partial' },
   };
   // Мгновенный вердикт обычного задания (docs/offline-play-plan.md, фаза 3):
   // the answer form carries the task's client spec when a rule allows it.
@@ -3266,6 +3269,8 @@
   }
   function clearOrdinaryWrongFeedback(taskId) {
     if (taskId === undefined || taskId === null || taskId === '') return;
+    var stored = ordinaryWrongFeedbackByTask[String(taskId)];
+    var storedMessage = stored && stored.message ? stored.message : '';
     delete ordinaryWrongFeedbackByTask[String(taskId)];
     document.querySelectorAll('form.new-attempt-form[data-task-id="' + taskId + '"]').forEach(function (form) {
       var msg = form.querySelector('.new-attempt-msg');
@@ -3278,14 +3283,16 @@
       Object.keys(ordinaryAttemptFeedback).forEach(function (status) {
         if (msg.textContent === ordinaryAttemptFeedback[status].text) msg.textContent = '';
       });
+      if (storedMessage && msg.textContent === storedMessage) msg.textContent = '';
     });
   }
-  function rememberOrdinaryWrongFeedback(taskId, answer, status, formKey) {
+  function rememberOrdinaryWrongFeedback(taskId, answer, status, formKey, message) {
     if (taskId === undefined || taskId === null || taskId === '') return;
     ordinaryWrongFeedbackByTask[String(taskId)] = {
       answer: String(answer || ''),
       status: shouldShowOrdinaryAttemptFeedback(status) ? status : 'Wrong',
       formKey: String(formKey || ''),
+      message: String(message || ''),
     };
   }
   function captureEditedOrdinaryAnswer(taskId) {
@@ -3320,7 +3327,7 @@
           'new-attempt-msg--partial',
           'new-attempt-msg--pending'
         );
-        msg.textContent = display.text;
+        msg.textContent = feedback.message || display.text;
         msg.classList.add(display.css);
       }
     });

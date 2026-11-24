@@ -5,7 +5,7 @@ import re
 
 from django.utils.html import strip_tags
 
-NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad', 'censorly', 'advent'})
+NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad', 'censorly', 'advent', 'cryptic'})
 
 
 def _plain_text(value) -> str:

@@ -7,7 +7,7 @@ from decimal import Decimal
 from games.models import Attempt, Task
 from games.puzzles.core.client_spec import any_answer_spec, hash_set_spec, norm_words_spec, spec_salt
 from games.puzzles.core.norm_matcher import NormMatcher, accepted_forms
-from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalized
+from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalize, normalized
 
 
 class CheckResult:
@@ -94,6 +94,48 @@ class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
         return hash_set_spec(
             spec_salt(task), self.bool_check.normalize_ops, dict.fromkeys(self.data, 'Ok'),
         )
+
+
+KEEP_GOING_STATE = 'keep_going'
+KEEP_GOING_TEXT = 'Продолжайте!'
+
+
+class PuzzlehuntChecker(BaseChecker):
+    """Ответ как у equals_with_possible_spaces плюс промежуточные ответы.
+
+    ``checker_data`` по строкам. Обычная строка принимается как ответ.
+    Строка с «?» в начале — промежуточный ответ: попытка остаётся неверной
+    и без очков, но игрок видит «Продолжайте!». Свой текст можно задать
+    после «=>»: ``? полпути => Вы на верном пути, осталось ещё одно слово``.
+    """
+
+    OPS = (*CLEAN, 'drop_inner_spaces', 'drop_punct')
+
+    def __init__(self, data, last_attempt_state=None):
+        self.answers = set()
+        self.keep_going = {}
+        for raw in str(data or '').split('\n'):
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith('?'):
+                body, _, message = line[1:].partition('=>')
+                key = normalize(body, self.OPS)
+                if key:
+                    self.keep_going.setdefault(key, message.strip() or KEEP_GOING_TEXT)
+                continue
+            key = normalize(line, self.OPS)
+            if key:
+                self.answers.add(key)
+
+    def check(self, text, attempt):
+        key = normalize(str(text or ''), self.OPS)
+        if key in self.answers:
+            return CheckResult('Ok', 'Ok', 1)
+        message = self.keep_going.get(key)
+        if message is not None:
+            return CheckResult('Wrong', 'Wrong', 0, state=KEEP_GOING_STATE, comment=message)
+        return CheckResult('Wrong', 'Pending', 0)
 
 
 class WhiteGrayBlackListChecker(SimpleBoolChecker):
@@ -398,6 +440,7 @@ class CheckerFactory:
         self.checker_type_to_checker = {
             'equals': EqualsChecker,
             'equals_with_possible_spaces': EqualsWithPossibleSpacesChecker,
+            'puzzlehunt': PuzzlehuntChecker,
             'white_gray_black_list': WhiteGrayBlackListChecker,
             'metagram_checker': MetagramChecker,
             'norm_matcher': NormMatcherChecker,

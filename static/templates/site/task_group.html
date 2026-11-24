@@ -303,6 +303,7 @@
 })();
 </script>
 {% endif %}
+{% if game.id == 'cryptic' %}<script src="{% static 'js/cryptic_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>{% endif %}
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script src="{% static 'js/replacements_board.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/fetch_json.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>

@@ -468,6 +468,7 @@ def attempts_with_status(attempts):
             gained_ids.add(id(a))
             best = pts
     progress_ids = _chain_progress_ids(items, order)
+    from games.puzzles.core.check_runtime import KEEP_GOING_STATE
 
     result = []
     for a in items:
@@ -482,6 +483,8 @@ def attempts_with_status(attempts):
             mark = 'partial' if id(a) in gained_ids or id(a) in progress_ids else 'wrong'
         elif a.status == 'Partial':
             mark = 'partial'
+        elif a.status == 'Wrong' and a.state == KEEP_GOING_STATE:
+            mark = 'keep_going'
         elif a.status == 'Wrong':
             mark = 'wrong'
         else:
@@ -489,6 +492,7 @@ def attempts_with_status(attempts):
         label = {
             'ok': 'верно',
             'partial': 'частично',
+            'keep_going': 'продолжайте',
             'wrong': 'неверно',
             'pending': 'проверяется',
         }[mark]
@@ -633,3 +637,31 @@ def get_available_referents(game, team):
             if len(referent_registrations) < 3:
                 referents.append(referent)
     return referents
+
+
+@register.simple_tag
+def simple_daily_share(game, task, ai, tg_number, share_host):
+    """«Ваш результат» для адвента и криптиков: эмодзи, номер, время, ссылка."""
+    from games.daily.catalog.simple_daily import is_simple_daily_game
+
+    game_id = getattr(game, 'id', None)
+    if not is_simple_daily_game(game_id) or ai is None or not ai.is_solved():
+        return None
+    if not tg_number or not str(tg_number).isdigit():
+        return None
+    from games.daily.timing import elapsed_label_for_complete_attempts
+    from games.sections.hub import SECTION_HUB_META
+
+    meta = SECTION_HUB_META.get(game_id) or {}
+    try:
+        elapsed = elapsed_label_for_complete_attempts(list(ai.attempts or []), game=game, task=task)
+    except Exception:
+        elapsed = ''
+    if elapsed in ('0:00', '00:00'):
+        elapsed = ''
+    return {
+        'emoji': meta.get('icon') or '',
+        'title': '{} №{}'.format(game.outside_name or game.name or meta.get('title') or '', tg_number),
+        'elapsed': elapsed,
+        'link': '{}/{}/{}'.format(share_host or 'interoves.com', game_id, tg_number),
+    }

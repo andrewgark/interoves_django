@@ -193,6 +193,11 @@ def _move_response(request, result, outcome, move):
     if outcome.persisted and getattr(puzzle, 'report_attempt_status', True):
         result['attempt_status'] = attempt.status
         result['attempt_id'] = attempt.id
+        from games.puzzles.core.check_runtime import KEEP_GOING_STATE
+        if attempt.status == 'Wrong' and attempt.state == KEEP_GOING_STATE:
+            # An intermediate answer of the puzzlehunt checker.
+            result['attempt_status'] = 'KeepGoing'
+            result['attempt_message'] = attempt.comment or ''
     response = MoveResponse(
         result=result,
         attempt=attempt,

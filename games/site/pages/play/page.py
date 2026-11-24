@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from games.daily.catalog.advent import ADVENT_GAME_ID
+from games.daily.catalog.cryptic import CRYPTIC_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
@@ -622,6 +623,7 @@ def task_group_page(
             else 'Салатиками' if game.id == WORD_SALAD_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
             else 'заданиями' if game.id == ADVENT_GAME_ID
+            else 'криптиками' if game.id == CRYPTIC_GAME_ID
             else 'кругами'
         ),
     )

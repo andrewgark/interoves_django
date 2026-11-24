@@ -15,6 +15,7 @@ ROOT_SECTION_GAME_IDS = frozenset({
     'palindromes',
     'week_task',
     'advent',
+    'cryptic',
 })
 
 # Hub + task_group at /{id}/… (ladder/alphabetty/censorly have extra routes).

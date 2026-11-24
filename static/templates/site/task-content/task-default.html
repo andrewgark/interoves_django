@@ -18,6 +18,8 @@
   {% if task.answer_comment %}
     <div class="new-taskcard__answer-comment new-login-hint">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
   {% endif %}
+  {% simple_daily_share game task ai tg_number share_host as daily_share %}
+  {% if daily_share %}{% include "site/partials/daily_result_card.html" with share_template="task-content/simple_daily_result_share.html" share_text_only=True %}{% endif %}
 {% else %}
   <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}"{% with spec=client_specs_by_task_id|get_item:task.id %}{% if spec %} data-offline-spec="{{ spec }}"{% if task.id in offline_answer_task_ids %} data-offline-attempts="1"{% endif %}{% endif %}{% endwith %}>
     {% csrf_token %}

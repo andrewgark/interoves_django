@@ -23,7 +23,7 @@ def task_ui_by_task_id_for_group(
     daily_board_adapter_by_task_id,
 ) -> dict:
     """Build ``task_ui_by_task_id`` for templates and AJAX partials."""
-    from games.daily.catalog.advent import answer_button_hidden
+    from games.daily.catalog.simple_daily import answer_button_hidden
 
     hide_answers = answer_button_hidden(game)
     out = {}

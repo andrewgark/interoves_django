@@ -267,6 +267,17 @@ ADVENT_SCHEDULE = BoundedDailySchedule(
     cta_latest='Последнее задание',
 )
 
+CRYPTIC_SCHEDULE = BoundedDailySchedule(
+    game_id='cryptic',
+    publish_start_tag='cryptic_publish_start',
+    end_date_tag='cryptic_end_date',
+    empty_hub_status='empty',
+    coming_soon_before_first=True,
+    today_label_when='today_only',
+    cta_today='Сегодняшний криптик',
+    cta_latest='Последний криптик',
+)
+
 SCHEDULES: dict[str, DailySchedule] = {
     LADDER_SCHEDULE.game_id: LADDER_SCHEDULE,
     ALPHABETTY_SCHEDULE.game_id: ALPHABETTY_SCHEDULE,
@@ -274,6 +285,7 @@ SCHEDULES: dict[str, DailySchedule] = {
     WORD_SALAD_SCHEDULE.game_id: WORD_SALAD_SCHEDULE,
     WEEK_TASK_SCHEDULE.game_id: WEEK_TASK_SCHEDULE,
     ADVENT_SCHEDULE.game_id: ADVENT_SCHEDULE,
+    CRYPTIC_SCHEDULE.game_id: CRYPTIC_SCHEDULE,
 }
 
 

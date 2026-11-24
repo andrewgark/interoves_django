@@ -6,6 +6,7 @@
           data-tooltip="Скопировать результат">
     <i class="ph ph-copy" aria-hidden="true"></i>
   </button>
+  {% if not share_text_only %}
   <button type="button"
           class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
           data-share-copy-image
@@ -16,6 +17,7 @@
       <i class="ph ph-copy"></i>
     </span>
   </button>
+  {% endif %}
   <button type="button"
           class="new-btn new-btn--mini"
           data-share-native

@@ -39,10 +39,12 @@ MOSCOW = ZoneInfo('Europe/Moscow')
 # inserts the separate «Десяточки» item between the two slices below.
 SECTION_HUB_ORDER = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'week_task', 'replacements', 'walls', 'palindromes')
 
-# Порядок карточек ежедневных игр на главной: две колонки, две строки.
-# Адвент-календарь идёт последним и до своего первого дня не показывается
-# (``hide_before_start`` в SECTION_HUB_META).
-HUB_DAILY_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', 'alphabetty', 'advent')
+# Порядок карточек ежедневных игр на главной, в две колонки. Адвент-календарь
+# и Криптики показываются не всегда (``hide_before_start`` / ``visible_from``
+# в SECTION_HUB_META); при нечётном числе карточек последняя на всю ширину.
+HUB_DAILY_SECTION_IDS = (
+    LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', 'alphabetty', 'advent', 'cryptic',
+)
 # «Задание недели» пока оставляем в полном каталоге и support-консоли, но
 # скрываем из публичного хаба и верхней навигации. Это позволяет вернуть блок
 # без миграций и не затрагивает уже опубликованные задания.
@@ -54,7 +56,7 @@ WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 # На главной Лесенка — выделенная первая карточка, затем идут Салатик и
 # Алфавитка. Навигация должна повторять именно этот визуальный порядок.
 DAILY_NAV_SECTION_IDS = (
-    LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', ALPHABETTY_GAME_ID,
+    LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', ALPHABETTY_GAME_ID, 'advent',
 )
 
 # Порядок и короткие формулировки именно для первого знакомства. Навигация
@@ -210,18 +212,32 @@ SECTION_HUB_META = {
     # Название и описание задаются в support-консоли и хранятся на игре
     # (Game.name, Game.tags['section_description']); здесь только запасные.
     'advent': {
-        'icon': '🎄',
-        'ph_icon': 'gift',
+        'icon': '🌲',
+        'ph_icon': 'tree-evergreen',
         'title': 'Адвент-календарь',
+        'nav_title': 'Адвент',
         'description': 'Одно задание каждый день',
         'cta_today': 'Задание дня',
         'cta_latest': 'Последнее задание',
         'all_link_label': 'Все задания →',
         'soon_text': 'Новое задание каждый день в полночь по Москве.',
         'soon_emphasis': True,
-        # Пятая карточка в сетке из двух колонок: на всю ширину.
-        'wide': True,
         'hide_before_start': True,
+        'title_from_game': True,
+    },
+    'cryptic': {
+        'icon': '🔑',
+        'ph_icon': 'key',
+        'title': 'Криптики',
+        'nav_title': 'Криптик',
+        'description': 'Одна хитрая словесная загадка в день',
+        'cta_today': 'Сегодняшний криптик',
+        'cta_latest': 'Последний криптик',
+        'all_link_label': 'Все криптики →',
+        'soon_text': 'Скоро!',
+        'soon_emphasis': True,
+        # Карточка «Скоро!» появляется с этой даты (МСК), запуск — по расписанию.
+        'visible_from': '2026-12-01',
         'title_from_game': True,
     },
 }
@@ -258,14 +274,25 @@ def section_ph_icon(section_id):
 
 
 def hidden_before_first_day(game, *, now=None) -> bool:
-    """Карточка с ``hide_before_start`` не видна до выхода №1."""
+    """Раздел ещё не показывают на главной и в навигации.
+
+    ``hide_before_start``: до выхода №1. ``visible_from``: до этой даты (МСК).
+    """
     meta = SECTION_HUB_META.get(getattr(game, 'id', None)) or {}
+    now = now or timezone.now()
+    visible_from = meta.get('visible_from')
+    if visible_from:
+        from datetime import date
+
+        from games.daily.page.section import moscow_midnight
+        if now < moscow_midnight(date.fromisoformat(visible_from)):
+            return True
     if not meta.get('hide_before_start'):
         return False
     from games.daily.page.section import publish_at_for
 
     first = publish_at_for(game, 1)
-    return first is None or (now or timezone.now()) < first
+    return first is None or now < first
 
 
 def section_tagline(game):
@@ -307,8 +334,24 @@ def section_format_credit_context(section_id):
 
 def daily_nav_items():
     """Ежедневные разделы в главной навигации в порядке главной страницы."""
+    from games.models import Game
+    from games.site.pages.hub import link_cache
+
+    gated_ids = [
+        sid for sid in DAILY_NAV_SECTION_IDS
+        if (SECTION_HUB_META.get(sid) or {}).get('hide_before_start')
+        or (SECTION_HUB_META.get(sid) or {}).get('visible_from')
+    ]
+    gated_games = link_cache.cached(
+        ('daily_nav_gated_games',),
+        lambda: {game.id: game for game in Game.objects.filter(id__in=gated_ids)},
+    ) if gated_ids else {}
     items = []
     for sid in DAILY_NAV_SECTION_IDS:
+        if sid in gated_ids:
+            game = gated_games.get(sid)
+            if game is None or hidden_before_first_day(game):
+                continue
         meta = SECTION_HUB_META.get(sid) or {}
         items.append({
             'id': sid,

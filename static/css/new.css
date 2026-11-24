@@ -7262,7 +7262,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   animation: new-attempt-row-flash 1.8s ease-out;
 }
 
-.new-attempts__row--just-submitted[data-attempt-mark="partial"] {
+.new-attempts__row--just-submitted[data-attempt-mark="partial"],
+.new-attempts__row--just-submitted[data-attempt-mark="keep_going"] {
   --new-attempt-highlight: var(--warning);
   border-color: color-mix(in srgb, var(--warning) 70%, var(--border));
 }
@@ -14367,4 +14368,26 @@ html.new-ui-dark .new-pay-hub__inline-icon {
 
 .new-pay-hub__docs a {
   color: var(--muted);
+}
+
+/* Криптики: подсказка, маска ответа «(6)» и поле в духе маски. */
+.cryptic-clue {
+  font-size: 1.2rem;
+  line-height: 1.45;
+}
+
+.cryptic-clue__len {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.cryptic-answer-input {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cryptic-answer-input::placeholder {
+  letter-spacing: 0.12em;
+  opacity: 0.45;
 }

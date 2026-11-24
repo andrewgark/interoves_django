@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.template.loader import render_to_string
@@ -17,10 +18,11 @@ from games.sections.hub import (
 
 class DailyNavigationOrderTests(SimpleTestCase):
     def test_matches_homepage_daily_card_order(self):
-        self.assertEqual(
-            [item['id'] for item in daily_nav_items()],
-            ['ladder', 'salad', 'censorly', 'alphabetty'],
-        )
+        # Advent joins the nav only from its first day; without its game row
+        # it stays out (test_advent covers the dated cases).
+        with patch('games.site.pages.hub.link_cache.cached', return_value={}):
+            ids = [item['id'] for item in daily_nav_items()]
+        self.assertEqual(ids, ['ladder', 'salad', 'censorly', 'alphabetty'])
 
 
 class PublicDesyatochkiSectionTests(SimpleTestCase):

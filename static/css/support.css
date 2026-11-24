@@ -2027,3 +2027,11 @@ html.new-ui-dark .support-ladder-item__mixed {
   max-width: 100%;
   height: auto;
 }
+
+.support-advent-media {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
