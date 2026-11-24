@@ -817,8 +817,9 @@ html.new-ui-dark .censorly__dock {
   vertical-align: 0.08em;
 }
 
+/* No resting background: the flash fades into whatever the token shows
+   underneath (the selection or nothing), so a finished flash leaves no trace. */
 .censorly-tok--just {
-  background: color-mix(in srgb, var(--accent, #c9a227) 35%, transparent);
   border-radius: 2px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
@@ -834,7 +835,6 @@ html.new-ui-dark .censorly__dock {
 
 @keyframes censorly-flash {
   0% { background: color-mix(in srgb, var(--accent, #c9a227) 55%, transparent); }
-  100% { background: transparent; }
 }
 
 .censorly__form {

@@ -829,6 +829,11 @@
     (Array.isArray(tokenIds) ? tokenIds : []).forEach(function (id) {
       ids[String(id)] = true;
     });
+    if (!Object.keys(ids).length) return;
+    // A new flash replaces the previous one, even if it is still fading.
+    root.querySelectorAll('.censorly-tok--just').forEach(function (node) {
+      node.classList.remove('censorly-tok--just');
+    });
     Object.keys(ids).forEach(function (id) {
       var node = root.querySelector('.censorly-tok[data-id="' + id + '"]');
       if (!node) return;
