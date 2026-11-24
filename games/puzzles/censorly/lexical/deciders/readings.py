@@ -85,6 +85,9 @@ class ReadingSelector:
         those (an «-о» adverb also keeps its short adjective, so близко
         reaches близкий). An adverb or particle that is also a comparative
         keeps the comparative (больше reaches большой, лучше reaches хороший).
+        A spelling whose only citation reading is a parenthetical word is a
+        frozen form of its source, so it keeps every reading (может reaches
+        мочь, словом reaches слово); право, also a noun, does not reach правый.
         Otherwise keep every reading (прибыли).
         """
         found = self._letters(surface)
@@ -92,6 +95,8 @@ class ReadingSelector:
         if not folded:
             return found
         citation = tuple(item for item in found if item.lemma == folded)
+        if citation and all(item.parenthetical for item in citation):
+            return found
         if any(item.pos in ('ADVB', 'PRCL') for item in citation):
             kept = ('ADJS', 'COMP') if any(item.pos == 'ADVB' for item in citation) else ('COMP',)
             citation += tuple(

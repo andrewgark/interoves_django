@@ -281,6 +281,12 @@ TRUE_CASES = (
     ('близко', 'близких', 'lexeme'),
     ('широко', 'широких', 'lexeme'),
     ('легко', 'лёгких', 'lexeme'),
+    # A parenthetical word keeps the verb or noun it is a form of
+    # (complaint #360: Может → могут).
+    ('может', 'могут', 'lexeme'),
+    ('мочь', 'может', 'lexeme'),
+    ('кажется', 'казаться', 'lexeme'),
+    ('словом', 'слова', 'lexeme'),
     # Halves of hyphenated compounds are tokens of their own.
     ('юг', 'юго', 'root'),
     ('южный', 'юго', 'root'),
@@ -296,6 +302,8 @@ TRUE_CASES = (
 )
 
 FALSE_CASES = (
+    # «право» is also a noun citation, so the law sense stays apart.
+    'право', 'правого',
     'мама', 'материться',
     'сад', 'сажать',
     'вил', 'развивающемуся',

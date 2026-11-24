@@ -26,7 +26,8 @@ class Reading:
     """One dictionary parse: lemma, paradigm, coarse part of speech, score.
 
     ``person_name`` marks a given name, surname or patronymic reading
-    (OpenCorpora Name/Surn/Patr).
+    (OpenCorpora Name/Surn/Patr). ``parenthetical`` marks a parenthetical
+    word (OpenCorpora Prnt: может, кажется, скажем).
     """
 
     lemma: str
@@ -34,6 +35,7 @@ class Reading:
     pos: str
     score: float
     person_name: bool = False
+    parenthetical: bool = False
 
 
 class Morphology(ExternalDictionary):
@@ -78,6 +80,7 @@ def _readings(folded: str) -> tuple[Reading, ...]:
         parsed.append(Reading(
             lemma, int(para_id), pos, float(parse.score),
             person_name=bool(grams & _PERSON_NAME),
+            parenthetical='Prnt' in grams,
         ))
     return tuple(parsed)
 
