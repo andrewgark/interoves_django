@@ -9786,7 +9786,7 @@ html.is-age-gated .new-wrap {
   }
 }
 @media (max-width: 560px) {
-  .new-raddle-table .new-raddle-col--check { width: 74px; }
+  .new-raddle-table .new-raddle-col--check { width: 52px; }
   .new-raddle-table .new-raddle-col--word { width: auto; }
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
@@ -9851,8 +9851,8 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
   border-bottom: none;
 }
 @media (max-width: 560px) {
-  .new-raddle-sticky-pin__table .new-raddle-col--check { width: 74px; }
-  .new-raddle-sticky-pin__table .new-raddle-col--word { width: calc(100% - 74px); }
+  .new-raddle-sticky-pin__table .new-raddle-col--check { width: 52px; }
+  .new-raddle-sticky-pin__table .new-raddle-col--word { width: calc(100% - 52px); }
 }
 @media (max-width: 919px) {
   .new-taskcard__text:has(.new-raddle-task) {
@@ -10117,6 +10117,24 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
 .new-raddle-assist-form {
   display: inline-flex;
   margin: 0;
+}
+/* Телефон: столбец статусов 52px вместо 74px, чтобы длинным ответам досталось
+   больше места. Лампочки «показать слово» наезжают друг на друга, а ✕ и кнопка
+   проверки (турнир) встают над подсказкой, а не рядом с ней. Пока ответ
+   проверяется, вместо подсказки виден только спиннер. */
+@media (max-width: 560px) {
+  .new-raddle-block__check { padding: 0 0.1rem; }
+  .new-raddle-actions {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .new-raddle-assist-btn { padding: 0.15rem 0.3rem; }
+  .new-raddle-assist-btn--answer .ph + .ph { margin-left: -0.55em; }
+  .new-raddle-actions .new-replacements-check-btn {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .new-raddle-row--checking .new-raddle-assist-form { display: none; }
 }
 .new-raddle-line__revealed-answer {
   display: block;
