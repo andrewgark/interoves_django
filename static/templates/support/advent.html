@@ -30,7 +30,7 @@
         <input type="date" id="advent-start" value="{{ advent_settings.start_date }}">
       </label>
       <label class="support-ladders-field">
-        <span>Последний день (необязательно)</span>
+        <span>Последний день (дни после него не выйдут)</span>
         <input type="date" id="advent-end" value="{{ advent_settings.end_date }}">
       </label>
       <label class="support-ladders-field--check">
@@ -188,7 +188,7 @@
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
           '<div class="support-ladder-item__title">' + escapeHtml(row.name) + ' ' + statusFlag(row) +
-            (row.is_after_end ? ' <span class="support-flag support-flag--warn">после последнего дня</span>' : '') +
+            (row.is_after_end ? ' <span class="support-flag support-flag--warn">не выйдет: после последнего дня</span>' : '') +
           '</div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             escapeHtml(row.is_deferred ? 'без даты' : (row.publish_date || 'дата не задана')) + '</span></div>' +

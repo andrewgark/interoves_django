@@ -227,9 +227,39 @@ WEEK_TASK_SCHEDULE = DailySchedule(
     cta_latest='Последнее задание недели',
 )
 
-ADVENT_SCHEDULE = DailySchedule(
+@dataclass(frozen=True)
+class BoundedDailySchedule(DailySchedule):
+    """Ежедневное расписание с необязательным последним днём.
+
+    Последний день лежит в ``Game.tags[end_date_tag]`` (YYYY-MM-DD, МСК).
+    Выпуски с датой позже него не публикуются.
+    """
+
+    end_date_tag: str = ''
+
+    def end_date(self, game) -> date | None:
+        raw = str(((getattr(game, 'tags', None) or {}).get(self.end_date_tag) or '')).strip()
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw[:10])
+        except ValueError:
+            return None
+
+    def is_published(self, game, number: int | str, now: datetime | None = None) -> bool:
+        if not super().is_published(game, number, now):
+            return False
+        end = self.end_date(game)
+        if end is None:
+            return True
+        pub = self.publish_at(game, number)
+        return pub is None or pub.astimezone(MOSCOW).date() <= end
+
+
+ADVENT_SCHEDULE = BoundedDailySchedule(
     game_id='advent',
     publish_start_tag='advent_publish_start',
+    end_date_tag='advent_end_date',
     empty_hub_status='empty',
     coming_soon_before_first=True,
     today_label_when='today_only',

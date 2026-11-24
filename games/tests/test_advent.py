@@ -172,6 +172,10 @@ class AdventScheduleTests(TestCase):
         self.assertEqual([row.is_published for row in rows], [True, True, False, False])
         self.assertEqual([row.is_today for row in rows], [False, True, False, False])
         self.assertEqual([row.is_after_end for row in rows], [False, False, False, True])
+        later = datetime(2026, 12, 10, 12, tzinfo=MOSCOW)
+        self.assertEqual(
+            [row.is_published for row in list_advent_rows(now=later)], [True, True, True, False],
+        )
         with self.assertRaises(AdventSupportError):
             create_advent_day(at_number=2, answers='x', now=now)
         with self.assertRaises(AdventSupportError):
