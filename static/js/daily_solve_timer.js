@@ -38,6 +38,8 @@
   var REQUEST_TIMEOUT_MS = 10000;
   // At most one reachability probe per this gap while timing sends fail.
   var PROBE_MIN_GAP_MS = 15000;
+  // The first start waits for two frames, or this long if they do not come.
+  var PAINT_FALLBACK_MS = 1000;
   // After timeouts in a row the connection is slow rather than dead: Yandex
   // on Android (2026-11-15, /replacements/167/) had a start reach the server
   // 27 s after it was sent, long after the client gave up on it at 10 s, and
@@ -266,6 +268,9 @@
     var probeUrl = options.probeUrl || '';
     var lastSiteAnswerAt = createdAt;
     var lastProbeAt = 0;
+    // Where boot() is: '' before it, 'snapshot' awaiting the GET, 'paint'
+    // awaiting the frames before the first start, 'done' once it tried.
+    var bootStage = '';
     var reportsSent = {};
     var watchdogTimer = null;
     var watchdogDueAt = 0;
@@ -1185,6 +1190,7 @@
         last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
         last_ok_age_s: Math.round((Date.now() - lastServerAnswerAt) / 1000),
         site_ok_age_s: probeUrl ? Math.round((Date.now() - lastSiteAnswerAt) / 1000) : null,
+        boot_stage: bootStage,
         start_failures: startFailures,
         request_timeout_s: Math.round(requestTimeoutMs() / 1000),
         failed_start_rounds: failedStartRounds,
@@ -1505,11 +1511,37 @@
     }
     render();
 
+    // Start once the board has been painted, but never wait on frames alone:
+    // Safari on iOS (2026-11-22, /salad/87/) answered the snapshot within a
+    // second, yet the visible page never sent a start in 50 s and nothing
+    // else could trigger one. A frame that does not come is not a reason to
+    // leave the clock stopped.
+    function startAfterPaint() {
+      bootStage = 'paint';
+      var started = false;
+      function go() {
+        if (started || destroyed) return;
+        started = true;
+        bootStage = 'done';
+        startIfAllowed();
+      }
+      if (!root.requestAnimationFrame) {
+        go();
+        return;
+      }
+      root.requestAnimationFrame(function () {
+        root.requestAnimationFrame(go);
+      });
+      if (root.setTimeout) root.setTimeout(go, PAINT_FALLBACK_MS);
+    }
+
     function boot() {
       if (destroyed) return;
+      bootStage = 'snapshot';
       scheduleWatchdog();
       startStoppedCheck();
       if (!fetchFn || !url) {
+        bootStage = 'done';
         if (!completed && !manuallyPaused) {
           authoritative = true;
           status = 'running';
@@ -1544,6 +1576,7 @@
         root.setTimeout(function () {
           if (bootAnswered || destroyed) return;
           bootTimedOut = true;
+          bootStage = 'done';
           if (!completed && !manuallyPaused) startIfAllowed();
         }, REQUEST_TIMEOUT_MS);
       }
@@ -1559,15 +1592,11 @@
         if (data && data.ok === false) data = null;
         timingEventCapability = !!(data && data.timing_event_capability === 'stable-event-v1');
         if (data) applySnapshot(data, { replace: true });
-        if (!completed && !manuallyPaused) {
-          if (root.requestAnimationFrame) {
-            root.requestAnimationFrame(function () {
-              root.requestAnimationFrame(startIfAllowed);
-            });
-          } else startIfAllowed();
-        }
+        if (!completed && !manuallyPaused) startAfterPaint();
+        else bootStage = 'done';
       }).catch(function () {
         if (destroyed || bootTimedOut) return;
+        bootStage = 'done';
         if (!completed && !manuallyPaused) startIfAllowed();
       });
     }

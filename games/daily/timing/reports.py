@@ -38,7 +38,7 @@ DETAIL_KEYS = (
     'failed_start_rounds', 'stopped_for_s', 'session_id', 'capability',
     'page_age_s', 'response_status', 'hidden_via', 'hidden_age_s',
     'visible_via', 'visible_age_s', 'frozen_age_s', 'request_timeout_s',
-    'last_ok_age_s', 'site_ok_age_s',
+    'last_ok_age_s', 'site_ok_age_s', 'boot_stage',
 )
 DETAIL_VALUE_MAX = 120
 PER_ACTOR_WINDOW_S = 6 * 60 * 60

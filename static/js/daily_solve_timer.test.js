@@ -1511,6 +1511,60 @@ asyncTest(async function testBootIgnoresErrorResponseAsSnapshot() {
   assert.strictEqual(global.requestAnimationFrame, oldRaf);
 });
 
+asyncTest(async function testBootStartsWhenFramesNeverCome() {
+  // Safari on iOS (2026-11-22, /salad/87/): the snapshot answered at once,
+  // but the visible page sent no start in 50 s. Frames alone must not gate
+  // the first start; it goes out once, whichever comes first.
+  var oldRaf = global.requestAnimationFrame;
+  var oldSetTimeout = global.setTimeout;
+  var frames = [];
+  var timers = [];
+  var sent = [];
+  global.requestAnimationFrame = function (callback) { frames.push(callback); return frames.length; };
+  global.setTimeout = function (callback, delay) { timers.push({ callback: callback, delay: delay }); return timers.length; };
+  try {
+    var ctrl = timer.create({
+      url: '/salad/87/timing/',
+      document: { visibilityState: 'visible', addEventListener: function () {} },
+      getAnonKey: function () { return ''; },
+      getCsrf: function () { return ''; },
+      storage: memoryStorage(),
+      localStorage: memoryStorage(),
+      fetch: function (url, init) {
+        if (!init.method) {
+          return Promise.resolve({ ok: true, status: 200, json: function () {
+            return Promise.resolve({ ok: true, status: 'auto_paused', exists: true });
+          } });
+        }
+        sent.push(JSON.parse(init.body).action);
+        return new Promise(function () {});
+      },
+      listenDocument: false,
+      enableHeartbeat: false,
+      enableBroadcast: false,
+      bootstrap: { status: 'auto_paused', exists: false },
+    });
+    ctrl.boot();
+    await flush();
+    assert.deepStrictEqual(sent, []);
+    assert.strictEqual(frames.length, 1);
+    var fallback = timers.filter(function (t) { return t.delay === 1000; });
+    assert.strictEqual(fallback.length, 1);
+    fallback[0].callback();
+    await flush();
+    assert.deepStrictEqual(sent, ['start']);
+    // Frames arriving late do not send a second start.
+    frames.shift()();
+    frames.shift()();
+    await flush();
+    assert.deepStrictEqual(sent, ['start']);
+    ctrl.destroy();
+  } finally {
+    global.requestAnimationFrame = oldRaf;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 function lostLeaseHarness() {
   var h = {
     now: 1000000,
