@@ -11,8 +11,10 @@ Only what players can already open is listed: daily releases in their
 public number order up to today's, Десяточки that are ready and started.
 
 A daily-game release with no recorded author is shown as written by the
-site's author (``settings.DAILY_DEFAULT_AUTHOR_USER_ID``). This is display only:
-tables and author credit still use the recorded authors.
+site's author (``settings.DAILY_DEFAULT_AUTHOR_USER_ID``), unless someone else
+is named: a filled text author (``Task.tags['author']``) or a player's offer
+it came from. This is display only: tables and author credit still use the
+recorded authors.
 """
 
 from dataclasses import dataclass, field
@@ -108,7 +110,11 @@ def daily_releases(actor, *, now=None):
         )
     if not game_ids:
         return []
-    unauthored = TaskGroup.objects.filter(authors__isnull=True).values('pk')
+    unauthored = (
+        TaskGroup.objects.filter(authors__isnull=True)
+        .exclude(pk__in=credited_elsewhere_group_ids())
+        .values('pk')
+    )
     out = []
     for game in Game.objects.filter(pk__in=game_ids):
         mine = Q(task_group_id__in=authored)
@@ -139,6 +145,33 @@ def daily_releases(actor, *, now=None):
         ))
     out.sort(key=lambda game: (-len(game.items), game.name))
     return out
+
+
+def credited_elsewhere_group_ids() -> set[int]:
+    """Task groups that name an author other than the site's default one.
+
+    A text author on one of its tasks (``Task.tags['author']``), or a player's
+    offer it was made from, even when that offer recorded no profile.
+    """
+    from games.models import AlphabettyOffer, CensorlyOffer, LadderOffer, Task, WordSaladOffer
+
+    ids = set()
+    for group_id, tags in (
+        Task.objects.filter(task_group__isnull=False, tags__has_key='author')
+        .values_list('task_group_id', 'tags')
+    ):
+        if str((tags or {}).get('author') or '').strip():
+            ids.add(group_id)
+    for model in (LadderOffer, WordSaladOffer, AlphabettyOffer):
+        ids.update(
+            model.objects.filter(task_group__isnull=False).values_list('task_group_id', flat=True)
+        )
+    ids.update(
+        CensorlyOffer.objects.filter(accepted_link__isnull=False)
+        .values_list('accepted_link__task_group_id', flat=True)
+    )
+    ids.discard(None)
+    return ids
 
 
 def _release_title(link, game_name):

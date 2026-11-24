@@ -34,6 +34,8 @@ from games.models import Audio, CheckerType, Game, GameTaskGroup, Image, Task, T
 from games.sections.paths import section_hub_path, section_play_path
 
 DAY_POINTS = 1
+# Text author of a day, in Task.tags like the salad and ladder offers.
+AUTHOR_FIELD = 'author'
 IMAGE_MAX_BYTES = 10 * 1024 * 1024
 AUDIO_MAX_BYTES = 20 * 1024 * 1024
 # No SVG: opened directly from /media/ it would run scripts on our domain.
@@ -89,6 +91,8 @@ class SimpleDailySection:
     summary: Callable[[Task], str]
     # Автор каждого нового дня (User.id); без профиля у этого пользователя — без автора.
     default_author_user_id: int | None = None
+    # Как назвать автора по умолчанию в подсказке поля «Автор».
+    default_author_label: str = 'автор раздела'
 
     def auto_name(self, number: int) -> str:
         return self.day_name.format(n=number)
@@ -237,7 +241,7 @@ class SimpleDailyConsole:
                 False if link.is_deferred else self.schedule.is_published(game, number)
             ),
             'is_deferred': link.is_deferred,
-            'fields': self.section.from_task(task) if task else {},
+            'fields': self._fields_for(task) if task else {},
             'play_url': section_play_path(self.section.game_id, number),
             'site_url': self._site_url(link, number),
         }
@@ -256,17 +260,47 @@ class SimpleDailyConsole:
         name = str(raw or '').strip()[:200]
         return name or self.section.auto_name(number)
 
+    def day_fields(self) -> tuple[DayField, ...]:
+        """Поля раздела и общее поле текстового автора."""
+        return (*self.section.fields, DayField(
+            AUTHOR_FIELD, 'Автор, если не {}'.format(self.section.default_author_label),
+            placeholder='Пусто: {}'.format(self.section.default_author_label),
+            hint='Покажем на странице дня. Тогда автором по умолчанию день не считается.',
+        ))
+
     def _content(self, fields: dict[str, str]) -> TaskContent:
         for day_field in self.section.fields:
             if day_field.required and not str(fields.get(day_field.key) or '').strip():
                 raise SimpleDailyError('Заполните поле «{}»'.format(day_field.label))
         return self.section.to_task(fields)
 
+    @staticmethod
+    def _author_text(fields: dict[str, str]) -> str:
+        return ' '.join(str(fields.get(AUTHOR_FIELD) or '').split())[:200]
+
+    def _sync_authors(self, task_group: TaskGroup, author_text: str) -> None:
+        """The section's default author, unless the day names someone else."""
+        default = self._default_author()
+        if default is None:
+            return
+        if author_text:
+            task_group.authors.remove(default)
+        elif not task_group.authors.exists():
+            task_group.authors.add(default)
+
+    def _fields_for(self, task: Task) -> dict[str, str]:
+        return {
+            **self.section.from_task(task),
+            AUTHOR_FIELD: str((task.tags or {}).get(AUTHOR_FIELD) or ''),
+        }
+
     @transaction.atomic
     def create(self, *, at_number: int, name: str | None = None,
                fields: dict[str, str] | None = None, now: datetime | None = None) -> dict[str, Any]:
         """Вставить день; автором группы записывается автор раздела по умолчанию."""
-        content = self._content(fields or {})
+        fields = fields or {}
+        content = self._content(fields)
+        author_text = self._author_text(fields)
         if at_number < 1:
             raise SimpleDailyError('Номер должен быть >= 1')
         locked_until = self.last_published_number(now=now)
@@ -307,9 +341,7 @@ class SimpleDailyConsole:
             points=DAY_POINTS,
             max_attempts=None,
         )
-        author = self._default_author()
-        if author is not None:
-            task_group.authors.add(author)
+        self._sync_authors(task_group, author_text)
         Task.objects.create(
             task_group=task_group,
             number='1',
@@ -319,7 +351,7 @@ class SimpleDailyConsole:
             answer=content.answer,
             answer_comment=content.answer_comment or None,
             text=content.text,
-            tags=dict(content.tags),
+            tags={**content.tags, **({AUTHOR_FIELD: author_text} if author_text else {})},
             points=DAY_POINTS,
             max_attempts=None,
             is_removed=False,
@@ -347,7 +379,9 @@ class SimpleDailyConsole:
         task = self._task(link)
         if task is None:
             raise SimpleDailyError('У дня нет задания')
-        content = self._content({**self.section.from_task(task), **fields})
+        merged = {**self._fields_for(task), **fields}
+        content = self._content(merged)
+        author_text = self._author_text(merged)
         checker_changed = (
             content.checker_data != (task.checker_data or '')
             or task.checker_id != self.section.checker_id
@@ -357,8 +391,15 @@ class SimpleDailyConsole:
         task.checker_id = self.section.checker_id
         task.answer = content.answer
         task.answer_comment = content.answer_comment or None
-        task.tags = {**(task.tags or {}), **content.tags}
+        tags = {**(task.tags or {}), **content.tags}
+        if author_text:
+            tags[AUTHOR_FIELD] = author_text
+        else:
+            tags.pop(AUTHOR_FIELD, None)
+        task.tags = tags
         task.save()
+        if link.task_group_id:
+            self._sync_authors(link.task_group, author_text)
         if checker_changed:
             _recheck_task_after_commit(task.pk)
         return self.detail(link.pk)

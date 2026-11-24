@@ -145,7 +145,8 @@ def _build_hub_section_cards(request, *, team):
             play_mode, _ = _get_play_mode(request, game.project_id)
             play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
-            if game_id == 'censorly':
+            # The advent card itself appears only from its first day (1 December).
+            if game_id == 'advent':
                 card['new_label'] = 'NEW'
             # The streak is rendered from the initial response, so project the
             # CTA's solved state here as well instead of waiting for one JSON

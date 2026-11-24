@@ -14391,3 +14391,9 @@ html.new-ui-dark .new-pay-hub__inline-icon {
   letter-spacing: 0.12em;
   opacity: 0.45;
 }
+
+.new-taskcard__byline {
+  margin: -0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

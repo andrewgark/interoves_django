@@ -10,6 +10,9 @@
     {% autoescape off %}{{ task.text }}{% endautoescape %}
   {% endif %}
 </div>
+{% if game.id == 'advent' or game.id == 'cryptic' %}{% if task.tags.author %}
+  <p class="new-taskcard__byline">Автор: {{ task.tags.author }}</p>
+{% endif %}{% endif %}
 
 {% if ai.is_solved %}
   <div class="new-taskcard__answer">

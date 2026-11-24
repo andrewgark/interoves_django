@@ -248,7 +248,8 @@ class GameTaskGroupProgressTests(TestCase):
             result = _build_hub_section_cards(request, team=None)
 
         self.assertEqual(result['daily_hub_grid_cards'], [card])
-        self.assertEqual(card['new_label'], 'NEW')
+        # NEW moved to the advent card on 1 December 2026.
+        self.assertNotIn('new_label', card)
 
     def test_ladder_progress_api_returns_result_squares(self):
         from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG

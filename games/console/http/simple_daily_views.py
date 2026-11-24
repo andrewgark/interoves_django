@@ -27,7 +27,7 @@ def _fields(console, body):
     raw = body.get('fields')
     if not isinstance(raw, dict):
         return None
-    keys = {day_field.key for day_field in console.section.fields}
+    keys = {day_field.key for day_field in console.day_fields()}
     return {key: str(value) for key, value in raw.items() if key in keys and value is not None}
 
 
@@ -41,7 +41,7 @@ def dashboard(request, *, section):
         return _error(exc, status=404)
     ctx['page_title'] = console.section.title
     ctx['support_limited_sections'] = limited_console_sections(request.user)
-    ctx['day_fields'] = console.section.fields
+    ctx['day_fields'] = console.day_fields()
     return render(request, 'support/simple_daily.html', ctx)
 
 

@@ -497,3 +497,56 @@ class DefaultAuthorTests(TestCase):
             list(GameTaskGroup.objects.get(pk=cryptic['link_id']).task_group.authors.values_list('user_id', flat=True)),
             [1],
         )
+
+
+class TextAuthorTests(TestCase):
+    def setUp(self):
+        _cryptic_game(start='2020-12-04T00:00:00+03:00')
+        self.andrey = User.objects.filter(pk=1).first() or User.objects.create_user('andrey1', password='x', id=1)
+        Profile.objects.get_or_create(user=self.andrey, defaults={'first_name': 'Андрей', 'last_name': 'Г'})
+        self.console = console_for(CRYPTIC_GAME_ID)
+
+    def _authors(self, item):
+        group = GameTaskGroup.objects.get(pk=item['link_id']).task_group
+        return list(group.authors.values_list('user_id', flat=True))
+
+    def test_text_author_replaces_the_default_one(self):
+        item = self.console.create(at_number=1, fields={
+            'clue': 'Подсказка', 'answer': 'ответ', 'author': '  Ефим   Холмогоров ',
+        })
+        self.assertEqual(self._authors(item), [])
+        task = Task.objects.get(task_group_id=item['task_group_id'])
+        self.assertEqual(task.tags['author'], 'Ефим Холмогоров')
+        self.assertEqual(item['fields']['author'], 'Ефим Холмогоров')
+        from games.community.authorship import credited_elsewhere_group_ids
+        self.assertIn(item['task_group_id'], credited_elsewhere_group_ids())
+
+        client = Client()
+        client.force_login(_user('cryptic_byline'))
+        self.assertContains(client.get('/cryptic/1/'), 'Автор: Ефим Холмогоров')
+
+        # Clearing the field gives the day back to the default author.
+        self.console.update(item['link_id'], fields={'author': ''})
+        self.assertEqual(self._authors(item), [1])
+        task.refresh_from_db()
+        self.assertNotIn('author', task.tags)
+        self.assertNotContains(client.get('/cryptic/1/'), 'Автор:')
+        # And naming someone again takes it away.
+        self.console.update(item['link_id'], fields={'author': 'Гость'})
+        self.assertEqual(self._authors(item), [])
+
+    def test_default_author_without_text(self):
+        item = self.console.create(at_number=1, fields={'clue': 'Подсказка', 'answer': 'ответ'})
+        self.assertEqual(self._authors(item), [1])
+        from games.community.authorship import credited_elsewhere_group_ids
+        self.assertNotIn(item['task_group_id'], credited_elsewhere_group_ids())
+
+
+class NewLabelTests(TestCase):
+    def test_new_moves_from_censorly_to_advent(self):
+        _advent_game(start='2020-12-01T00:00:00+03:00')
+        _advent_day(1)
+        cards = HubAndNavTests._cards(self)
+        self.assertEqual(cards[ADVENT_GAME_ID].get('new_label'), 'NEW')
+        if 'censorly' in cards:
+            self.assertNotIn('new_label', cards['censorly'])
