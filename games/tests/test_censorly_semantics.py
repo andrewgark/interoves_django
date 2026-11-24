@@ -292,7 +292,6 @@ TRUE_CASES = (
     ('взаимный', 'взаимо', 'root'),
     ('20', 'XX', 'alias'),
     ('19', 'XIX', 'alias'),
-    ('1', 'I', 'alias'),
     ('99', 'XCIX', 'alias'),
 )
 
@@ -1849,6 +1848,19 @@ class SemanticsTests(SimpleTestCase):
             by_name[name] = lemmas
             for lemma in lemmas:
                 previous = seen.setdefault(lemma, [])
+    def test_roman_spelling_is_a_number_only_where_it_reads_as_one(self):
+        # «f(x)» in the Площадь article: a lowercase x is a variable, and a
+        # typed single letter is a letter, not ten (complaint #358).
+        self.assertFalse(opens('x', '10'))
+        self.assertFalse(opens('X', '10'))
+        self.assertFalse(opens('10', 'x'))
+        self.assertFalse(opens('v', '5'))
+        self.assertFalse(opens('I', '1'))
+        self.assertTrue(opens('10', 'X'))
+        self.assertTrue(opens('xii', '12'))
+        self.assertTrue(opens('XX', '20'))
+        self.assertTrue(opens('x', 'X'))
+
                 if previous:
                     allowed = set(previous) | {name}
                     readings = {

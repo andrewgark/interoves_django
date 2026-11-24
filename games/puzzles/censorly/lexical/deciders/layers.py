@@ -81,6 +81,11 @@ class AliasLayer(Layer):
     only as written: «мед» must not become мёд, «порт» must not become порты.
     Direct pairs only: 20 opens XX, not XIX and not двадцать; кг does not
     open килограммовый.
+
+    A Roman spelling is a number only where it reads as one. In the article
+    that is an all-capital token (XVII, «книга V»); a lowercase x is a
+    variable. A typed single letter (x, v, i, l) is a letter, so «x» does not
+    open 10; xii and xx still stand for numbers.
     """
 
     name = 'alias'
@@ -96,6 +101,15 @@ class AliasLayer(Layer):
             ('', frozenset((str(value), fold(roman(value))))) for value in range(1, 100)
         )
         return written + numerals
+
+    @cached_property
+    def _first_numeral(self) -> int:
+        return len(reviewed.ALIASES.data)
+
+    def _reads_as_roman(self, word) -> bool:
+        if word.is_guess:
+            return len(word.fold) > 1
+        return word.surface.isupper()
 
     @property
     def groups(self) -> tuple[frozenset[str], ...]:
@@ -113,6 +127,11 @@ class AliasLayer(Layer):
         """Group id → the members this word stands for."""
         found: dict[int, set[str]] = {}
         for group_id in self._by_spelling.get(word.fold, ()):
+            if (
+                group_id >= self._first_numeral and not word.fold.isdigit()
+                and not self._reads_as_roman(word)
+            ):
+                continue
             found.setdefault(group_id, set()).add(word.fold)
         for item in word.reads:
             for group_id in self._by_full_lemma.get(item.lemma, ()):
