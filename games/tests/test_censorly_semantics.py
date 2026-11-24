@@ -1846,16 +1846,6 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('20', 'двадцать'))
         self.assertFalse(opens('I', 'II'))
 
-    def test_split_subfamilies_are_disjoint(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-        from games.puzzles.censorly.lexical.splits import CLUSTERS
-        by_name = {}
-        seen = {}
-        for name, lemmas in CLUSTERS:
-            self.assertNotIn(name, by_name)
-            by_name[name] = lemmas
-            for lemma in lemmas:
-                previous = seen.setdefault(lemma, [])
     def test_roman_spelling_is_a_number_only_where_it_reads_as_one(self):
         # «f(x)» in the Площадь article: a lowercase x is a variable, and a
         # typed single letter is a letter, not ten (complaint #358).
@@ -1869,6 +1859,16 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('XX', '20'))
         self.assertTrue(opens('x', 'X'))
 
+    def test_split_subfamilies_are_disjoint(self):
+        from games.puzzles.censorly.lexical.match.rootbank import structures_of
+        from games.puzzles.censorly.lexical.splits import CLUSTERS
+        by_name = {}
+        seen = {}
+        for name, lemmas in CLUSTERS:
+            self.assertNotIn(name, by_name)
+            by_name[name] = lemmas
+            for lemma in lemmas:
+                previous = seen.setdefault(lemma, [])
                 if previous:
                     allowed = set(previous) | {name}
                     readings = {
