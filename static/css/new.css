@@ -9191,7 +9191,7 @@ html.is-age-gated .new-wrap {
    The block shows only while it holds a visible result card. */
 .new-daily-finish { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: .8rem; margin-top: 1.25rem; }
 .new-daily-finish:not(:has(> [data-raddle-result]:not([hidden]))) { display: none; }
-.new-daily-results-layout > .new-daily-finish { justify-content: flex-end; margin-top: 0; }
+.new-daily-results-layout > .new-daily-finish { margin-top: 0; }
 .new-daily-finish > .new-raddle-result { margin: 0; }
 .new-daily-rate {
   display: flex;
