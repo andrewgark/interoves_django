@@ -146,6 +146,12 @@
     return el ? el.value : '';
   }
 
+  // Guess, hint and suggest hold `busy`; a request that never settles must
+  // give the form back instead of leaving every later press ignored.
+  function timedFetch(url, init) {
+    return window.AlphabettyGuessResponse.fetchWithTimeout(window.fetch.bind(window), url, init);
+  }
+
   function gameplayHeaders() {
     var headers = {
       'Content-Type': 'application/json',
@@ -805,7 +811,7 @@
       if (!isAuthenticated && anonKey) {
         url += (url.indexOf('?') >= 0 ? '&' : '?') + 'anon=' + encodeURIComponent(anonKey);
       }
-      return fetch(url, {
+      return timedFetch(url, {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       }).then(function (response) {
@@ -852,7 +858,7 @@
     function postGuess() {
       var payload = { word: word, anon_key: anonKey };
       if (instantWin) payload.client_verdict = 'Ok';
-      return fetch(guessUrl, {
+      return timedFetch(guessUrl, {
         method: 'POST',
         headers: headers,
         credentials: 'same-origin',
@@ -956,7 +962,7 @@
     stateGen += 1;
     actorSyncGeneration += 1;
     var headers = gameplayHeaders();
-    fetch(hintUrl, {
+    timedFetch(hintUrl, {
       method: 'POST',
       headers: headers,
       credentials: 'same-origin',
@@ -987,7 +993,10 @@
         applyState(data);
         if (data.hint_reveal) showHintReveal(data.hint_reveal);
       })
-      .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
+      .catch(function (e) {
+        var msg = e && e.timedOut ? 'Не удалось получить подсказку. Попробуйте ещё раз.' : (e && e.message);
+        showMsg(msg || 'Сеть недоступна', 'error');
+      })
       .finally(function () {
         busy = false;
         updateHintButton();
@@ -1031,7 +1040,7 @@
       if (!suggestUrl || !pendingSuggestWord || elSuggest.disabled) return;
       elSuggest.disabled = true;
       var headers = gameplayHeaders();
-      fetch(suggestUrl, {
+      timedFetch(suggestUrl, {
         method: 'POST',
         headers: headers,
         credentials: 'same-origin',

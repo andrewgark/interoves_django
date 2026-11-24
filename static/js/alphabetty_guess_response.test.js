@@ -26,4 +26,37 @@ assert.strictEqual(
   'Не удалось проверить слово. Попробуйте ещё раз.'
 );
 
-console.log('alphabetty guess response tests passed');
+(async function () {
+  // A fetch that never settles is cut off: the form must get its button back.
+  var seenSignal = null;
+  var stalled = GuessResponse.fetchWithTimeout(function (url, init) {
+    seenSignal = init.signal;
+    assert.strictEqual(init.method, 'POST', 'request options pass through');
+    return new Promise(function () {});
+  }, '/alphabetty/1/guess/', { method: 'POST' }, 20);
+  await assert.rejects(stalled, function (err) {
+    return err.timedOut === true && err.message === GuessResponse.transportErrorMessage();
+  });
+  assert.ok(seenSignal && seenSignal.aborted, 'the stalled request is aborted');
+
+  var answered = await GuessResponse.fetchWithTimeout(function () {
+    return Promise.resolve('response');
+  }, '/x', {}, 1000);
+  assert.strictEqual(answered, 'response');
+
+  await assert.rejects(
+    GuessResponse.fetchWithTimeout(function () { return Promise.reject(new Error('offline')); }, '/x', {}, 1000),
+    function (err) { return err.message === 'offline' && !err.timedOut; }
+  );
+
+  // A synchronous throw from fetch becomes a rejection, never a stuck page.
+  await assert.rejects(
+    GuessResponse.fetchWithTimeout(function () { throw new TypeError('bad'); }, '/x', {}, 1000),
+    TypeError
+  );
+
+  console.log('alphabetty guess response tests passed');
+})().catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
