@@ -992,6 +992,10 @@ TELEGRAM_WEBHOOK_SECRET = load_secret('telegram_webhook_secret.txt', env_var='TE
 TELEGRAM_API_ID = _load_telegram_api_id()
 TELEGRAM_API_HASH = load_secret('telegram_api_hash.txt', env_var='TELEGRAM_API_HASH', default='')
 TELEGRAM_USER_SESSION = load_secret('telegram_user_session.txt', env_var='TELEGRAM_USER_SESSION', default='')
+# Blue «not finished yet» dots on daily editions (nav, hub, edition arrows,
+# pager). Off for now; games.daily.fresh shows no dots while this is false.
+DAILY_FRESH_DOTS_ENABLED = _env_flag_default('DAILY_FRESH_DOTS_ENABLED', False)
+
 # Real site screenshot for ladder posts (Playwright/Chromium). Set FALSE to force Pillow.
 TELEGRAM_LADDER_SCREENSHOT = _env_flag_default('TELEGRAM_LADDER_SCREENSHOT', True)
 

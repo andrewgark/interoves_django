@@ -3,16 +3,22 @@
 A dot says there is something new to play, so it is only for players who
 have finished at least one game: a first-time visitor would see one on
 every edition and every game at once.
+
+settings.DAILY_FRESH_DOTS_ENABLED turns all of them off, with no query.
 """
+
+from django.conf import settings
 
 
 def finished_instances(instance_ids, *, team=None, user=None, anon_key=None):
     """The ``instance_ids`` this actor has finished, or None for a newcomer.
 
-    None means: no identity, or no finished game at all yet; show no dots.
-    One query for a returning player, a second only when none of the given
-    editions is finished.
+    None means: dots are switched off, no identity, or no finished game at
+    all yet; show no dots. One query for a returning player, a second only
+    when none of the given editions is finished.
     """
+    if not settings.DAILY_FRESH_DOTS_ENABLED:
+        return None
     from games.models import PlayerCompletedGame
     from games.site.session.replay import actor_kwargs
 

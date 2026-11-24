@@ -8,13 +8,14 @@ from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.template.loader import render_to_string
-from django.test import Client, SimpleTestCase, TestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from games.models import GameTaskGroup, PlayerCompletedGame
 from games.tests.test_censorly import _make_puzzle_task
 
 
+@override_settings(DAILY_FRESH_DOTS_ENABLED=True)
 class DailyFreshDotTests(TestCase):
     def setUp(self):
         self.task_groups = {}
@@ -150,3 +151,12 @@ class DailyEditionNavPartialTests(SimpleTestCase):
 
         self.assertIn('Предыдущий выпуск, ещё не решён', html)
         self.assertRegex(html, r'<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая')
+
+
+class DailyFreshDotsSwitchTests(SimpleTestCase):
+    @override_settings(DAILY_FRESH_DOTS_ENABLED=False)
+    def test_switched_off_shows_no_dots_without_a_query(self):
+        from games.daily.fresh import finished_instances
+
+        # SimpleTestCase fails on any database query.
+        self.assertIsNone(finished_instances({'1:1'}, anon_key='abc'))
