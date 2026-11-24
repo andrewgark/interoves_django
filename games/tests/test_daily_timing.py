@@ -883,6 +883,18 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(stale['committed_ms'], 0)
         self.assertEqual(stale['accumulated_ms'], 30000)
 
+    def test_start_ignored_as_stale_reports_the_session_seq(self):
+        # A tab whose stored counter went backwards learns where to resume.
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=98, now=_dt())
+        self._apply(action=ACTION_AUTO_PAUSE, session=sid, seq=101, claimed=1000, now=_dt(10))
+        stale = self._apply(action=ACTION_START, session=sid, seq=99, now=_dt(15))
+        self.assertEqual(stale['status'], 'auto_paused')
+        self.assertEqual(stale['session_seq'], 101)
+        fresh = self._apply(action=ACTION_START, session=sid, seq=102, now=_dt(16))
+        self.assertEqual(fresh['status'], 'running')
+        self.assertEqual(fresh['session_seq'], 102)
+
     def test_two_tabs_do_not_double_count(self):
         a = uuid4()
         b = uuid4()

@@ -305,6 +305,8 @@
     // again, so every later event goes out as keepalive too.
     var preferKeepalive = false;
     var startEvent = null;
+    // A start ignored as stale is resent once with a caught-up seq.
+    var staleStartResent = false;
     var startEventCreatedAt = 0;
     var timingEventCapability = bootstrap.timing_event_capability === 'stable-event-v1';
     var eventQueue = [];
@@ -449,6 +451,7 @@
     function applySnapshot(snap, opts) {
       opts = opts || {};
       if (destroyed || !snap) return;
+      adoptServerSeq(snap);
       var requestSeq = Number(opts.requestSeq);
       if (isFinite(requestSeq)) {
         if (requestSeq < lastAppliedRequestSeq) return;
@@ -504,6 +507,18 @@
       if (unconfirmedSince == null || completed || manuallyPaused) return 0;
       var end = Math.min(Date.now(), lastActivityAt + idleMs);
       return Math.max(0, Math.floor(end - unconfirmedSince));
+    }
+
+    // The counter belongs to the session, whatever page or game the snapshot
+    // is for, so catching up is always safe. Firefox on Android (2026-11-23,
+    // /censorly/) restored a tab with sessionStorage from before its last
+    // four events: the next starts went out below the server's seq and were
+    // ignored as stale, leaving the clock stopped for four minutes.
+    function adoptServerSeq(snap) {
+      var serverSeq = Number(snap && snap.session_seq);
+      if (!isFinite(serverSeq) || serverSeq <= seq) return;
+      seq = Math.floor(serverSeq);
+      try { if (storage) storage.setItem(seqKey, String(seq)); } catch (e) {}
     }
 
     function nextSeq() {
@@ -953,9 +968,12 @@
       var viaKeepalive = preferKeepalive || startNetworkFailures % 2 === 1;
       // The outer start policy owns its attempt budget. Retrying in both
       // layers would multiply attempts and could create a retry burst.
+      var sentStart = startEvent;
       sendEvent(startEvent, viaKeepalive, 0, false).then(function (data) {
         awaitingServer = false;
         if (data && data.ok) {
+          var ignoredAsStale = Number(data.session_seq) >= sentStart.seq
+            && data.status !== 'running' && !data.completed && !data.manually_paused;
           startAttempts = 0;
           startFailures = 0;
           failedStartRounds = 0;
@@ -965,6 +983,14 @@
           startEvent = null;
           startEventCreatedAt = 0;
           releaseLeaseIfHidden(data);
+          if (ignoredAsStale && !staleStartResent && visibilityOf(doc) === 'visible') {
+            // applySnapshot() has already raised seq past the server's.
+            staleStartResent = true;
+            render();
+            startIfAllowed();
+            return;
+          }
+          if (data.status === 'running') staleStartResent = false;
           if (
             visibilityOf(doc) === 'visible'
             && data.status !== 'running' && data.status !== 'manually_paused'

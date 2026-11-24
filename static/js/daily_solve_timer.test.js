@@ -2399,6 +2399,63 @@ asyncTest(async function testAcceptedButStoppedStartIsReported() {
   ctrl.destroy();
 });
 
+asyncTest(async function testStartIgnoredAsStaleIsResentAboveServerSeq() {
+  // Firefox on Android restored a tab whose stored seq was behind the server.
+  var reports = [];
+  var starts = [];
+  var serverSeq = 101;
+  var ctrl = reportingTimer(function (url, init) {
+    var body = bodyOf(init);
+    if (body.action === 'client_report') {
+      reports.push(body);
+      return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    var seq = Number(body.seq);
+    starts.push(seq);
+    var stale = seq <= serverSeq;
+    if (!stale) serverSeq = seq;
+    return Promise.resolve({ status: 200, json: function () {
+      return Promise.resolve({
+        ok: true, exists: true, session_seq: serverSeq,
+        status: stale ? 'auto_paused' : 'running', is_authoritative: !stale,
+      });
+    } });
+  });
+  ctrl.startIfAllowed();
+  await flush();
+  await flush();
+  assert.deepStrictEqual(starts, [1, 102]);
+  assert.strictEqual(reports.length, 0);
+  assert.strictEqual(ctrl.state().status, 'running');
+  ctrl.destroy();
+});
+
+asyncTest(async function testStartIgnoredAsStaleIsResentOnlyOnce() {
+  var reports = [];
+  var starts = 0;
+  var ctrl = reportingTimer(function (url, init) {
+    var body = bodyOf(init);
+    if (body.action === 'client_report') {
+      reports.push(body);
+      return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    starts += 1;
+    return Promise.resolve({ status: 200, json: function () {
+      return Promise.resolve({
+        ok: true, exists: true, session_seq: Number(body.seq) + 50,
+        status: 'auto_paused', is_authoritative: false,
+      });
+    } });
+  });
+  ctrl.startIfAllowed();
+  await flush();
+  await flush();
+  assert.strictEqual(starts, 2);
+  assert.strictEqual(reports.length, 1);
+  assert.strictEqual(reports[0].reason, 'start_not_running');
+  ctrl.destroy();
+});
+
 asyncTest(async function testWatchdogReportsVisiblePageWhoseClockNeverRan() {
   var oldSetTimeout = global.setTimeout;
   var oldNow = Date.now;

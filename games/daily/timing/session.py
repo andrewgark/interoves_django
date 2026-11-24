@@ -627,6 +627,11 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
         ),
         'session_active': session_running,
         'session_status': session.status if session else None,
+        # The highest seq the server took from this tab. A tab whose stored
+        # counter went backwards (Firefox on Android restored sessionStorage
+        # from an older copy, 2026-11-23, /censorly/) sent starts below it,
+        # and they were ignored as stale; the client catches up from this.
+        'session_seq': int(session.last_seq or 0) if session else None,
         'active_sessions_count': int(row.active_sessions_count or 0) if sessionized else 0,
         'manually_paused': (
             bool(session and session.close_reason == 'manual')
