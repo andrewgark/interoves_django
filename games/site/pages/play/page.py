@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
+from games.daily.catalog.advent import ADVENT_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
@@ -47,11 +48,11 @@ from games.models import (
 )
 from games.results.share import share_host_from_request
 from games.sections.hub import (
-    SECTION_HUB_META,
     get_source_desyatka_context,
     onboarding_followup_context,
     section_format_credit_context,
     section_nav_title,
+    section_tagline,
 )
 from games.sections.placement_share import may_open_unpublished_number
 from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
@@ -620,6 +621,7 @@ def task_group_page(
             'Лесенками' if game.id == LADDER_GAME_ID
             else 'Салатиками' if game.id == WORD_SALAD_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
+            else 'заданиями' if game.id == ADVENT_GAME_ID
             else 'кругами'
         ),
     )
@@ -739,7 +741,7 @@ def task_group_page(
         'tg_name': placement.name,
         'share_host': share_host_from_request(request),
         'section_tagline': (
-            SECTION_HUB_META.get(game.id, {}).get('description') or ''
+            section_tagline(game)
             if game.project_id == NEW_UI_SECTIONS_PROJECT
             else ''
         ),

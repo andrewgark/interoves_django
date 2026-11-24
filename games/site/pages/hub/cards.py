@@ -49,6 +49,7 @@ from games.sections.hub import (
     SECTION_HUB_META,
     get_scheduled_section_hub_card,
     get_training_section_hub_context,
+    hidden_before_first_day,
 )
 from games.site.pages import (
     NEW_UI_SECTIONS_PROJECT,
@@ -125,6 +126,8 @@ def _build_hub_section_cards(request, *, team):
         for game_id in card_ids:
             game = games_by_id.get(game_id)
             if not game or not game.has_access('see_game_preview', team=team):
+                continue
+            if hidden_before_first_day(game):
                 continue
             if is_scheduled_game(game_id):
                 card = get_scheduled_section_hub_card(

@@ -2,7 +2,7 @@ from django.contrib.auth.views import LogoutView
 from django.urls import path
 from django.views.generic import RedirectView
 
-from games.console.http import actions, views
+from games.console.http import actions, advent_views, views
 from games.console.observatory import views as queue_observatory_views
 
 app_name = 'support'
@@ -152,6 +152,15 @@ urlpatterns = [
     path('week-tasks/<int:link_id>/restore/', views.week_tasks_restore, name='week_tasks_restore'),
     path('week-tasks/<int:link_id>/forbid/', views.week_tasks_forbid, name='week_tasks_forbid'),
     path('week-tasks/unban/', views.week_tasks_unban, name='week_tasks_unban'),
+    path('advent/', advent_views.advent_dashboard, name='advent'),
+    path('advent/settings/', advent_views.advent_settings_save, name='advent_settings'),
+    path('advent/create/', advent_views.advent_create, name='advent_create'),
+    path('advent/reorder/', advent_views.advent_reorder, name='advent_reorder'),
+    path('advent/<int:link_id>/', advent_views.advent_detail, name='advent_detail'),
+    path('advent/<int:link_id>/save/', advent_views.advent_update, name='advent_update'),
+    path('advent/<int:link_id>/delete/', advent_views.advent_delete, name='advent_delete'),
+    path('advent/<int:link_id>/defer/', advent_views.advent_defer, name='advent_defer'),
+    path('advent/<int:link_id>/restore/', advent_views.advent_restore, name='advent_restore'),
     path('social/', views.social_dashboard, name='social'),
     path('social/create/', views.social_create, name='social_create'),
     path('social/<int:post_id>/', views.social_update, name='social_update'),

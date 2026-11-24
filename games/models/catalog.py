@@ -47,7 +47,7 @@ class Game(models.Model):
     # These section games are daily puzzles, never tournament rounds.  Keep
     # this invariant at the model boundary because ``is_tournament`` defaults
     # to True for the legacy Tenfold games and admin/import code may omit it.
-    DAILY_NON_TOURNAMENT_GAME_IDS = frozenset({'ladder', 'alphabetty', 'salad', 'censorly'})
+    DAILY_NON_TOURNAMENT_GAME_IDS = frozenset({'ladder', 'alphabetty', 'salad', 'censorly', 'advent'})
 
     id = models.CharField(primary_key=True, max_length=100)
     name = models.TextField()
@@ -334,7 +334,7 @@ class GameTaskGroup(models.Model):
         return '[{}] {}. {}'.format(self.game_id, self.number, self.name)
 
     def save(self, *args, **kwargs):
-        if not self.share_hash and self.game_id in ('ladder', 'salad', 'alphabetty', 'week_task'):
+        if not self.share_hash and self.game_id in ('ladder', 'salad', 'alphabetty', 'week_task', 'advent'):
             from games.sections.placement_share import allocate_share_hash
             self.share_hash = allocate_share_hash()
             update_fields = kwargs.get('update_fields')

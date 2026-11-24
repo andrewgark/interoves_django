@@ -23,6 +23,9 @@ def task_ui_by_task_id_for_group(
     daily_board_adapter_by_task_id,
 ) -> dict:
     """Build ``task_ui_by_task_id`` for templates and AJAX partials."""
+    from games.daily.catalog.advent import answer_button_hidden
+
+    hide_answers = answer_button_hidden(game)
     out = {}
     for t in tasks:
         adapter = daily_board_adapter_by_task_id.get(t.id)
@@ -39,7 +42,10 @@ def task_ui_by_task_id_for_group(
                 body_template_override=daily_board_template_by_task_id.get(t.id),
                 body_wrapper_override=daily_board_wrapper_by_task_id.get(t.id),
                 show_attempts_override=adapter.show_attempts if adapter is not None else None,
-                show_answer_override=adapter.show_answer if adapter is not None else None,
+                show_answer_override=(
+                    False if hide_answers
+                    else adapter.show_answer if adapter is not None else None
+                ),
             ),
             'display_name': task_display_name(game, t, placement=placement),
             'wall': wall_ui_context(t, attempts_info_by_task_id.get(t.id), mode),

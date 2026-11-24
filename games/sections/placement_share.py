@@ -13,7 +13,7 @@ import secrets
 from games.sections.paths import section_play_path
 
 _SHARE_HASH_RE = re.compile(r'^[a-f0-9]{16,32}$')
-_SCHEDULED_GAME_IDS = frozenset({'ladder', 'salad', 'alphabetty', 'week_task'})
+_SCHEDULED_GAME_IDS = frozenset({'ladder', 'salad', 'alphabetty', 'week_task', 'advent'})
 _RESERVED_SEGMENTS = frozenset({
     'today', 'last', 'progress', 'results', 'replay', 'timing', 'live-state',
     'guess', 'state', 'prefix', 'suggest', 'hint',

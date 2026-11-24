@@ -12,6 +12,10 @@
 <div class="support-bar">
   <div class="support-bar__inner">
     <span class="support-bar__tag">Support</span>
+    {% if support_advent_only %}
+    <a href="{% url 'support:advent' %}" aria-current="page">Адвент-календарь</a>
+    <a class="support-bar__push" href="/">На сайт</a>
+    {% else %}
     <a href="{% url 'support:hub' %}" {% if request.resolver_match.url_name == 'hub' %}aria-current="page"{% endif %}>Поиск</a>
     <a href="{% url 'support:games' %}" {% if request.resolver_match.url_name == 'games' %}aria-current="page"{% endif %}>Игры</a>
     <a href="{% url 'support:sections' %}" {% if request.resolver_match.url_name == 'sections' %}aria-current="page"{% endif %}>Разделы</a>
@@ -20,6 +24,7 @@
     <a href="{% url 'support:alphabetty' %}" {% if request.resolver_match.url_name == 'alphabetty' %}aria-current="page"{% endif %}>Алфавитки</a>
     <a href="{% url 'support:censorly' %}" {% if request.resolver_match.url_name == 'censorly' %}aria-current="page"{% endif %}>Цензурки</a>
     <a href="{% url 'support:week_tasks' %}" {% if request.resolver_match.url_name == 'week_tasks' %}aria-current="page"{% endif %}>Задания недели</a>
+    <a href="{% url 'support:advent' %}" {% if request.resolver_match.url_name == 'advent' %}aria-current="page"{% endif %}>Адвент</a>
     <a href="{% url 'support:social' %}" {% if request.resolver_match.url_name == 'social' %}aria-current="page"{% endif %}>Посты</a>
     <a href="{% url 'support:stats' %}" {% if request.resolver_match.url_name == 'stats' %}aria-current="page"{% endif %}>Статистика</a>
     <a href="{% url 'support:queues' %}" {% if request.resolver_match.url_name == 'queues' %}aria-current="page"{% endif %}>Очереди</a>
@@ -27,6 +32,7 @@
     <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>
     <a class="support-bar__push" href="/admin/">Django admin</a>
     <a class="support-bar__logout" href="{% url 'support:logout' %}">Выйти</a>
+    {% endif %}
   </div>
 </div>
 <div class="new-wrap support-wrap">

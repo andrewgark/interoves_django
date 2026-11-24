@@ -50,6 +50,9 @@ def get_answer(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
+    from games.daily.catalog.advent import answer_button_hidden
+    if answer_button_hidden(game):
+        raise Http404()
     from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()

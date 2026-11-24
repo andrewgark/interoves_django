@@ -1,0 +1,348 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+{% csrf_token %}
+{{ advent_json|json_script:"advent-bootstrap" }}
+<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+
+<h1 class="support-page-title">Адвент-календарь</h1>
+<p class="support-lead">
+  Одно задание в день. День №N выходит в полночь по Москве: первый день + (N−1) дней.
+  Вышедшие дни зафиксированы: их нельзя переставлять или удалять, но текст и ответы
+  можно поправить. Раздел на сайте: <a class="new-link-dotted" href="{{ advent_settings.hub_url }}" target="_blank" rel="noopener">{{ advent_settings.hub_url }}</a>
+</p>
+
+<section class="pal-card support-card">
+  <h2 class="support-card__title">Настройки</h2>
+  <div class="support-advent-settings">
+    <label class="support-ladders-field">
+      <span>Название</span>
+      <input type="text" id="advent-title" maxlength="200" value="{{ advent_settings.title }}">
+    </label>
+    <label class="support-ladders-field">
+      <span>Описание (подпись под названием раздела)</span>
+      <textarea id="advent-description" rows="2">{{ advent_settings.description }}</textarea>
+    </label>
+    <div class="support-ladders-toolbar__row">
+      <label class="support-ladders-field">
+        <span>Первый день (МСК)</span>
+        <input type="date" id="advent-start" value="{{ advent_settings.start_date }}">
+      </label>
+      <label class="support-ladders-field">
+        <span>Последний день (необязательно)</span>
+        <input type="date" id="advent-end" value="{{ advent_settings.end_date }}">
+      </label>
+      <label class="support-ladders-field--check">
+        <input type="checkbox" id="advent-show-answer"{% if advent_settings.show_answer %} checked{% endif %}>
+        <span>Показывать игрокам кнопку «ответ»</span>
+      </label>
+      <button type="button" class="new-btn new-btn--mini" id="advent-settings-save">Сохранить настройки</button>
+      <span class="support-hint" id="advent-settings-status" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<nav class="support-tabs" id="advent-tabs" aria-label="Фильтр списка">
+  <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
+  <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
+  <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  <button type="button" class="support-tabs__btn" data-tab="deferred">Отложенные{% if deferred_count %} ({{ deferred_count }}){% endif %}</button>
+</nav>
+
+<section class="pal-card support-card">
+  <p class="support-hint" id="advent-meta"></p>
+  <div class="support-ladder-list support-schedule-list" id="advent-list" aria-label="Дни адвент-календаря"
+    data-defer-url="{% url 'support:advent_defer' 0 %}"
+    data-restore-url="{% url 'support:advent_restore' 0 %}"></div>
+  <div class="support-ladder-insert support-ladder-insert--end">
+    <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ Добавить день в конец</button>
+  </div>
+  <p class="support-hint support-hint--after">
+    Будущие дни можно перетаскивать за ⠿ или стрелками ↑↓ на клавиатуре.
+    «+» между днями вставляет новый день на это место, следующие сдвигаются на день вперёд.
+    Кнопка «сайт» открывает день по секретной ссылке, в том числе до его даты.
+  </p>
+</section>
+
+<div id="advent-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="advent-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-advent-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal support-advent-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-advent-close>×</button>
+    <h2 id="advent-edit-title" class="support-page-title support-page-title--modal">Новый день</h2>
+    <p class="support-hint" id="advent-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Название дня</span>
+      <input type="text" id="advent-edit-name" autocomplete="off" maxlength="200" placeholder="День N, если пусто">
+    </label>
+    <label class="support-ladders-field">
+      <span>Условие (HTML)</span>
+      <textarea id="advent-edit-text" rows="10" class="support-advent-code" spellcheck="false"></textarea>
+    </label>
+    <details class="support-advent-preview-wrap">
+      <summary class="support-hint">Как это будет выглядеть</summary>
+      <div class="support-advent-preview" id="advent-edit-preview-box"></div>
+    </details>
+    <label class="support-ladders-field">
+      <span>Принимаемые ответы, каждый с новой строки</span>
+      <textarea id="advent-edit-answers" rows="3" spellcheck="false"></textarea>
+    </label>
+    <p class="support-hint">Регистр, пробелы и знаки препинания при проверке не важны.</p>
+    <label class="support-ladders-field">
+      <span>Ответ, который покажем после решения (необязательно)</span>
+      <input type="text" id="advent-edit-answer" autocomplete="off" placeholder="Первый из принимаемых, если пусто">
+    </label>
+    <label class="support-ladders-field">
+      <span>Комментарий к ответу (необязательно, HTML)</span>
+      <textarea id="advent-edit-comment" rows="3"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="advent-edit-error" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="advent-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-advent-close>Отмена</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="advent-edit-site" hidden>открыть на сайте</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var allRows = JSON.parse(document.getElementById('advent-bootstrap').textContent);
+  var tabs = window.SupportScheduleTabs;
+  var escapeHtml = tabs.escapeHtml;
+  var viewTab = 'schedule';
+  var busy = false;
+  var endpoints = {
+    settings: "{% url 'support:advent_settings' %}",
+    reorder: "{% url 'support:advent_reorder' %}",
+    create: "{% url 'support:advent_create' %}",
+    detailTpl: "{% url 'support:advent_detail' 0 %}",
+    saveTpl: "{% url 'support:advent_update' 0 %}",
+    deleteTpl: "{% url 'support:advent_delete' 0 %}"
+  };
+  var listEl = document.getElementById('advent-list');
+  var metaEl = document.getElementById('advent-meta');
+  var modalEl = document.getElementById('advent-edit-modal');
+  var modal = tabs.mountModal(modalEl, {
+    closeSelector: '[data-advent-close]',
+    initialFocus: '#advent-edit-text',
+    onClose: function () { editing = null; }
+  });
+  // {link_id} for an existing day, {at_number} for a new one.
+  var editing = null;
+  var field = function (id) { return document.getElementById(id); };
+
+  function setBusy(on) {
+    busy = !!on;
+    listEl.classList.toggle('is-busy', busy);
+  }
+  function canReorder() {
+    return viewTab === 'schedule' || viewTab === 'future';
+  }
+  function lastPublished() {
+    return tabs.lastPublishedNumber(allRows);
+  }
+  function statusFlag(row) {
+    if (row.is_deferred) return '<span class="support-flag">отложен</span>';
+    return '<span class="support-flag ' + tabs.statusClass(row) + '">' +
+      (row.is_today ? 'сегодня' : row.is_published ? 'вышел' : 'скоро') + '</span>';
+  }
+  function renderMeta() {
+    var meta = tabs.scheduleMeta(allRows);
+    var afterEnd = allRows.filter(function (r) { return r.is_after_end; }).length;
+    if (afterEnd) meta += '. После последнего дня: ' + afterEnd;
+    metaEl.textContent = meta;
+  }
+  function render() {
+    var rows = tabs.rowsForTab(allRows, viewTab);
+    listEl.classList.toggle('support-schedule-readonly', !canReorder());
+    document.querySelector('[data-insert-end]').hidden = viewTab !== 'schedule';
+    listEl.innerHTML = '';
+    renderMeta();
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока пусто. Нажмите «+ Добавить день в конец».</p>';
+      return;
+    }
+    var lockedUntil = viewTab === 'schedule' ? lastPublished() : Infinity;
+    rows.forEach(function (row) {
+      if (viewTab === 'schedule' && row.number > lockedUntil) {
+        var insert = document.createElement('div');
+        insert.className = 'support-ladder-insert';
+        insert.innerHTML = '<button type="button" class="support-ladder-insert__btn" data-insert-at="' +
+          row.number + '" title="Вставить день №' + row.number + '">+</button>';
+        listEl.appendChild(insert);
+      }
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item support-schedule-item' +
+        (row.is_today ? ' is-today' : '') +
+        (row.is_published ? ' is-locked' : ' is-future');
+      item.draggable = canReorder() && !row.is_published && !row.is_deferred;
+      item.dataset.linkId = String(row.link_id);
+      item.dataset.published = row.is_published ? '1' : '0';
+      var handle = row.is_published || row.is_deferred
+        ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
+        : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
+      var future = !row.is_published;
+      item.innerHTML =
+        handle +
+        '<div class="support-ladder-item__num">№' + row.number + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(row.name) + ' ' + statusFlag(row) +
+            (row.is_after_end ? ' <span class="support-flag support-flag--warn">после последнего дня</span>' : '') +
+          '</div>' +
+          '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
+            escapeHtml(row.is_deferred ? 'без даты' : (row.publish_date || 'дата не задана')) + '</span></div>' +
+          '<div class="support-ladder-item__preview">' +
+            (row.answer ? 'Ответ: ' + escapeHtml(row.answer) : '<em>ответ не задан</em>') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(row.site_url) + '" target="_blank" rel="noopener">сайт</a>' +
+          (future
+            ? (row.is_deferred ? '' :
+                '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" title="Поставить первым из будущих" aria-label="Поставить первым из будущих">↑</button>' +
+                '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" title="Поставить в конец" aria-label="Поставить в конец">↓</button>') +
+              '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-defer-action="' +
+                (row.is_deferred ? 'restore' : 'defer') + '" data-link-id="' + row.link_id + '" title="' +
+                (row.is_deferred ? 'Вернуть в расписание' : 'Отложить, убрать из расписания') + '">' +
+                (row.is_deferred ? 'вернуть' : 'отложить') + '</button>' +
+              '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' +
+                row.link_id + '" title="Удалить день">удалить</button>'
+            : '') +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+  function setRows(rows) {
+    allRows = rows || [];
+    var deferredTab = document.querySelector('#advent-tabs [data-tab="deferred"]');
+    var deferred = allRows.filter(function (r) { return r.is_deferred; }).length;
+    deferredTab.textContent = 'Отложенные' + (deferred ? ' (' + deferred + ')' : '');
+    render();
+  }
+  function run(promise) {
+    setBusy(true);
+    return promise.catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  }
+
+  function updatePreview() {
+    field('advent-edit-preview-box').innerHTML = field('advent-edit-text').value;
+  }
+  function fillModal(item, atNumber) {
+    var isNew = !item;
+    item = item || {};
+    editing = isNew ? { at_number: atNumber } : { link_id: item.link_id };
+    field('advent-edit-title').textContent = isNew ? 'Новый день №' + atNumber : 'День №' + item.number;
+    var sub = [];
+    if (item.publish_date) sub.push('Выходит ' + item.publish_date);
+    if (item.is_published) sub.push('Уже вышел: новые варианты ответа перепроверят все отправленные ответы');
+    field('advent-edit-sub').textContent = sub.join('. ') + (sub.length ? '.' : '');
+    field('advent-edit-name').value = isNew ? '' : (item.name || '');
+    field('advent-edit-text').value = item.text || '';
+    field('advent-edit-answers').value = item.answers || '';
+    field('advent-edit-answer').value = item.answer || '';
+    field('advent-edit-comment').value = item.answer_comment || '';
+    var site = field('advent-edit-site');
+    site.hidden = isNew;
+    site.href = item.site_url || '#';
+    field('advent-edit-error').hidden = true;
+    updatePreview();
+  }
+  function openNew(atNumber, trigger) {
+    fillModal(null, atNumber);
+    modal.open(trigger);
+  }
+  function openEdit(linkId, trigger) {
+    tabs.requestJson(tabs.endpoint(endpoints.detailTpl, linkId))
+      .then(function (data) { fillModal(data.item); modal.open(trigger); })
+      .catch(function (e) { alert(e.message || String(e)); });
+  }
+  function saveDay() {
+    if (!editing || busy) return;
+    var body = {
+      name: field('advent-edit-name').value,
+      text: field('advent-edit-text').value,
+      answers: field('advent-edit-answers').value,
+      answer: field('advent-edit-answer').value,
+      answer_comment: field('advent-edit-comment').value
+    };
+    if (!body.answers.trim()) {
+      showError('Нужен хотя бы один принимаемый ответ');
+      return;
+    }
+    var url;
+    if (editing.link_id) {
+      url = tabs.endpoint(endpoints.saveTpl, editing.link_id);
+    } else {
+      url = endpoints.create;
+      body.at_number = editing.at_number;
+    }
+    setBusy(true);
+    tabs.postJson(url, body)
+      .then(function (data) { setRows(data.rows); modal.close(); })
+      .catch(function (e) { showError(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  }
+  function showError(message) {
+    var err = field('advent-edit-error');
+    err.textContent = message;
+    err.hidden = false;
+  }
+
+  field('advent-edit-text').addEventListener('input', updatePreview);
+  field('advent-edit-save').addEventListener('click', saveDay);
+
+  listEl.addEventListener('click', function (e) {
+    if (busy) return;
+    var del = e.target.closest('[data-delete]');
+    if (del) {
+      var row = allRows.find(function (r) { return String(r.link_id) === del.getAttribute('data-delete'); });
+      if (!window.confirm('Удалить «' + (row ? row.name : 'день') + '»? Следующие дни сдвинутся на день раньше.')) return;
+      run(tabs.postJson(tabs.endpoint(endpoints.deleteTpl, del.getAttribute('data-delete')), {})
+        .then(function (data) { setRows(data.rows); }));
+      return;
+    }
+    var ins = e.target.closest('[data-insert-at]');
+    if (ins) { openNew(parseInt(ins.getAttribute('data-insert-at'), 10), ins); return; }
+    var edit = e.target.closest('[data-edit]');
+    if (edit) openEdit(edit.getAttribute('data-edit'), edit);
+  });
+  document.querySelector('[data-insert-end]').addEventListener('click', function (e) {
+    var max = allRows.reduce(function (m, r) { return r.is_deferred ? m : Math.max(m, r.number); }, 0);
+    openNew(max + 1, e.currentTarget);
+  });
+  tabs.mountTabs(document.getElementById('advent-tabs'), function (tab) {
+    viewTab = tab;
+    render();
+  });
+  tabs.mountSortable(listEl, {
+    isBusy: function () { return busy || !canReorder(); },
+    canDrag: function (item) { return item.dataset.published !== '1'; },
+    minIndex: function () { return viewTab === 'future' ? 0 : lastPublished(); },
+    onOrder: function (visibleOrder) {
+      run(tabs.postJson(endpoints.reorder, { order: tabs.fullOrder(allRows, visibleOrder, viewTab) })
+        .then(function (data) { setRows(data.rows); }));
+    }
+  });
+  tabs.mountDeferredActions(listEl, setRows);
+
+  field('advent-settings-save').addEventListener('click', function () {
+    var status = field('advent-settings-status');
+    status.textContent = '';
+    run(tabs.postJson(endpoints.settings, {
+      title: field('advent-title').value,
+      description: field('advent-description').value,
+      start_date: field('advent-start').value,
+      end_date: field('advent-end').value,
+      show_answer: field('advent-show-answer').checked
+    }).then(function (data) {
+      setRows(data.rows);
+      status.textContent = 'Сохранено';
+    }));
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

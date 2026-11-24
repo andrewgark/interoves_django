@@ -43,6 +43,7 @@ from games.results.snapshots.snapshot import (
 from games.sections.hub import (
     SECTION_HUB_META,
     create_game_link_context,
+    section_tagline,
 )
 from games.site.pages import (
     NEW_UI_PROJECT,
@@ -390,7 +391,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         # ``game.theme`` here: for daily games it is legacy metadata and can
         # describe a different aspect of the format.
         'section_tagline': (
-            SECTION_HUB_META.get(game.id, {}).get('description') or ''
+            section_tagline(game)
             if game.project_id == NEW_UI_SECTIONS_PROJECT
             else ''
         ),
@@ -551,7 +552,7 @@ def _render_section_game_page(request, game_id):
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
         **archive_context,
-        'section_tagline': meta.get('description') or '',
+        'section_tagline': section_tagline(game),
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'section_today_play_url': section_today_play_url,
         'section_today_cta_label': section_today_cta_label,

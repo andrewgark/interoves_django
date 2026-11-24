@@ -227,12 +227,23 @@ WEEK_TASK_SCHEDULE = DailySchedule(
     cta_latest='Последнее задание недели',
 )
 
+ADVENT_SCHEDULE = DailySchedule(
+    game_id='advent',
+    publish_start_tag='advent_publish_start',
+    empty_hub_status='empty',
+    coming_soon_before_first=True,
+    today_label_when='today_only',
+    cta_today='Задание дня',
+    cta_latest='Последнее задание',
+)
+
 SCHEDULES: dict[str, DailySchedule] = {
     LADDER_SCHEDULE.game_id: LADDER_SCHEDULE,
     ALPHABETTY_SCHEDULE.game_id: ALPHABETTY_SCHEDULE,
     CENSORLY_SCHEDULE.game_id: CENSORLY_SCHEDULE,
     WORD_SALAD_SCHEDULE.game_id: WORD_SALAD_SCHEDULE,
     WEEK_TASK_SCHEDULE.game_id: WEEK_TASK_SCHEDULE,
+    ADVENT_SCHEDULE.game_id: ADVENT_SCHEDULE,
 }
 
 

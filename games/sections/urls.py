@@ -68,7 +68,7 @@ def section_root_urlpatterns(
             ui.section_task_results_page,
         ),
         re_path(
-            r'^(?P<game_id>week_task)/(?P<number>[a-f0-9]{16,32})/results/$',
+            r'^(?P<game_id>week_task|advent)/(?P<number>[a-f0-9]{16,32})/results/$',
             ui.section_task_results_page,
         ),
         path(
@@ -119,15 +119,15 @@ def section_root_urlpatterns(
             name=task_group_url_name,
         ),
         re_path(
-            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/$',
+            r'^(?P<game_id>week_task|advent)/(?P<task_group_number>[a-f0-9]{16,32})/$',
             ui.task_group_page,
         ),
         re_path(
-            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/replay/$',
+            r'^(?P<game_id>week_task|advent)/(?P<task_group_number>[a-f0-9]{16,32})/replay/$',
             ui.replay_start,
         ),
         re_path(
-            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/replay/exit/$',
+            r'^(?P<game_id>week_task|advent)/(?P<task_group_number>[a-f0-9]{16,32})/replay/exit/$',
             ui.replay_exit,
         ),
         re_path(

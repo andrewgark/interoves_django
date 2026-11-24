@@ -24,7 +24,11 @@ from games.daily.catalog.week_task import (
 from games.daily.catalog.word_salad import (
     filter_published_word_salad_links,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.daily.page.section import (
+    WORD_SALAD_GAME_ID,
+    filter_published_links,
+    is_scheduled_game,
+)
 from games.sections.paths import section_hub_path, section_last_path
 
 _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
@@ -36,7 +40,9 @@ MOSCOW = ZoneInfo('Europe/Moscow')
 SECTION_HUB_ORDER = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'week_task', 'replacements', 'walls', 'palindromes')
 
 # Порядок карточек ежедневных игр на главной: две колонки, две строки.
-HUB_DAILY_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', 'alphabetty')
+# Адвент-календарь идёт последним и до своего первого дня не показывается
+# (``hide_before_start`` в SECTION_HUB_META).
+HUB_DAILY_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', 'alphabetty', 'advent')
 # «Задание недели» пока оставляем в полном каталоге и support-консоли, но
 # скрываем из публичного хаба и верхней навигации. Это позволяет вернуть блок
 # без миграций и не затрагивает уже опубликованные задания.
@@ -201,6 +207,23 @@ SECTION_HUB_META = {
         'soon_text': 'Новое задание — по понедельникам в полночь по Москве.',
         'soon_emphasis': True,
     },
+    # Название и описание задаются в support-консоли и хранятся на игре
+    # (Game.name, Game.tags['section_description']); здесь только запасные.
+    'advent': {
+        'icon': '🎄',
+        'ph_icon': 'gift',
+        'title': 'Адвент-календарь',
+        'description': 'Одно задание каждый день',
+        'cta_today': 'Задание дня',
+        'cta_latest': 'Последнее задание',
+        'all_link_label': 'Все задания →',
+        'soon_text': 'Новое задание каждый день в полночь по Москве.',
+        'soon_emphasis': True,
+        # Пятая карточка в сетке из двух колонок: на всю ширину.
+        'wide': True,
+        'hide_before_start': True,
+        'title_from_game': True,
+    },
 }
 
 
@@ -232,6 +255,26 @@ def section_ph_icon(section_id):
     if not meta:
         return ''
     return meta.get('ph_icon') or ''
+
+
+def hidden_before_first_day(game, *, now=None) -> bool:
+    """Карточка с ``hide_before_start`` не видна до выхода №1."""
+    meta = SECTION_HUB_META.get(getattr(game, 'id', None)) or {}
+    if not meta.get('hide_before_start'):
+        return False
+    from games.daily.page.section import publish_at_for
+
+    first = publish_at_for(game, 1)
+    return first is None or (now or timezone.now()) < first
+
+
+def section_tagline(game):
+    """Подпись раздела: описание из настроек игры, иначе из SECTION_HUB_META."""
+    tags = getattr(game, 'tags', None) or {}
+    custom = str(tags.get('section_description') or '').strip()
+    if custom:
+        return custom
+    return (SECTION_HUB_META.get(getattr(game, 'id', None)) or {}).get('description') or ''
 
 
 def section_nav_title(section_id):
@@ -358,6 +401,8 @@ def _newest_task_group_links(game):
         qs = filter_published_week_task_links(qs, game)
     elif game.id == WORD_SALAD_GAME_ID:
         qs = filter_published_word_salad_links(qs, game)
+    elif is_scheduled_game(game.id):
+        qs = filter_published_links(qs, game)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
@@ -462,8 +507,11 @@ def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
         'id': game_id,
         'icon': meta['icon'],
         'ph_icon': meta.get('ph_icon', ''),
-        'title': meta['title'],
-        'description': meta['description'],
+        'title': (
+            (game.outside_name or game.name or meta['title'])
+            if meta.get('title_from_game') else meta['title']
+        ),
+        'description': section_tagline(game),
         'cta_label': cta_label,
         'cta_number': cta_number,
         'is_today': is_today,

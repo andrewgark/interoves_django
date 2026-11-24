@@ -1983,3 +1983,47 @@ html.new-ui-dark .support-ladder-item__mixed {
 .support-schedule-readonly .support-ladder-insert--end {
   display: none;
 }
+
+/* Адвент-календарь */
+.support-card__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.support-advent-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.support-advent-modal {
+  max-width: min(48rem, 96vw);
+}
+
+.support-advent-modal .support-ladders-field {
+  margin-top: 0.75rem;
+}
+
+.support-advent-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.support-advent-preview-wrap {
+  margin-top: 0.5rem;
+}
+
+.support-advent-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--control-radius);
+  overflow-wrap: break-word;
+  overflow: auto;
+}
+
+.support-advent-preview img {
+  max-width: 100%;
+  height: auto;
+}
