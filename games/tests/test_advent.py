@@ -155,6 +155,9 @@ class ConsoleAccessTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         item = response.json()['item']
         self.assertEqual(item['number'], 1)
+        # The section editor who writes a day is its author.
+        group = GameTaskGroup.objects.get(pk=item['link_id']).task_group
+        self.assertEqual(list(group.authors.values_list('user_id', flat=True)), [self.editor.pk])
         self.assertEqual(item['fields']['answers'], 'Ёлка\nель')
         self.assertEqual(item['fields']['keep_going'], 'хвоя')
         response = _post(client, 'support:advent_update', {'name': 'Первый день'}, item['link_id'])

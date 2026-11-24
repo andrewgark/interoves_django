@@ -254,7 +254,9 @@ class SimpleDailyConsole:
 
     @transaction.atomic
     def create(self, *, at_number: int, name: str | None = None,
-               fields: dict[str, str] | None = None, now: datetime | None = None) -> dict[str, Any]:
+               fields: dict[str, str] | None = None, now: datetime | None = None,
+               author=None) -> dict[str, Any]:
+        """Вставить день. ``author`` (Profile) записывается автором группы."""
         content = self._content(fields or {})
         if at_number < 1:
             raise SimpleDailyError('Номер должен быть >= 1')
@@ -296,6 +298,8 @@ class SimpleDailyConsole:
             points=DAY_POINTS,
             max_attempts=None,
         )
+        if author is not None:
+            task_group.authors.add(author)
         Task.objects.create(
             task_group=task_group,
             number='1',

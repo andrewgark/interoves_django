@@ -19,6 +19,13 @@ def _error(message, status=400):
     return JsonResponse({'ok': False, 'error': str(message)}, status=status)
 
 
+def _section_editor_profile(user):
+    """The section editor who writes the days is their author; support staff are not."""
+    if not limited_console_sections(user):
+        return None
+    return getattr(user, 'profile', None)
+
+
 def _rows_payload(console):
     return [row.to_dict() for row in console.rows()]
 
@@ -91,6 +98,7 @@ def create(request, *, section):
             at_number=at_number,
             name=body.get('name'),
             fields=_fields(console, body) or {},
+            author=_section_editor_profile(request.user),
         )
     except SimpleDailyError as exc:
         return _error(exc)
