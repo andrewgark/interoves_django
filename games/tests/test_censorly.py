@@ -4814,7 +4814,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
              patch('games.daily.page.share.card.publish_date_for', return_value=date(2026, 10, 1)):
             attach_solve_meta(
                 view,
-                game=SimpleNamespace(),
+                game=SimpleNamespace(project_id='sections'),
                 task=task,
                 number=3,
                 actor=actor,
@@ -4844,7 +4844,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         with patch('games.puzzles.censorly.play.elapsed_seconds_for_actor', return_value=30):
             attach_solve_meta(
                 view,
-                game=SimpleNamespace(),
+                game=SimpleNamespace(project_id='sections'),
                 task=task,
                 number=1,
                 actor={'user': object(), 'replay_slot': 1},

@@ -386,7 +386,7 @@ def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None
     return list(queryset.order_by('time', 'id'))
 
 
-def _expand_salad_active_for_path(last_state, text):
+def _expand_salad_active_for_path(last_state, text, cells=16):
     from games.puzzles.salad.rules import dump_state, load_state
 
     try:
@@ -402,10 +402,10 @@ def _expand_salad_active_for_path(last_state, text):
         path = [int(value) for value in payload.get('path', [])]
     except (TypeError, ValueError):
         return None
-    needed = [index for index in path if 0 <= index < 16]
+    needed = [index for index in path if 0 <= index < cells]
     if not needed:
         return None
-    state = load_state(last_state)
+    state = load_state(last_state, cells)
     active = set(state.get('active') or [])
     if all(index in active for index in needed):
         return None
@@ -427,7 +427,9 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     result = checker.check(attempt.text, attempt)
     if not expand_active or result.status != 'Wrong':
         return result
-    expanded = _expand_salad_active_for_path(last_state, attempt.text)
+    expanded = _expand_salad_active_for_path(
+        last_state, attempt.text, cells=len(getattr(checker, 'grid', None) or ()) or 16,
+    )
     if expanded is None:
         return result
     retry = CheckerFactory().create_checker(checker_type, checker_data, expanded).check(
@@ -436,8 +438,9 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     if retry.status not in ('Ok', 'Partial'):
         return result
     if (retry.comment or '') in (*SIDE_FOUND_COMMENTS, EXTRA_FOUND_COMMENT):
-        merged = load_state(retry.state)
-        original = load_state(last_state)
+        cells = len(getattr(checker, 'grid', None) or ()) or 16
+        merged = load_state(retry.state, cells)
+        original = load_state(last_state, cells)
         merged['active'] = original.get('active', merged.get('active'))
         retry.state = dump_state(merged)
         retry.points = score_for_state(merged)
@@ -548,7 +551,8 @@ def _checker_extension_actor_is_complete(
 
 def _apply_word_salad_check_result(attempt, result, mode):
     _apply_replay_status(attempt, result, mode)
-    attempt.points = Decimal(str(result.points or 0))
+    from games.puzzles.salad.puzzle import scale_points
+    attempt.points = scale_points(attempt.task, result.points)
     attempt.state = result.state
     attempt.comment = result.comment
     attempt.skip = False
@@ -648,7 +652,7 @@ def _credit_new_word_salad_answers(
             persist=False,
             pending_resolution=pending_resolution,
         )
-        state = load_state(states.get(mode))
+        state = load_state(states.get(mode), len(grid))
         solved = set(state.get('solved_indices') or [])
         if len(solved) >= len(words):
             continue
@@ -658,7 +662,7 @@ def _credit_new_word_salad_answers(
                 continue
             paths = find_paths(grid, word, active=active_now, limit=1)
             if not paths:
-                paths = find_paths(grid, word, active=range(16), limit=1)
+                paths = find_paths(grid, word, active=range(len(grid)), limit=1)
             if not paths:
                 continue
             text = json.dumps({'action': 'solve', 'path': paths[0]}, ensure_ascii=False)
@@ -912,7 +916,7 @@ def sync_word_salad_finds(
         )
         grid, required, rares, nears = parse_task_puzzle(task.checker_data, task.answer or '')
         last_state = row.state
-        state = load_state(last_state)
+        state = load_state(last_state, len(grid))
         existing = _word_salad_attempts(
             task, team=team, user=user, anon_key=anon_key, game=game,
             replay_slot=replay_slot,
@@ -943,7 +947,7 @@ def sync_word_salad_finds(
             if word in known_words():
                 continue
             persisted = False
-            for path in find_paths(grid, word, active=range(16), limit=8):
+            for path in find_paths(grid, word, active=range(len(grid)), limit=8):
                 text = json.dumps({'action': 'solve', 'path': path}, ensure_ascii=False)
                 if text in seen_texts:
                     continue
@@ -967,7 +971,7 @@ def sync_word_salad_finds(
                     attempt.time = stamp
                 seen_texts.add(text)
                 last_state = attempt.state
-                state = load_state(last_state)
+                state = load_state(last_state, len(grid))
                 row.state = last_state
                 row.last_attempt = attempt
                 comment = attempt.comment or ''

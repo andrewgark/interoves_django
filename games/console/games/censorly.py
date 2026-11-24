@@ -31,6 +31,7 @@ from games.daily.page.section import MOSCOW
 from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.notifications.catalog import notifies_author
 from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError, fetch_article
+from games.puzzles.censorly.authoring import CensorlyAuthoringError, puzzle_from_article
 from games.puzzles.censorly.ids import (
     CENSORLY_CHECKER_ID,
     CENSORLY_GAME_ID,
@@ -377,18 +378,10 @@ def set_publish_start(date_iso: str) -> str:
 
 def _create_numbered_slot(*, number: int, article: WikiArticle, pool_title: str | None = None) -> GameTaskGroup:
     game = get_censorly_game()
-    puzzle = build_puzzle_payload(
-        wiki_title=article.title,
-        body_text=article.extract,
-        wiki_pageid=article.pageid,
-        wiki_revid=getattr(article, 'revid', None),
-        fetched_at=timezone.now().isoformat(),
-        truncated=bool(getattr(article, 'truncated', False)),
-    )
-    if pool_title and pool_title != article.title:
-        puzzle['source_pool_title'] = pool_title
-    if not title_content_lemmas(puzzle):
-        raise CensorlySupportError('В названии нет угадываемых слов')
+    try:
+        puzzle = puzzle_from_article(article, pool_title=pool_title)
+    except CensorlyAuthoringError as exc:
+        raise CensorlySupportError(str(exc)) from exc
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
     tg = TaskGroup.objects.create(
         label=f'censorly:{number}'[:100],

@@ -1,0 +1,11 @@
+{% comment %}
+A Цензурка in an ordinary game: the article needs a page of its own
+(games.site.views.game.censorly). Expects game, task, attempts_info.
+{% endcomment %}
+{% include "task-content/task-intro.html" %}
+<p class="censorly-task-link">
+  <a class="new-btn" href="/games/{{ game.id }}/censorly/{{ task.id }}/">
+    <i class="ph ph-article" aria-hidden="true"></i>
+    {% if attempts_info.is_solved %}Открыть решённую цензурку{% elif attempts_info.attempts %}Продолжить цензурку{% else %}Открыть цензурку{% endif %}
+  </a>
+</p>

@@ -18,6 +18,7 @@ from games.puzzles.salad.rules import (
     extra_found_word,
     extra_found_word_from_attempt,
     found_side_names,
+    grid_side,
     load_state,
     neighbours,
     normalize_word,
@@ -157,7 +158,7 @@ class WordSaladChecker(BaseChecker):
         # Rares and near-answers are found alike; only the comment tells them apart.
         self.rare_words = side_words_of(rare_words, near_words)
         self.near_set = {normalize_word(word) for word in near_words}
-        self.last_state = load_state(last_attempt_state)
+        self.last_state = load_state(last_attempt_state, len(self.grid))
 
     def check(self, text, attempt):
         try:
@@ -166,7 +167,7 @@ class WordSaladChecker(BaseChecker):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат пути')
         if not isinstance(payload, dict):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат пути')
-        state = load_state(self.last_state)
+        state = load_state(self.last_state, len(self.grid))
         solved = set(state.get('solved_indices') or [])
         hint_counts = dict(state.get('hint_counts') or {})
         active = set(state.get('active', []))
@@ -219,9 +220,13 @@ class WordSaladChecker(BaseChecker):
             path = [int(value) for value in payload.get('path', [])]
         except (TypeError, ValueError):
             return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Неверный формат пути')
-        if not path or len(path) != len(set(path)) or any(i not in active for i in path):
+        if (
+            not path or len(path) != len(set(path))
+            or any(i not in active or not 0 <= i < len(self.grid) for i in path)
+        ):
             return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Недопустимый путь')
-        if any(b not in set(neighbours(a)) for a, b in zip(path, path[1:])):
+        side = grid_side(self.grid)
+        if any(b not in set(neighbours(a, side)) for a, b in zip(path, path[1:])):
             return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Буквы не соседние')
         written = ''.join(self.grid[i] for i in path)
         already = next((i for i, word in enumerate(self.words) if normalize_word(word) == written), None)

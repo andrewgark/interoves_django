@@ -8,6 +8,7 @@ from games.site.views.account.team import (
     kick_out_user,
     reject_user_joining_team,
 )
+from games.site.views.game import censorly as game_censorly
 from games.site.views.pages import ui
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
@@ -193,6 +194,10 @@ urlpatterns = [
     path('games/alphabetty/', RedirectView.as_view(url='/alphabetty/', permanent=True, query_string=True)),
     path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
 ] + section_root_urlpatterns(task_group_url_name='ui_task_group') + [
+    path('games/<str:game_id>/censorly/<int:task_id>/', game_censorly.censorly_game_task_page, name='ui_game_censorly'),
+    path('games/<str:game_id>/censorly/<int:task_id>/state/', game_censorly.censorly_game_task_state, name='ui_game_censorly_state'),
+    path('games/<str:game_id>/censorly/<int:task_id>/guess/', game_censorly.censorly_game_task_guess, name='ui_game_censorly_guess'),
+    path('games/<str:game_id>/censorly/<int:task_id>/hint/', game_censorly.censorly_game_task_hint, name='ui_game_censorly_hint'),
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
     path('games/<str:game_id>/live-state/', ui.task_group_live_state, name='ui_task_group_live_state'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),

@@ -11774,6 +11774,19 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   touch-action: pan-y;
 }
 
+/* 5×5 board: a fifth column, a slightly wider panel and smaller letters. */
+.new-word-salad[data-grid-side="5"] .new-word-salad__row {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.new-word-salad[data-grid-side="5"] {
+  --ws-grid-max: 26rem;
+}
+
+.new-word-salad[data-grid-side="5"] .new-word-salad__cell {
+  font-size: clamp(1rem, 6.5cqi, 1.35rem);
+}
+
 .new-word-salad__cell {
   appearance: none;
   position: relative;

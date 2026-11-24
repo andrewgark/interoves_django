@@ -49,7 +49,7 @@ def screenshot_word_salad_last_png(*, url: str | None = None, viewport_width: in
 def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None = None) -> bytes:
     """Fallback schematic: 4×4 grid + masked word list."""
     grid, words = parse_task_data(task.checker_data, task.answer)
-    ui = build_ui_context(grid, words, default_state())
+    ui = build_ui_context(grid, words, default_state(len(grid)))
     theme = theme_from_text(getattr(task, 'theme', None))
     author = str((getattr(task, 'tags', None) or {}).get('author') or '').strip()
 

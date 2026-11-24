@@ -1,11 +1,15 @@
 (function($) {
   'use strict';
 
-  var GRID_SIZE = 4;
+  // 4×4 or 5×5.
+  var GRID_SIDES = [4, 5];
 
   function readGrid(value) {
     var letters = value.replace(/\s+/g, '').split('');
-    if (letters.length !== GRID_SIZE * GRID_SIZE) {
+    var GRID_SIZE = GRID_SIDES.filter(function(side) {
+      return letters.length === side * side;
+    })[0];
+    if (!GRID_SIZE) {
       return null;
     }
     return Array.from({length: GRID_SIZE}, function(_, row) {
@@ -18,6 +22,7 @@
   }
 
   function transformGrid(grid, operation) {
+    var GRID_SIZE = grid.length;
     var result = Array.from({length: GRID_SIZE}, function() {
       return Array(GRID_SIZE);
     });
@@ -72,7 +77,7 @@
     $toolbar.on('click', '[data-grid-operation]', function() {
       var grid = readGrid($textarea.val());
       if (!grid) {
-        window.alert('Сетка должна содержать ровно 16 букв.');
+        window.alert('Сетка должна содержать ровно 16 букв (4×4) или 25 букв (5×5).');
         $textarea.trigger('focus');
         return;
       }
@@ -95,6 +100,7 @@
     }
 
     $rows.toggle(isWordSalad);
+    $('.form-row.field-censorly_wiki_title').toggle(taskType === 'censorly');
   }
 
   $(function() {

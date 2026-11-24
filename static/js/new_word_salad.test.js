@@ -477,3 +477,21 @@ console.log('new_word_salad.test.js: ok');
   assert.strictEqual(verdict(answer, { status: 'duplicate' }), 'diverged');
   assert.strictEqual(verdict(answer, null), 'diverged');
 })();
+
+(function testFiveByFiveBoard() {
+  // Row ends 4 and 5 touch on a 4-wide board, not on a 5-wide one.
+  assert.strictEqual(Path.cellsAreAdjacent(4, 5, 5), false);
+  assert.strictEqual(Path.cellsAreAdjacent(4, 9, 5), true);
+  assert.strictEqual(Path.identityOrientation(5).length, 25);
+  assert.strictEqual(Path.isValidOrientation(Path.identityOrientation(5), 5), true);
+  assert.strictEqual(Path.isValidOrientation(Path.identityOrientation(), 5), false);
+  var rotated = Path.transformOrientation(Path.identityOrientation(5), 'rotate-clockwise', 5);
+  assert.deepStrictEqual(rotated.slice(0, 5), [20, 15, 10, 5, 0]);
+  assert.deepStrictEqual(Path.nextPath([4], 5, null, 5), [4], 'no jump across rows on 5×5');
+  assert.deepStrictEqual(Path.nextPath([4], 5, null), [4, 5], 'the 4×4 default is unchanged');
+  // A snake through all 25 cells: nothing can be pruned while it is unsolved.
+  var grid = 'ABCDEJIHGFKLMNOTSRQPUVWXY'.split('');
+  var all = Path.identityOrientation(5);
+  assert.deepStrictEqual(Path.pruneActiveCells(grid, ['ABCDEFGHIJKLMNOPQRSTUVWXY'], all), all);
+  assert.deepStrictEqual(Path.pruneActiveCells(grid, [], all), []);
+})();

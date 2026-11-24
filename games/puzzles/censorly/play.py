@@ -97,6 +97,11 @@ def default_state() -> dict[str, Any]:
     }
 
 
+def is_daily_game(game: Game | None) -> bool:
+    """Daily Цензурки live in section games; any other game is a Десяточка-style game."""
+    return getattr(game, 'project_id', None) == 'sections'
+
+
 def hint_count(state: dict[str, Any]) -> int:
     try:
         return max(0, int(state.get('hints_taken') or 0))
@@ -175,16 +180,40 @@ def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Tas
     return out
 
 
-def points_for_state(state: dict[str, Any], *, task: Task | None = None) -> Decimal:
-    base = Decimal(CENSORLY_BASE_POINTS)
+def base_points(task: Task | None) -> Decimal:
+    """Points for a solve without hints: the task's points, else 20."""
     if task is not None:
         try:
             p = task.get_points()
-            if p is not None:
-                base = Decimal(str(p))
+            if p:
+                return Decimal(str(p))
         except Exception:
             pass
-    return max(Decimal('0'), base - Decimal(hint_count(state) * CENSORLY_HINT_PENALTY))
+    return Decimal(CENSORLY_BASE_POINTS)
+
+
+def hint_penalty_for(task: Task | None) -> Decimal:
+    """A hint costs 1/20 of the task's points: −1 of the daily 20."""
+    return base_points(task) * CENSORLY_HINT_PENALTY / CENSORLY_BASE_POINTS
+
+
+def guess_limit(task: Task | None, game: Game | None) -> int | None:
+    """Most guesses one actor may make; None is no limit.
+
+    Daily Цензурки (section games) are unlimited. In other games the limit is
+    the task's max_attempts, else its group's. Hints and repeats of an open
+    word are not guesses.
+    """
+    if task is None or game is None or is_daily_game(game):
+        return None
+    limit = getattr(task, 'max_attempts', None)
+    if not limit and getattr(task, 'task_group_id', None):
+        limit = getattr(task.task_group, 'max_attempts', None)
+    return int(limit) if limit else None
+
+
+def points_for_state(state: dict[str, Any], *, task: Task | None = None) -> Decimal:
+    return max(Decimal('0'), base_points(task) - hint_count(state) * hint_penalty_for(task))
 
 
 def load_state(raw: str | None) -> dict[str, Any]:
@@ -353,7 +382,10 @@ def puzzle_from_task(task: Task, *, persist: bool = True) -> dict[str, Any] | No
     return resolved
 
 
-def _actor_filters(user=None, anon_key=None, replay_slot=None):
+def _actor_filters(user=None, anon_key=None, replay_slot=None, team=None):
+    """ChainTaskState/Attempt filters of one actor. A team shares one board."""
+    if team is not None:
+        return {'user': None, 'team': team, 'anon_key': None, 'replay_slot': replay_slot}
     if user is not None and getattr(user, 'is_authenticated', False):
         return {'user': user, 'team': None, 'anon_key': None, 'replay_slot': replay_slot}
     if anon_key:
@@ -361,11 +393,11 @@ def _actor_filters(user=None, anon_key=None, replay_slot=None):
     return None
 
 
-def _read_actor_state(*, game: Game, task: Task, actor: dict) -> dict[str, Any]:
+def _read_actor_state(*, game: Game, task: Task, actor: dict, mode: str = 'general') -> dict[str, Any]:
     row = ChainTaskState.objects.filter(
         task=task,
         game=game,
-        game_mode='general',
+        game_mode=mode,
         **actor,
     ).first()
     if row is None:
@@ -458,15 +490,12 @@ def attach_solve_meta(
     attempts = int(payload.get('attempts') or 0)
     hints = int(payload.get('hints') or 0)
     payload['attempts_label'] = f'{attempts} {ru_attempt_word(attempts)}'
-    pts = max(0, CENSORLY_BASE_POINTS - hints * CENSORLY_HINT_PENALTY)
-    try:
-        base = task.get_points()
-        if base is not None:
-            pts = max(0, int(base) - hints * CENSORLY_HINT_PENALTY)
-    except Exception:
-        pass
-    payload['points'] = pts
+    pts = max(Decimal('0'), base_points(task) - hints * hint_penalty_for(task))
+    payload['points'] = int(pts) if pts == int(pts) else float(pts)
     if not payload.get('won') or not actor:
+        return payload
+    if not is_daily_game(game):
+        # A game task has no solve timer and no share card.
         return payload
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor)
     payload['elapsed_seconds'] = elapsed
@@ -521,6 +550,7 @@ def public_payload(
     payload: dict[str, Any],
     *,
     task: Task | None = None,
+    max_attempts: int | None = None,
 ) -> dict[str, Any]:
     cache_key = _lexical_cache_key(task)
     history_tokens = None
@@ -583,8 +613,10 @@ def public_payload(
         'hints': hints,
         'hints_taken': hints,
         'points': float(pts),
-        'max_points': float(task.get_points() if task is not None else CENSORLY_BASE_POINTS),
-        'hint_penalty': CENSORLY_HINT_PENALTY,
+        'max_points': float(base_points(task)),
+        'hint_penalty': float(hint_penalty_for(task)),
+        # None: unlimited (daily Цензурки). Hints are not guesses.
+        'max_attempts': max_attempts,
         'show_mask_endings': bool(view.get('show_mask_endings', CENSORLY_SHOW_MASK_ENDINGS)),
         'truncated': bool(payload.get('truncated')),
         'wiki_fetched_label': wiki_fetched_label(payload.get('fetched_at')),
@@ -673,15 +705,17 @@ def get_play_state(
     share_host: str = 'interoves.com',
     play_path: str | None = None,
     replay_slot=None,
+    team=None,
+    mode: str = 'general',
 ) -> dict[str, Any]:
     payload = puzzle_from_task(task)
     if payload is None:
         return {'status': 'error', 'error': 'Пазл не настроен'}
-    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot, team=team)
     state = default_state() if actor is None else _read_actor_state(
-        game=game, task=task, actor=actor,
+        game=game, task=task, actor=actor, mode=mode,
     )
-    out = public_payload(state, payload, task=task)
+    out = public_payload(state, payload, task=task, max_attempts=guess_limit(task, game))
     out['status'] = 'ok'
     if out.get('won') and actor is not None:
         attach_solve_meta(
@@ -696,12 +730,12 @@ def get_play_state(
     return out
 
 
-def _lock_state(*, game, task, actor):
+def _lock_state(*, game, task, actor, mode='general'):
     try:
         ChainTaskState.objects.get_or_create(
             task=task,
             game=game,
-            game_mode='general',
+            game_mode=mode,
             defaults={'state': dump_state(default_state())},
             **actor,
         )
@@ -710,7 +744,7 @@ def _lock_state(*, game, task, actor):
     return ChainTaskState.objects.select_for_update().get(
         task=task,
         game=game,
-        game_mode='general',
+        game_mode=mode,
         **actor,
     )
 
@@ -758,9 +792,14 @@ class _Move:
     attempt_created_callback: Any
     timing: Any
     timing_request: Any
+    # ChainTaskState.game_mode: 'tournament' while a game runs, else 'general'.
+    mode: str = 'general'
 
     def view(self, state: dict, status: str, **fields) -> dict[str, Any]:
-        out = public_payload(state, self.payload, task=self.task)
+        out = public_payload(
+            state, self.payload, task=self.task,
+            max_attempts=guess_limit(self.task, self.game),
+        )
         out['status'] = status
         out.update(fields)
         return out
@@ -778,7 +817,9 @@ class _Move:
 
     def read_state(self) -> dict:
         with timing_phase(self.timing_request, 'actor_state_read'):
-            return _read_actor_state(game=self.game, task=self.task, actor=self.actor)
+            return _read_actor_state(
+                game=self.game, task=self.task, actor=self.actor, mode=self.mode,
+            )
 
     def check_timing(self) -> None:
         if self.timing is not None:
@@ -789,7 +830,7 @@ class _Move:
         if self.timing is not None:
             self.timing.lock()
         with timing_phase(self.timing_request, 'state_lock'):
-            row = _lock_state(game=self.game, task=self.task, actor=self.actor)
+            row = _lock_state(game=self.game, task=self.task, actor=self.actor, mode=self.mode)
         with timing_phase(self.timing_request, 'state_decode'):
             return row, load_state(row.state)
 
@@ -807,7 +848,7 @@ class _Move:
             **self.actor,
         )
         attempt.time = timezone.now()
-        if won:
+        if won and is_daily_game(self.game):
             from games.daily.timing import active_time_ms_for_attempt
             attempt.active_time_ms = active_time_ms_for_attempt(
                 game=self.game, task_group=self.task.task_group,
@@ -835,13 +876,14 @@ class _Move:
 def _begin_move(
     *, game, task, user, anon_key, replay_slot, number, share_host, play_path,
     submitted_by_profile_id, attempt_created_callback, timing, timing_request,
+    team=None, mode='general',
 ):
     """Return (move, None), or (None, error response) when the move cannot start."""
     with timing_phase(timing_request, 'puzzle_load'):
         payload = puzzle_from_task(task)
     if payload is None:
         return None, {'status': 'error', 'error': 'Пазл не настроен'}
-    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot, team=team)
     if actor is None:
         return None, {
             'status': 'error',
@@ -854,7 +896,7 @@ def _begin_move(
         share_host=share_host, play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
         attempt_created_callback=attempt_created_callback,
-        timing=timing, timing_request=timing_request,
+        timing=timing, timing_request=timing_request, mode=mode,
     ), None
 
 
@@ -873,6 +915,8 @@ def apply_guess(
     timing=None,
     replay_slot=None,
     timing_request=None,
+    team=None,
+    mode: str = 'general',
 ) -> dict[str, Any]:
     """Open every lemma a guessed word matches. ``timing``: GameplayTimingSession."""
     move, error = _begin_move(
@@ -880,7 +924,7 @@ def apply_guess(
         number=number, share_host=share_host, play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
         attempt_created_callback=attempt_created_callback,
-        timing=timing, timing_request=timing_request,
+        timing=timing, timing_request=timing_request, team=team, mode=mode,
     )
     if error is not None:
         return error
@@ -919,6 +963,9 @@ def apply_guess(
     duplicate = _duplicate_guess(move, state, normalized)
     if duplicate is not None:
         return duplicate
+    out_of_guesses = _out_of_guesses(move, state)
+    if out_of_guesses is not None:
+        return out_of_guesses
 
     move.check_timing()
     with timing_phase(timing_request, 'lexical_analysis'):
@@ -997,6 +1044,17 @@ def minimal_title_attempts(payload: dict[str, Any], *, task: Task | None = None)
     return None
 
 
+GUESS_LIMIT_ERROR = 'Попытки закончились'
+
+
+def _out_of_guesses(move: _Move, state: dict) -> dict[str, Any] | None:
+    """Refuse a new guess once the task's guess limit is used up."""
+    limit = guess_limit(move.task, move.game)
+    if limit is None or len(state.get('guesses') or []) < limit:
+        return None
+    return move.view(state, 'limit', error=GUESS_LIMIT_ERROR)
+
+
 def _duplicate_guess(move: _Move, state: dict, normalized: str) -> dict[str, Any] | None:
     if normalized not in {g.get('word') for g in state.get('guesses') or []}:
         return None
@@ -1021,6 +1079,11 @@ def _save_guess(move: _Move, *, normalized, guess_lemma, matched, lexical_report
 
     already_revealed = set(state.get('revealed_lemmas') or [])
     new_matched = matched - already_revealed
+    if new_matched or not matched:
+        # This guess goes into the history: it must fit the limit.
+        out_of_guesses = _out_of_guesses(move, state)
+        if out_of_guesses is not None:
+            return out_of_guesses
     hits = 0
     newly: list[int] = []
     primary_lemma = ''
@@ -1084,14 +1147,16 @@ def apply_hint(
     timing=None,
     replay_slot=None,
     timing_request=None,
+    team=None,
+    mode: str = 'general',
 ) -> dict[str, Any]:
-    """Reveal one non-title content lemma for −1 point. ``timing``: GameplayTimingSession."""
+    """Reveal one non-title content lemma for 1/20 of the task points. ``timing``: GameplayTimingSession."""
     move, error = _begin_move(
         game=game, task=task, user=user, anon_key=anon_key, replay_slot=replay_slot,
         number=number, share_host=share_host, play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
         attempt_created_callback=attempt_created_callback,
-        timing=timing, timing_request=timing_request,
+        timing=timing, timing_request=timing_request, team=team, mode=mode,
     )
     if error is not None:
         return error

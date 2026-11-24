@@ -13,7 +13,10 @@ from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: F401  (re-expor
 _EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
 _LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
 
-WORD_RE = re.compile(r"[А-ЯЁA-Z0-9]", re.IGNORECASE)
+# Russian, Latin and Armenian letters, and digits. «և» is one Armenian letter
+# with no single-character capital, so it stays lowercase (see upper_letters).
+ARMENIAN_EV = '\u0587'
+WORD_RE = re.compile(r"[А-ЯЁA-Z0-9\u0531-\u0556\u0587]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
@@ -38,26 +41,40 @@ _FOUND_EXTRA_LIMIT = 64
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
 _HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟')
+# A grid is 4×4 (daily salads) or 5×5.
+GRID_SIDES = (4, 5)
+MAX_GRID_CELLS = max(GRID_SIDES) ** 2
+DEFAULT_GRID_CELLS = GRID_SIDES[0] ** 2
+
+
+def upper_letters(value):
+    """Upper-case text, keeping «և» one letter: str.upper() splits it into «ԵՒ»."""
+    return ''.join(ch if ch == ARMENIAN_EV else ch.upper() for ch in str(value or ''))
+
+
+def grid_side(grid):
+    """Side of a parsed grid: 5 for 25 cells, else 4."""
+    return 5 if len(grid or ()) == 25 else 4
 
 
 def normalize_word(value):
     """Keep only letters and digits and normalize Ё → Е for comparisons."""
-    return ''.join(WORD_RE.findall((value or '').upper())).replace('Ё', 'Е')
+    return ''.join(WORD_RE.findall(upper_letters(value))).replace('Ё', 'Е')
 
 
 def parse_grid(value):
     if isinstance(value, (list, tuple)):
         cells = []
         for raw_cell in value:
-            letters = WORD_RE.findall(str(raw_cell or '').upper())
+            letters = WORD_RE.findall(upper_letters(raw_cell))
             if len(letters) != 1:
                 raise ValueError('Каждая клетка сетки должна содержать ровно одну букву или цифру.')
             cells.append(letters[0])
     else:
-        cells = WORD_RE.findall((value or '').upper())
-    if len(cells) != 16:
-        raise ValueError('Сетка должна содержать ровно 16 букв (4×4).')
-    return [str(c).replace('Ё', 'Е').upper() for c in cells]
+        cells = WORD_RE.findall(upper_letters(value))
+    if len(cells) not in tuple(side * side for side in GRID_SIDES):
+        raise ValueError('Сетка должна содержать ровно 16 букв (4×4) или 25 букв (5×5).')
+    return [upper_letters(c).replace('Ё', 'Е') for c in cells]
 
 
 def parse_word_list(value, *, allow_empty=False, duplicate_error='Загаданные слова не должны повторяться.'):
@@ -97,12 +114,13 @@ def parse_near_words(value):
     )
 
 
-def default_state():
+def default_state(cells=DEFAULT_GRID_CELLS):
+    """Fresh state; ``cells`` is the grid's cell count (16 or 25)."""
     return {
         'solved_indices': [],
         'hints': [],
         'hint_counts': {},
-        'active': list(range(16)),
+        'active': list(range(cells)),
         'found_rare': [],
         'found_rare_words': [],
         'found_extra': [],
@@ -146,8 +164,9 @@ def append_unique_word(words, value, *, limit=_FOUND_EXTRA_LIMIT):
     return word
 
 
-def load_state(raw):
-    state = default_state()
+def load_state(raw, cells=DEFAULT_GRID_CELLS):
+    """Normalized state. ``cells`` fills ``active`` only when the state has none."""
+    state = default_state(cells)
     if not raw:
         return state
     if isinstance(raw, dict):
@@ -177,9 +196,9 @@ def load_state(raw):
     state['hints'] = sorted(hint_counts)
     active_raw = data.get('active')
     if active_raw is None:
-        state['active'] = list(range(16))
+        state['active'] = list(range(cells))
     else:
-        state['active'] = _normalized_index_list(active_raw, limit=16)
+        state['active'] = _normalized_index_list(active_raw, limit=MAX_GRID_CELLS)
     state['found_rare'] = _normalized_index_list(
         data.get('found_rare'),
         limit=_FOUND_RARE_INDEX_LIMIT,
@@ -331,10 +350,10 @@ def hint_numbers_from_attempts(attempts):
     return labels
 
 
-def neighbours(index):
-    row, col = divmod(index, 4)
-    for other in range(16):
-        other_row, other_col = divmod(other, 4)
+def neighbours(index, side=4):
+    row, col = divmod(index, side)
+    for other in range(side * side):
+        other_row, other_col = divmod(other, side)
         if other != index and max(abs(row - other_row), abs(col - other_col)) <= 1:
             yield other
 
@@ -342,7 +361,8 @@ def neighbours(index):
 def find_paths(grid, word, active=None, limit=1):
     """Return up to ``limit`` no-reuse Boggle paths for a normalized word."""
     target = normalize_word(word)
-    active = set(range(16)) if active is None else set(active)
+    side = grid_side(grid)
+    active = set(range(len(grid))) if active is None else set(active)
     result = []
 
     def visit(index, position, used, path):
@@ -355,7 +375,7 @@ def find_paths(grid, word, active=None, limit=1):
         if position == len(target) - 1:
             result.append(path)
             return
-        for nxt in neighbours(index):
+        for nxt in neighbours(index, side):
             if nxt in active and nxt not in used:
                 visit(nxt, position + 1, used, path)
 
@@ -383,6 +403,7 @@ def _extra_word_trie():
 def longest_dictionary_words(grid, excluded=(), limit=LONGEST_MISSING_CANDIDATES_LIMIT):
     """Return the longest dictionary words that can be traced in a salad grid."""
     grid = tuple(grid)
+    side = grid_side(grid)
     excluded = frozenset(excluded)
     found = set()
 
@@ -394,7 +415,7 @@ def longest_dictionary_words(grid, excluded=(), limit=LONGEST_MISSING_CANDIDATES
         if word is not None and word not in excluded:
             found.add(word)
         used = used | {index}
-        for other in neighbours(index):
+        for other in neighbours(index, side):
             if other not in used:
                 visit(other, next_node, used)
 
@@ -412,10 +433,11 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None, near_words_v
     words = parse_words(words_value)
     rare_words = parse_rare_words(rare_words_value)
     near_words = parse_near_words(near_words_value)
-    if not all_words_solvable(grid, words, range(16)):
+    cells = range(len(grid))
+    if not all_words_solvable(grid, words, cells):
         raise ValueError('Для каждого слова должна существовать хотя бы одна дорожка.')
-    for cell in range(16):
-        active = set(range(16)) - {cell}
+    for cell in cells:
+        active = set(cells) - {cell}
         if all_words_solvable(grid, words, active):
             raise ValueError('Букву в клетке {} можно убрать уже в начальной сетке.'.format(cell + 1))
     answer_set = {normalize_word(word) for word in words}
@@ -425,7 +447,7 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None, near_words_v
         raise ValueError(
             'Редкое слово не должно совпадать с обязательным ответом: {}.'.format(', '.join(overlap))
         )
-    if rare_words and not all_words_solvable(grid, rare_words, range(16)):
+    if rare_words and not all_words_solvable(grid, rare_words, cells):
         raise ValueError('Для каждого редкого слова должна существовать хотя бы одна дорожка.')
     near_set = {normalize_word(word) for word in near_words}
     overlap = sorted(answer_set & near_set)
@@ -438,7 +460,7 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None, near_words_v
         raise ValueError(
             'Слово не может быть одновременно редким и «Почти ответом»: {}.'.format(', '.join(overlap))
         )
-    if near_words and not all_words_solvable(grid, near_words, range(16)):
+    if near_words and not all_words_solvable(grid, near_words, cells):
         raise ValueError('Для каждого слова «Почти ответ» должна существовать хотя бы одна дорожка.')
     return grid, words
 
@@ -462,7 +484,7 @@ def mask_for_word(word, reveal_count=0, reveal_first=False):
     reveal_count = max(0, int(reveal_count or 0))
     letter_index = 0
     result = []
-    for ch in word.upper():
+    for ch in upper_letters(word):
         if WORD_RE.match(ch):
             letter = next(letters)
             if letter_index < reveal_count:
@@ -643,7 +665,8 @@ def validate_task_data(checker_data, answer):
 
 def format_grid_text(grid):
     grid = parse_grid(grid)
-    return '\n'.join(' '.join(grid[row * 4:(row + 1) * 4]) for row in range(4))
+    side = grid_side(grid)
+    return '\n'.join(' '.join(grid[row * side:(row + 1) * side]) for row in range(side))
 
 
 def format_words_text(words):
@@ -760,8 +783,12 @@ def board_key(grid):
     return hashlib.sha1(''.join(grid or ()).encode('utf-8')).hexdigest()[:12]
 
 
-def build_ui_context(grid, words, state=None, attempts=None, rare_words=None, near_words=None):
-    state = load_state(state)
+def build_ui_context(
+    grid, words, state=None, attempts=None, rare_words=None, near_words=None, points_multiplier=1,
+):
+    """Board UI. ``points_multiplier`` (task points) scales the previewed word and hint points."""
+    state = load_state(state, len(grid))
+    side = grid_side(grid)
     solved = set(state.get('solved_indices') or [])
     hint_counts = state.get('hint_counts') or {}
     active = set(state.get('active', []))
@@ -769,10 +796,10 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None, ne
     near_words = list(near_words or [])
     rare_ui, near_ui, extra_ui = classify_side_finds(state, words, rare_words, near_words)
     grid_rows = []
-    for row_index in range(4):
+    for row_index in range(side):
         row = []
-        for col_index in range(4):
-            index = row_index * 4 + col_index
+        for col_index in range(side):
+            index = row_index * side + col_index
             letter = grid[index]
             row.append({
                 'index': index,
@@ -803,6 +830,7 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None, ne
 
     return {
         'grid_rows': grid_rows,
+        'grid_side': side,
         'board_key': board_key(grid),
         'words': words_ui,
         'rare_words': rare_ui,
@@ -813,8 +841,8 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None, ne
         'near_normalized': [normalize_word(word) for word in near_words],
         'rare_tooltip': RARE_FOUND_TOOLTIP,
         'near_tooltip': NEAR_FOUND_TOOLTIP,
-        'word_points': WORD_POINTS,
-        'hint_penalty': HINT_PENALTY,
+        'word_points': WORD_POINTS * Decimal(str(points_multiplier)),
+        'hint_penalty': HINT_PENALTY * Decimal(str(points_multiplier)),
         'solved_indices': sorted(solved),
         'hints': sorted(index for index, count in hint_counts.items() if count > 0),
         'hint_counts': hint_counts,

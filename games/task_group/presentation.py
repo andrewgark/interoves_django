@@ -18,6 +18,8 @@ def task_ui_descriptor(
         'word_salad': 'task-content/task-word-salad.html',
         'grid-puzzle': 'site/task-content/task-grid-puzzle.html',
         'proportions': 'site/task-content/task-proportions.html',
+        # A link to the task's own page: the article does not fit a card.
+        'censorly': 'site/task-content/task-censorly-link.html',
         'default': 'site/task-content/task-default.html',
         'autohint': 'site/task-content/task-default.html',
         'with_tag': 'site/task-content/task-default.html',
@@ -49,7 +51,8 @@ def task_ui_descriptor(
         base_max = task.get_results_max_points()
     else:
         base_max = task.get_points()
-    attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad', 'text_with_forms'}
+    attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad', 'text_with_forms', 'censorly'}
+    # Цензурка keeps the answer (the article title), shown after the game.
     answer_hidden = {'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad', 'text_with_forms'}
     body_wrapper = task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'}
     if body_wrapper_override is not None:

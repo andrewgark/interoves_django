@@ -1367,6 +1367,7 @@
     if (trunc) trunc.hidden = !state.truncated;
     var guesses = state.guesses || [];
     renderGuessTable(root, guesses, activeGuessIndex(root, guesses));
+    renderGuessLimit(root, state, input, submit);
     showShare(state);
     if (state.meta_bar_html) updateMetaBar(state.meta_bar_html);
     if (root._censorlyStatsJump) root._censorlyStatsJump();
@@ -1387,6 +1388,30 @@
       if (typeof window.revealReplayControl === 'function') {
         window.revealReplayControl();
       }
+    }
+  }
+
+  // A game task may cap guesses (state.max_attempts); daily Цензурки have none.
+  // Hints stay available after the last guess.
+  function renderGuessLimit(root, state, input, submit) {
+    var node = root.querySelector('#censorly-guesses-left');
+    var limit = Number(state.max_attempts) || 0;
+    if (!limit) {
+      if (node) node.hidden = true;
+      return;
+    }
+    var left = Math.max(0, limit - (state.guesses || []).length);
+    if (node) {
+      node.hidden = !!state.won;
+      node.textContent = 'Осталось попыток: ' + left + ' из ' + limit;
+      node.classList.toggle('is-out', left === 0);
+    }
+    if (!state.won && left === 0) {
+      if (input) {
+        input.disabled = true;
+        input.placeholder = 'Попытки закончились';
+      }
+      if (submit) submit.disabled = true;
     }
   }
 
@@ -1447,6 +1472,14 @@
     node.className = 'censorly__feedback' + (kind ? ' is-' + kind : '');
   }
 
+  // A game task's page plays as the team or personally (data-play-mode); the
+  // header keeps its requests on that mode whatever another tab switched to.
+  function withPlayMode(headers, root) {
+    var mode = root && root.getAttribute('data-play-mode');
+    if (mode) headers['X-Interoves-Play-Mode'] = mode;
+    return headers;
+  }
+
   function postJson(url, payload, root) {
     var body = Object.assign({}, payload || {});
     var token = contextToken(root);
@@ -1467,6 +1500,7 @@
       'X-Requested-With': 'XMLHttpRequest',
     };
     if (token) headers['X-Interoves-Gameplay-Context'] = token;
+    withPlayMode(headers, root);
     return fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
@@ -1562,7 +1596,7 @@
       actorSyncPromise = fetch(stateUrl, {
         credentials: 'same-origin',
         cache: 'no-store',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        headers: withPlayMode({ 'X-Requested-With': 'XMLHttpRequest' }, root),
       }).then(function (response) {
         if (!response.ok) throw new Error('state unavailable');
         return response.json();
@@ -1705,7 +1739,7 @@
       fetch(stateUrl, {
         credentials: 'same-origin',
         cache: 'no-store',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        headers: withPlayMode({ 'X-Requested-With': 'XMLHttpRequest' }, root),
       })
         .then(function (r) {
           return r.text().then(function (text) {
@@ -1886,6 +1920,11 @@
     // Show a guess result; return the tokens to scroll to once the keyboard
     // has settled, if there is something new to look at.
     function showGuessResult(data, word) {
+      if (data.status === 'limit') {
+        setFeedback(root, data.error || 'Попытки закончились', 'error');
+        applyState(root, data);
+        return null;
+      }
       if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
         var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
         var feedbackText = guessFeedbackHelper.feedback(data, word);

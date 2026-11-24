@@ -1,0 +1,87 @@
+{% extends "site/base.html" %}
+{% comment %}
+A Цензурка task of an ordinary game (games.site.views.game.censorly). The board
+is the daily one; no solve timer, share card, statistics or random game.
+{% endcomment %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% endblock %}
+{% load static %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/censorly.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+{% block content %}
+{{ bootstrap|json_script:"censorly-bootstrap" }}
+
+<p class="new-tg-back">
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
+</p>
+
+<header class="censorly-game-header">
+  <h1 class="pal-title">{{ page_heading }}</h1>
+  <button type="button" class="new-btn new-btn--text" data-rules-open><i class="ph ph-question" aria-hidden="true"></i> Правила</button>
+</header>
+
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="rules-modal-title" class="pal-title">Цензурка</h2>
+    {% include "site/_censorly_rules_body.html" %}
+  </div>
+</div>
+
+<div id="new-bug-report-modal" data-bug-report-url-template="{% url 'new_bug_report' 0 %}" data-bug-report-game-id="{{ game.id }}" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-bug-report-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="new-bug-report-title" class="pal-title">Сообщить о проблеме</h2>
+    <p class="new-login-hint new-bug-report-lead"><strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
+    <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
+    <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
+    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен. <a id="new-bug-report-success-link" href="{{ ui_project_reports_url|default:'/profile/reports/' }}">Мои обращения</a></p>
+    <div class="new-rules-modal__actions">
+      <button type="button" class="new-btn" data-bug-report-submit>Отправить</button>
+      <button type="button" class="new-btn new-btn--text" data-bug-report-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="censorly" id="censorly-root"
+     data-game-id="{{ game.id }}"
+     data-task-id="{{ task.id }}"
+     data-guess-url="{{ guess_url }}"
+     data-state-url="{{ state_url }}"
+     data-hint-url="{{ hint_url }}"
+     data-hint-penalty="{{ censorly_hint_penalty|floatformat:'-2' }}"
+     data-play-mode="{{ play_mode }}"
+     data-scroll-mode="first"
+     data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}"
+     data-anon-key="{{ anon_key|default:'' }}"
+     data-context-token="{{ gameplay_context_token|default:'' }}"
+     data-word-report-url="">
+  {% include "site/partials/censorly_board.html" %}
+</div>
+
+{% include "site/_hint_confirm_modal.html" %}
+
+<script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/censorly_guess_feedback.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/censorly_reload_required.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/censorly_punctuation.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script>
+(function () {
+  var root = document.getElementById('censorly-root');
+  var anonKey = root ? (root.getAttribute('data-anon-key') || '') : '';
+  if (window.InterovesTaskVotes) {
+    window.InterovesTaskVotes.configure({
+      url: "{% url 'new_like_dislike' 0 %}",
+      gameId: '{{ game.id|escapejs }}',
+      getAnonKey: function () { return anonKey; },
+    });
+  }
+})();
+</script>
+{% endblock %}

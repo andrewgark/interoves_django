@@ -51,6 +51,7 @@ def build_word_salad_board_data(
         attempts=attempts,
         rare_words=rare_words,
         near_words=near_words,
+        points_multiplier=points_multiplier(task),
     )
     share_adapter = get_daily_share_adapter(game.id)
     if share_adapter is not None:
@@ -112,8 +113,8 @@ def prepare_word_salad_board_data(
         task,
         game,
         state_source,
-        default_state=load_word_salad_state(None),
-        decode_state=load_word_salad_state,
+        default_state=load_word_salad_state(None, len(grid)),
+        decode_state=lambda raw: load_word_salad_state(raw, len(grid)),
         resolve_chain_state=lambda task, game, **kwargs: board.chain,
         chain_state_kwargs={
             'team': team,
@@ -174,11 +175,23 @@ def is_complete(task, state_raw):
         return False
 
 
-def scale_points(task, raw_points):
-    """Salad points are already on the result scale. The task multiplier is not applied."""
+def points_multiplier(task):
+    """Task points multiply the salad score (1 per word, minus hint penalties).
+
+    Daily salads are created with points=1, so their score is unchanged.
+    """
     from decimal import Decimal
-    del task
-    return Decimal(str(raw_points or 0))
+    try:
+        points = task.get_points() if task is not None else None
+    except Exception:
+        points = None
+    return Decimal(str(points)) if points else Decimal('1')
+
+
+def scale_points(task, raw_points):
+    """Salad score times the task points."""
+    from decimal import Decimal
+    return Decimal(str(raw_points or 0)) * points_multiplier(task)
 
 
 def pretty_text(attempt):
@@ -239,22 +252,27 @@ def after_save(task, *, is_existing, previous):
         return
     from games.models import ChainTaskState
     from games.puzzles.salad.rules import default_state, dump_state
+    try:
+        cells = len(parse_word_salad_task_payload(task.checker_data, '')[0])
+    except (TypeError, ValueError):
+        cells = 16
     ChainTaskState.objects.filter(task=task).update(
         # A non-null empty state is intentional: check_attempt falls
         # back to historical Attempt.state only when the projection is
         # null (used for legacy anon-key migrations).
-        state=dump_state(default_state()),
+        state=dump_state(default_state(cells)),
         last_attempt=None,
     )
 
 
 def results_max_points(task, m):
-    """Green-cell maximum: the word count. The task multiplier is not applied."""
+    """Green-cell maximum: the word count times the task points."""
     del m
     try:
         _, words = parse_task_data(task.checker_data, '')
         if words:
-            return len(words)
+            total = len(words) * points_multiplier(task)
+            return int(total) if total == int(total) else float(total)
     except Exception:
         pass
     return 0
@@ -286,7 +304,9 @@ def persist_wrong(post, action):
 
 def result_points(info):
     """Salad score is the last attempt's state, not the best attempt minus hints."""
-    return result_points_from_attempts(info.attempts)
+    attempts = info.attempts
+    task = getattr(attempts[-1], 'task', None) if attempts else None
+    return result_points_from_attempts(attempts) * points_multiplier(task)
 
 
 def result_attempt(info):
@@ -317,19 +337,19 @@ def merge_state(task, source_json, target_json):
         removable_cells,
         side_words_of,
     )
-    source_state = load_state(source)
-    target_state = load_state(target)
-    solved = set(source_state.get('solved_indices') or []) | set(target_state.get('solved_indices') or [])
-    hint_counts = dict(source_state.get('hint_counts') or {})
-    for index, count in (target_state.get('hint_counts') or {}).items():
-        hint_counts[index] = max(int(hint_counts.get(index, 0) or 0), int(count or 0))
     try:
         grid, words, rare_words, near_words = parse_task_puzzle(task.checker_data, task.answer)
     except (TypeError, ValueError):
         return None
+    source_state = load_state(source, len(grid))
+    target_state = load_state(target, len(grid))
+    solved = set(source_state.get('solved_indices') or []) | set(target_state.get('solved_indices') or [])
+    hint_counts = dict(source_state.get('hint_counts') or {})
+    for index, count in (target_state.get('hint_counts') or {}).items():
+        hint_counts[index] = max(int(hint_counts.get(index, 0) or 0), int(count or 0))
     # found_rare indexes rares and near-answers together, in this order.
     rare_words = side_words_of(rare_words, near_words)
-    active = set(range(16))
+    active = set(range(len(grid)))
     while True:
         removable = removable_cells(grid, words, active, solved)
         if not removable:

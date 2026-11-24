@@ -267,8 +267,11 @@ class WordSaladTaskForm(ModelForm):
     word_salad_grid_text = forms.CharField(
         required=False,
         label='Word Salad grid',
-        widget=Textarea(attrs={'rows': 4, 'cols': 20}),
-        help_text='4 строки по 4 буквы или 16 букв подряд; цифры тоже можно. Ё приравнивается к Е.',
+        widget=Textarea(attrs={'rows': 5, 'cols': 20}),
+        help_text=(
+            '4 строки по 4 буквы (или 16 подряд) либо 5 строк по 5 букв (или 25 подряд). '
+            'Русские, латинские и армянские буквы и цифры. Ё приравнивается к Е.'
+        ),
     )
     word_salad_words_text = forms.CharField(
         required=False,
@@ -287,6 +290,16 @@ class WordSaladTaskForm(ModelForm):
         label='Word Salad near answers',
         widget=Textarea(attrs={'rows': 4, 'cols': 40}),
         help_text='Необязательные «Почти ответы»: другие формы загаданных слов (КРАСКА при ответе КРАСКИ). Очков не дают.',
+    )
+    censorly_wiki_title = forms.CharField(
+        required=False,
+        label='Цензурка: статья Википедии',
+        help_text=(
+            'Название статьи русской Википедии или ссылка на неё. При сохранении статья '
+            'скачивается, текст задания собирается заново, а ответом становится название '
+            'статьи. Пусто: оставить уже собранную статью. Лимит догадок берётся из '
+            '«max attempts» задания или его группы; подсказка стоит 1/20 баллов задания.'
+        ),
     )
 
     class Meta:
@@ -370,7 +383,33 @@ class WordSaladTaskForm(ModelForm):
                     validate_grid_checker_data(parsed, checker_id)
             except GridPuzzleDataError as exc:
                 self.add_error('checker_data', str(exc))
+        elif task_type == 'censorly':
+            self._clean_censorly(cleaned)
         return cleaned
+
+    def _clean_censorly(self, cleaned):
+        """Build the puzzle from the named article, or keep the one already built."""
+        from games.puzzles.censorly.ids import CENSORLY_CHECKER_ID, CENSORLY_TAGS_KEY
+
+        tags = dict(cleaned.get('tags') or {})
+        title = (cleaned.get('censorly_wiki_title') or '').strip()
+        if title:
+            from games.puzzles.censorly.authoring import CensorlyAuthoringError, puzzle_for_title
+
+            try:
+                wiki_title, puzzle = puzzle_for_title(title)
+            except CensorlyAuthoringError as exc:
+                self.add_error('censorly_wiki_title', str(exc))
+                return
+            tags[CENSORLY_TAGS_KEY] = puzzle
+            cleaned['tags'] = tags
+            cleaned['answer'] = wiki_title
+        elif not isinstance(tags.get(CENSORLY_TAGS_KEY), dict):
+            self.add_error('censorly_wiki_title', 'Укажите статью Википедии для Цензурки.')
+            return
+        checker = CheckerType.objects.filter(pk=CENSORLY_CHECKER_ID).first()
+        if checker is not None:
+            cleaned['checker'] = checker
 
 
 @admin.register(Task)

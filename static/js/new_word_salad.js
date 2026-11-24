@@ -9,8 +9,30 @@
   var lastSaladRoot = null;
   var pendingLatestAnimate = null;
   var pendingSelection = null;
+  // A board is 4×4 (daily salads) or 5×5; each root says its side in
+  // data-grid-side. Helpers take the side and default to 4.
   var GRID_SIZE = 4;
-  var GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
+  // Russian, Latin and Armenian letters, and digits (rules.WORD_RE). «և» has
+  // no one-character capital, so upperLetters keeps it lowercase.
+  var ARMENIAN_EV = '\u0587';
+  var LETTER_CLASS = 'А-ЯЁA-Z0-9\u0531-\u0556\u0587';
+  var LETTER_RE = new RegExp('[' + LETTER_CLASS + ']', 'i');
+  var NON_LETTER_RE = new RegExp('[^' + LETTER_CLASS.replace('Ё', '') + ']', 'g');
+
+  function upperLetters(value) {
+    return String(value || '').split(ARMENIAN_EV).map(function (part) {
+      return part.toUpperCase();
+    }).join(ARMENIAN_EV);
+  }
+
+  function sideOf(size) {
+    size = Number(size);
+    return size === 5 ? 5 : GRID_SIZE;
+  }
+
+  function sideOfGrid(grid) {
+    return (grid && grid.length === 25) ? 5 : GRID_SIZE;
+  }
 
   function pointerSamples(event) {
     var samples = [];
@@ -63,20 +85,22 @@
 
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
-  function cellsAreAdjacent(left, right) {
-    var rowA = Math.floor(left / 4);
-    var colA = left % 4;
-    var rowB = Math.floor(right / 4);
-    var colB = right % 4;
+  function cellsAreAdjacent(left, right, size) {
+    var side = sideOf(size);
+    var rowA = Math.floor(left / side);
+    var colA = left % side;
+    var rowB = Math.floor(right / side);
+    var colB = right % side;
     return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
   }
 
-  function neighborPairs(activeIndices) {
+  function neighborPairs(activeIndices, size) {
+    var side = sideOf(size);
     var indices = [];
     var seen = {};
     (activeIndices || []).forEach(function (raw) {
       var index = Number(raw);
-      if (!isFinite(index) || index < 0 || index > 15 || seen[index]) return;
+      if (!isFinite(index) || index < 0 || index >= side * side || seen[index]) return;
       seen[index] = true;
       indices.push(index);
     });
@@ -84,19 +108,22 @@
     var pairs = [];
     for (var i = 0; i < indices.length; i += 1) {
       for (var j = i + 1; j < indices.length; j += 1) {
-        if (cellsAreAdjacent(indices[i], indices[j])) pairs.push([indices[i], indices[j]]);
+        if (cellsAreAdjacent(indices[i], indices[j], side)) pairs.push([indices[i], indices[j]]);
       }
     }
     return pairs;
   }
 
-  function identityOrientation() {
-    return Array.from({ length: GRID_CELL_COUNT }, function (_, index) { return index; });
+  function identityOrientation(size) {
+    var side = sideOf(size);
+    return Array.from({ length: side * side }, function (_, index) { return index; });
   }
 
-  function transformOrientation(permutation, operation) {
+  function transformOrientation(permutation, operation, size) {
+    var GRID_SIZE = sideOf(size);
+    var GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
     var source = Array.isArray(permutation) && permutation.length === GRID_CELL_COUNT
-      ? permutation : identityOrientation();
+      ? permutation : identityOrientation(GRID_SIZE);
     var result = Array(GRID_CELL_COUNT);
     var row;
     var col;
@@ -123,7 +150,9 @@
     return result;
   }
 
-  function isValidOrientation(value) {
+  function isValidOrientation(value, size) {
+    var side = sideOf(size);
+    var GRID_CELL_COUNT = side * side;
     if (!Array.isArray(value) || value.length !== GRID_CELL_COUNT) return false;
     var seen = {};
     return value.every(function (raw) {
@@ -148,14 +177,16 @@
 
   // A no-reuse path of adjacent active cells spelling word (rules.find_paths).
   function canTrace(grid, word, active) {
+    var side = sideOfGrid(grid);
+    var cellCount = side * side;
     var target = normalizeWord(word);
     if (!target) return false;
     function visit(index, position, used) {
       if (!active[index] || used[index] || grid[index] !== target.charAt(position)) return false;
       if (position === target.length - 1) return true;
       used[index] = true;
-      for (var next = 0; next < 16; next += 1) {
-        if (next !== index && cellsAreAdjacent(index, next) && visit(next, position + 1, used)) {
+      for (var next = 0; next < cellCount; next += 1) {
+        if (next !== index && cellsAreAdjacent(index, next, side) && visit(next, position + 1, used)) {
           used[index] = false;
           return true;
         }
@@ -163,7 +194,7 @@
       used[index] = false;
       return false;
     }
-    for (var start = 0; start < 16; start += 1) {
+    for (var start = 0; start < cellCount; start += 1) {
       if (visit(start, 0, {})) return true;
     }
     return false;
@@ -204,7 +235,7 @@
 
   // Repeat events on the current cell must not toggle it off: pointermove/enter
   // fire continuously while the pointer is held on the first letter.
-  function nextWordSaladPath(path, index, isActive) {
+  function nextWordSaladPath(path, index, isActive, size) {
     path = path || [];
     if (index < 0) return path;
     if (!cellIsSelectable(isActive, index)) return path;
@@ -213,11 +244,11 @@
       if (existing === path.length - 1) return path;
       return path.slice(0, existing + 1);
     }
-    if (path.length && !cellsAreAdjacent(path[path.length - 1], index)) return path;
+    if (path.length && !cellsAreAdjacent(path[path.length - 1], index, size)) return path;
     return path.concat([index]);
   }
 
-  function startWordSaladPress(path, index, isActive) {
+  function startWordSaladPress(path, index, isActive, size) {
     path = path || [];
     if (!cellIsSelectable(isActive, index)) {
       return { path: path, clearOnRelease: false };
@@ -231,15 +262,15 @@
     if (
       path.length &&
       path.indexOf(index) < 0 &&
-      !cellsAreAdjacent(path[path.length - 1], index)
+      !cellsAreAdjacent(path[path.length - 1], index, size)
     ) {
       return { path: [index], clearOnRelease: false };
     }
-    return { path: nextWordSaladPath(path, index, isActive), clearOnRelease: false };
+    return { path: nextWordSaladPath(path, index, isActive, size), clearOnRelease: false };
   }
 
-  function moveWordSaladPress(path, index, clearOnRelease, isActive) {
-    var next = nextWordSaladPath(path, index, isActive);
+  function moveWordSaladPress(path, index, clearOnRelease, isActive, size) {
+    var next = nextWordSaladPath(path, index, isActive, size);
     if (next === path) return { path: path, clearOnRelease: !!clearOnRelease };
     return { path: next, clearOnRelease: false };
   }
@@ -374,10 +405,9 @@
   }
 
   function normalizeWord(value) {
-    return String(value || '')
-      .toUpperCase()
+    return upperLetters(value)
       .replace(/Ё/g, 'Е')
-      .replace(/[^А-ЯA-Z0-9]/g, '');
+      .replace(NON_LETTER_RE, '');
   }
 
   function offerShareFromPath(pathname) {
@@ -445,7 +475,7 @@
     Array.prototype.forEach.call(text, function (ch) {
       var span = document.createElement('span');
       var blank = ch === '⬜';
-      var isLetter = /[А-ЯЁA-Z0-9]/i.test(ch);
+      var isLetter = LETTER_RE.test(ch);
       span.className = blank || isLetter
         ? 'new-word-salad__glyph' + (blank ? ' is-blank' : '')
         : 'new-word-salad__separator';
@@ -480,7 +510,7 @@
   // (default), 'rare', 'near' or 'extra'. "Уже было!" keeps that colour.
   function feedbackForResult(result, word, duplicateOf) {
     var duplicate = result === 'duplicate';
-    var displayWord = String(word || '').trim().toUpperCase();
+    var displayWord = upperLetters(String(word || '').trim());
     if (result === 'rare' || result === 'near') {
       // A near-answer (another form of an answer) is found like a rare word.
       return {
@@ -567,8 +597,8 @@
     var normalized = normalizeWord(answer);
     var letterIndex = 0;
     var normalizedIndex = 0;
-    return Array.prototype.map.call(String(answer || '').toUpperCase(), function (character) {
-      if (!/[А-ЯЁA-Z0-9]/.test(character)) return character;
+    return Array.prototype.map.call(upperLetters(answer), function (character) {
+      if (!LETTER_RE.test(character)) return character;
       var letter = normalized.charAt(normalizedIndex++);
       return letterIndex++ < revealCount ? letter : '⬜';
     }).join('');
@@ -893,7 +923,8 @@
       var orientationButtons = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-transform]'));
       var gridRows = Array.prototype.slice.call(root.querySelectorAll('.new-word-salad__row'));
       var orientationKey = orientationStorageKey(root);
-      var orientation = identityOrientation();
+      var gridSide = sideOf(root.getAttribute('data-grid-side'));
+      var orientation = identityOrientation(gridSide);
       var wordPoints = Number(root.getAttribute('data-word-points'));
       if (!isFinite(wordPoints) || wordPoints < 0) wordPoints = 0;
       var hintPenalty = Number(root.getAttribute('data-hint-penalty'));
@@ -907,7 +938,7 @@
         if (!orientationKey) return;
         try {
           var stored = JSON.parse(localStorage.getItem(orientationKey) || 'null');
-          if (isValidOrientation(stored)) orientation = stored.map(Number);
+          if (isValidOrientation(stored, gridSide)) orientation = stored.map(Number);
         } catch (error) {}
       }
 
@@ -919,7 +950,7 @@
       function renderOrientation() {
         orientation.forEach(function (cellIndexValue, slot) {
           var cell = cellByIndex[cellIndexValue];
-          var row = gridRows[Math.floor(slot / GRID_SIZE)];
+          var row = gridRows[Math.floor(slot / gridSide)];
           if (cell && row) row.appendChild(cell);
         });
         window.requestAnimationFrame(renderGridOverlays);
@@ -933,7 +964,7 @@
         if (busy) return;
         activeDragRoot = null;
         clearSelection();
-        orientation = transformOrientation(orientation, operation);
+        orientation = transformOrientation(orientation, operation, gridSide);
         renderOrientation();
         saveOrientation();
       }
@@ -983,7 +1014,7 @@
         active.forEach(function (cell) {
           centers[cellIndex(cell)] = cellCenter(cell, gridRect);
         });
-        var pairs = neighborPairs(Object.keys(centers));
+        var pairs = neighborPairs(Object.keys(centers), gridSide);
         while (linksSvg.firstChild) linksSvg.removeChild(linksSvg.firstChild);
         pairs.forEach(function (pair) {
           var from = centers[pair[0]];
@@ -1122,7 +1153,8 @@
           currentPath,
           cellIndex(cell),
           clearSingleOnRelease,
-          isActiveIndex
+          isActiveIndex,
+          gridSide
         );
         applyPath(moved.path, moved.clearOnRelease);
       }
@@ -1631,7 +1663,7 @@
       // Prune the grid on the page the way the server will after a solve.
       function pruneGridLocally() {
         var grid = [];
-        for (var index = 0; index < 16; index += 1) {
+        for (var index = 0; index < gridSide * gridSide; index += 1) {
           var cell = cellByIndex[index];
           grid.push(cell ? normalizeWord(cell.getAttribute('data-letter') || '') : '');
         }
@@ -1990,7 +2022,7 @@
           if (root.setPointerCapture) {
             try { root.setPointerCapture(event.pointerId); } catch (error) {}
           }
-          var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex);
+          var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex, gridSide);
           applyPath(started.path, started.clearOnRelease);
         }, { passive: false });
       });

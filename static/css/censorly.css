@@ -1160,3 +1160,15 @@ html.new-ui-dark .censorly__dock {
 #censorly-root .new-daily-results-layout {
   scroll-margin-top: calc(var(--new-ui-scroll-margin-top, 5.5rem) + 0.5rem);
 }
+
+/* A game task's guess limit (daily Цензурки have none). */
+.censorly__guesses-left {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.censorly__guesses-left.is-out {
+  color: var(--danger, #c0392b);
+  font-weight: 600;
+}

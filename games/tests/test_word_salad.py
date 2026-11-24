@@ -447,9 +447,10 @@ class WordSaladTests(TestCase):
         self.assertEqual(state['solved_indices'], [0])
         self.assertEqual(state['active'], [])
         self.assertEqual(attempt.status, 'Ok')
-        self.assertEqual(attempt.points, 1)
+        # One word times the task's 2 points.
+        self.assertEqual(attempt.points, 2)
 
-    def test_one_hint_costs_half_a_point_after_solve(self):
+    def test_one_hint_costs_half_a_point_times_task_points(self):
         hint = Attempt(
             task=self.task,
             team=self.team,
@@ -467,14 +468,15 @@ class WordSaladTests(TestCase):
         )
         check_attempt(solve)
         info = Attempt.manager.get_attempts_info(self.team, self.task, game=self.game)
-        self.assertEqual(solve.points, 0.5)
-        self.assertEqual(info.get_result_points(), 0.5)
+        # (1 word - 0.5 hint) × 2 task points.
+        self.assertEqual(solve.points, 1)
+        self.assertEqual(info.get_result_points(), 1)
         self.assertEqual(info.get_result_attempt().pk, solve.pk)
         self.assertEqual(info.get_hint_numbers(), ['1.1'])
         from games.site.pages.results.compute import _new_results_compute
         results = _new_results_compute(self.game, mode='general')
         cell = results['team_to_cells'][self.team][0]
-        self.assertEqual(cell['result_points'], 0.5)
+        self.assertEqual(cell['result_points'], 1)
         self.assertEqual(cell['hint_numbers'], ['1.1'])
 
     def test_build_ui_context_preserves_empty_active(self):
@@ -851,7 +853,7 @@ class WordSaladTests(TestCase):
         self.assertIn(self.task.pk, context['word_salad_data'])
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
-        self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 1)
+        self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 2)
         self.assertEqual(context['task_group_pager_label'], 'Word Salad test')
 
     def test_dynamic_word_salad_card_keeps_replay_run_namespace(self):
@@ -1568,3 +1570,78 @@ class WordSaladThemeMigrationTests(TestCase):
         migration.restore_word_salad_theme(apps, None)
         salad.refresh_from_db()
         self.assertEqual(salad.text, 'Города России')
+
+
+# Armenian capitals Ա..Ֆ in alphabet order; the 5×5 board below is a snake of
+# the first 25, so the one answer covers every cell.
+_ARMENIAN = [chr(code) for code in range(0x0531, 0x0557)]
+
+
+def _snake_path(side):
+    path = []
+    for row in range(side):
+        cols = range(side) if row % 2 == 0 else range(side - 1, -1, -1)
+        path.extend(row * side + col for col in cols)
+    return path
+
+
+def _armenian_5x5():
+    path = _snake_path(5)
+    grid = [''] * 25
+    for position, cell in enumerate(path):
+        grid[cell] = _ARMENIAN[position]
+    return {'grid': grid, 'words': [''.join(_ARMENIAN[:25])]}, path
+
+
+class WordSaladGridSizeAndAlphabetTests(SimpleTestCase):
+    def test_five_by_five_armenian_grid_validates_and_solves(self):
+        data, path = _armenian_5x5()
+        checker_data = json.dumps(data, ensure_ascii=False)
+        grid, words = validate_task_data(checker_data, '')
+        self.assertEqual(len(grid), 25)
+        self.assertEqual(load_state(None, 25)['active'], list(range(25)))
+        checker = WordSaladChecker(checker_data, None)
+        result = checker.check(json.dumps({'action': 'solve', 'path': path}), None)
+        self.assertEqual(result.status, 'Ok')
+        self.assertEqual(json.loads(result.state)['solved_indices'], [0])
+
+    def test_five_by_five_rejects_a_jump_across_rows(self):
+        data, _path5 = _armenian_5x5()
+        checker = WordSaladChecker(json.dumps(data, ensure_ascii=False), None)
+        # Cells 4 and 5 are row ends, adjacent on a 4-wide board but not on 5.
+        result = checker.check(json.dumps({'action': 'solve', 'path': [4, 5]}), None)
+        self.assertEqual(result.comment, 'Буквы не соседние')
+
+    def test_five_by_five_ui_has_five_rows_of_five(self):
+        data, _path5 = _armenian_5x5()
+        ui = build_ui_context(data['grid'], data['words'])
+        self.assertEqual(ui['grid_side'], 5)
+        self.assertEqual([len(row) for row in ui['grid_rows']], [5] * 5)
+
+    def test_grid_of_other_sizes_is_rejected(self):
+        with self.assertRaises(ValueError):
+            validate_task_data(json.dumps({'grid': ['А'] * 20, 'words': ['АА']}), '')
+
+    def test_armenian_letters_normalize_and_keep_ev_one_letter(self):
+        from games.puzzles.salad.rules import normalize_word, parse_grid
+        self.assertEqual(normalize_word('բարև'), 'ԲԱՐև')
+        grid = parse_grid('Բ Ա Ր և ' + 'Ա ' * 12)
+        self.assertEqual(len(grid), 16)
+        self.assertEqual(grid[3], 'և')
+        self.assertEqual(mask_for_word('Բարև', reveal_count=4), 'ԲԱՐև')
+
+
+class WordSaladTaskPointsTests(SimpleTestCase):
+    def test_task_points_multiply_score_and_maximum(self):
+        from decimal import Decimal
+
+        from games.puzzles.salad.puzzle import result_points, results_max_points, scale_points
+        task = SimpleNamespace(
+            checker_data=json.dumps({'grid': _puzzle()['grid'], 'words': ['ABCD', 'EFGH']}),
+            get_points=lambda: Decimal('3'),
+        )
+        self.assertEqual(scale_points(task, Decimal('1.5')), Decimal('4.5'))
+        self.assertEqual(results_max_points(task, 3.0), 6)
+        state = json.dumps({'solved_indices': [0], 'hint_counts': {'1': 1}})
+        info = SimpleNamespace(attempts=[SimpleNamespace(task=task, state=state)])
+        self.assertEqual(result_points(info), Decimal('1.5'))
