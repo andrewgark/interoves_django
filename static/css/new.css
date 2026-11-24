@@ -9039,8 +9039,12 @@ html.is-age-gated .new-wrap {
 .new-raddle-clue-ref {
   font-weight: 700;
 }
+/* Keeps a chip with its affixes on one line; when the group (e.g. two
+   long chips around «-на») is wider than the clue, it wraps inside
+   instead of running past the edge. */
 .new-raddle-clue__nowrap {
-  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
 }
 .new-raddle-clue-ref,
 .new-raddle-clue-next,
