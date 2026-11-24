@@ -457,3 +457,19 @@ class AnswerButtonTests(TestCase):
 
         console.save_settings(title='Адвент', description='', start_date='2020-12-01')
         self.assertNotContains(client.get('/advent/1/'), 'data-answer-open')
+
+
+class CrypticBeforeLaunchTests(TestCase):
+    def test_section_pages_without_a_start_date(self):
+        _cryptic_game()
+        console_for(CRYPTIC_GAME_ID).create(at_number=1, fields={'clue': 'Подсказка', 'answer': 'ответ'})
+        client = Client()
+        client.force_login(_user('cryptic_early'))
+        hub = client.get('/cryptic/')
+        self.assertEqual(hub.status_code, 200)
+        self.assertContains(hub, 'Скоро!')
+        self.assertNotContains(hub, 'Добавьте их в админке')
+        self.assertNotContains(hub, 'Подсказка')
+        self.assertEqual(client.get('/cryptic/results/').status_code, 200)
+        self.assertEqual(client.get('/cryptic/1/').status_code, 404)
+        self.assertIn(client.get('/cryptic/last/').status_code, (301, 302))

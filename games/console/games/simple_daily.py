@@ -36,7 +36,8 @@ from games.sections.paths import section_hub_path, section_play_path
 DAY_POINTS = 1
 IMAGE_MAX_BYTES = 10 * 1024 * 1024
 AUDIO_MAX_BYTES = 20 * 1024 * 1024
-_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
+# No SVG: opened directly from /media/ it would run scripts on our domain.
+_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 _AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.ogg', '.wav'}
 
 
@@ -470,9 +471,15 @@ class SimpleDailyConsole:
         name = str(getattr(uploaded, 'name', '') or 'file')
         ext = ('.' + name.rsplit('.', 1)[-1].lower()) if '.' in name else ''
         content_type = str(getattr(uploaded, 'content_type', '') or '')
+        if not ext and content_type:
+            import mimetypes
+
+            ext = mimetypes.guess_extension(content_type.split(';')[0].strip()) or ''
         size = int(getattr(uploaded, 'size', 0) or 0)
         media_id = '{}-{}'.format(self.section.game_id, uuid.uuid4().hex[:12])
         title = name.rsplit('.', 1)[0].strip() or 'Аудио'
+        if ext == '.svg' or 'svg' in content_type:
+            raise SimpleDailyError('SVG загрузить нельзя: сохраните картинку как PNG')
         if ext in _IMAGE_EXTENSIONS or content_type.startswith('image/'):
             if size > IMAGE_MAX_BYTES:
                 raise SimpleDailyError('Картинка больше 10 МБ')
@@ -504,7 +511,7 @@ class SimpleDailyConsole:
                     '<i class="ph ph-play" aria-hidden="true"></i> {title}</button>'
                 ).format(url=url, title=safe_title),
             }
-        raise SimpleDailyError('Можно загрузить картинку (png, jpg, gif, webp, svg) или звук (mp3, m4a, ogg, wav)')
+        raise SimpleDailyError('Можно загрузить картинку (png, jpg, gif, webp) или звук (mp3, m4a, ogg, wav)')
 
     # --- page ----------------------------------------------------------
 

@@ -483,7 +483,12 @@ def _render_section_game_page(request, game_id):
     else:
         task_group_rows = _task_group_rows_skeleton(task_groups, game)
         task_groups_heading = _task_group_page_nav_context(game)['task_group_pager_label']
-        task_groups_empty_text = 'В этом разделе пока нет заданий. Добавьте их в админке.'
+        task_groups_empty_text = (
+            meta.get('archive_empty_text') or meta.get('soon_text')
+            or 'Скоро появятся — следите за обновлениями.'
+            if is_scheduled_game(game_id)
+            else 'В этом разделе пока нет заданий. Добавьте их в админке.'
+        )
     task_group_rows, task_group_progress_context = _initial_task_group_progress(
         request,
         game,
