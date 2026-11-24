@@ -214,8 +214,8 @@ SECTION_HUB_META = {
     'advent': {
         'icon': '🌲',
         'ph_icon': 'tree-evergreen',
-        'title': 'Адвент-календарь',
-        'nav_title': 'Адвент',
+        'title': 'New Year Hunt',
+        'nav_title': 'New Year Hunt',
         'description': 'Одно задание каждый день',
         'cta_today': 'Задание дня',
         'cta_latest': 'Последнее задание',

@@ -15,6 +15,11 @@ from games.console.http.constants import ADVENT_CONSOLE_GROUP, CRYPTIC_CONSOLE_G
 from games.daily.catalog.cryptic import enumeration_for, enumeration_is_valid
 from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
 
+# Authors recorded on every new day: advent tasks are Ира Броварь's (prod
+# user 16), cryptics are the site author's (Андрей Гаркавый, user 1).
+IRA_BROVAR_USER_ID = 16
+DAILY_DEFAULT_AUTHOR_USER_ID = 1
+
 # --- Адвент-календарь: HTML-условие, ответы и промежуточные ответы -------------
 
 
@@ -62,7 +67,8 @@ ADVENT_SECTION = SimpleDailySection(
     game_id=ADVENT_SCHEDULE.game_id,
     schedule=ADVENT_SCHEDULE,
     console_group=ADVENT_CONSOLE_GROUP,
-    title='Адвент-календарь',
+    title='New Year Hunt',
+    default_author_user_id=IRA_BROVAR_USER_ID,
     checker_id='puzzlehunt',
     day_name='День {n}',
     lead=(
@@ -143,6 +149,7 @@ CRYPTIC_SECTION = SimpleDailySection(
     schedule=CRYPTIC_SCHEDULE,
     console_group=CRYPTIC_CONSOLE_GROUP,
     title='Криптики',
+    default_author_user_id=DAILY_DEFAULT_AUTHOR_USER_ID,
     checker_id='equals_with_possible_spaces',
     day_name='Криптик {n}',
     lead=(

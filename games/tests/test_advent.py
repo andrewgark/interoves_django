@@ -41,7 +41,7 @@ def _game(game_id, tags):
         id=game_id,
         defaults={
             'name': game_id,
-            'outside_name': {'advent': 'Адвент-календарь', 'cryptic': 'Криптики'}[game_id],
+            'outside_name': {'advent': 'New Year Hunt', 'cryptic': 'Криптики'}[game_id],
             'author': 'Interoves',
             'rules_id': None,
             'tournament_rules_id': None,
@@ -104,6 +104,7 @@ class ConsoleAccessTests(TestCase):
         client.force_login(self.editor)
         response = client.get(reverse('support:advent'))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'New Year Hunt')
         self.assertContains(response, 'Адвент-календарь')
         self.assertNotContains(response, reverse('support:ladders'))
         self.assertNotContains(response, reverse('support:cryptic'))
@@ -155,9 +156,9 @@ class ConsoleAccessTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         item = response.json()['item']
         self.assertEqual(item['number'], 1)
-        # The section editor who writes a day is its author.
+        # Without Ира's profile in this database the day has no author.
         group = GameTaskGroup.objects.get(pk=item['link_id']).task_group
-        self.assertEqual(list(group.authors.values_list('user_id', flat=True)), [self.editor.pk])
+        self.assertFalse(group.authors.exists())
         self.assertEqual(item['fields']['answers'], 'Ёлка\nель')
         self.assertEqual(item['fields']['keep_going'], 'хвоя')
         response = _post(client, 'support:advent_update', {'name': 'Первый день'}, item['link_id'])
@@ -390,7 +391,7 @@ class PublicPagesTests(TestCase):
         client.post('/send_attempt/{}/'.format(task.pk), {'text': 'Ёлка', 'game_id': 'advent'})
         page = client.get('/advent/1/')
         self.assertContains(page, 'Ваш результат')
-        self.assertContains(page, '🌲 Адвент-календарь №1')
+        self.assertContains(page, '🌲 New Year Hunt №1')
         self.assertContains(page, '/advent/1</div>')
         self.assertNotContains(page, 'data-share-copy-image')
 
@@ -476,3 +477,23 @@ class CrypticBeforeLaunchTests(TestCase):
         self.assertEqual(client.get('/cryptic/results/').status_code, 200)
         self.assertEqual(client.get('/cryptic/1/').status_code, 404)
         self.assertIn(client.get('/cryptic/last/').status_code, (301, 302))
+
+
+class DefaultAuthorTests(TestCase):
+    def test_each_section_records_its_default_author(self):
+        _advent_game()
+        _cryptic_game()
+        ira = User.objects.create_user('ira', password='x', id=16)
+        Profile.objects.create(user=ira, first_name='Ирина', last_name='Броварь')
+        andrey = User.objects.filter(pk=1).first() or User.objects.create_user('andrey', password='x', id=1)
+        Profile.objects.get_or_create(user=andrey, defaults={'first_name': 'Андрей', 'last_name': 'Гаркавый'})
+        advent = _advent_day(1)
+        cryptic = console_for(CRYPTIC_GAME_ID).create(at_number=1, fields={'clue': 'п', 'answer': 'о'})
+        self.assertEqual(
+            list(GameTaskGroup.objects.get(pk=advent['link_id']).task_group.authors.values_list('user_id', flat=True)),
+            [16],
+        )
+        self.assertEqual(
+            list(GameTaskGroup.objects.get(pk=cryptic['link_id']).task_group.authors.values_list('user_id', flat=True)),
+            [1],
+        )

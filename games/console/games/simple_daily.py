@@ -87,6 +87,8 @@ class SimpleDailySection:
     from_task: Callable[[Task], dict[str, str]]
     # Строка под названием дня в списке.
     summary: Callable[[Task], str]
+    # Автор каждого нового дня (User.id); без профиля у этого пользователя — без автора.
+    default_author_user_id: int | None = None
 
     def auto_name(self, number: int) -> str:
         return self.day_name.format(n=number)
@@ -242,6 +244,14 @@ class SimpleDailyConsole:
 
     # --- days ----------------------------------------------------------
 
+    def _default_author(self):
+        from games.models import Profile
+
+        user_id = self.section.default_author_user_id
+        if not user_id:
+            return None
+        return Profile.objects.filter(user_id=user_id).first()
+
     def _clean_name(self, raw, number: int) -> str:
         name = str(raw or '').strip()[:200]
         return name or self.section.auto_name(number)
@@ -254,9 +264,8 @@ class SimpleDailyConsole:
 
     @transaction.atomic
     def create(self, *, at_number: int, name: str | None = None,
-               fields: dict[str, str] | None = None, now: datetime | None = None,
-               author=None) -> dict[str, Any]:
-        """Вставить день. ``author`` (Profile) записывается автором группы."""
+               fields: dict[str, str] | None = None, now: datetime | None = None) -> dict[str, Any]:
+        """Вставить день; автором группы записывается автор раздела по умолчанию."""
         content = self._content(fields or {})
         if at_number < 1:
             raise SimpleDailyError('Номер должен быть >= 1')
@@ -298,6 +307,7 @@ class SimpleDailyConsole:
             points=DAY_POINTS,
             max_attempts=None,
         )
+        author = self._default_author()
         if author is not None:
             task_group.authors.add(author)
         Task.objects.create(
