@@ -80,9 +80,9 @@
       <label class="support-ladders-field">
         <span>{{ f.label }}{% if f.required %} *{% endif %}</span>
         {% if f.kind == 'input' %}
-          <input type="text" data-day-field="{{ f.key }}" autocomplete="off" placeholder="{{ f.placeholder }}">
+          <input type="text" data-day-field="{{ f.key }}" autocomplete="off" placeholder="{{ f.placeholder }}"{% if f.mono %} class="support-cx-mono" spellcheck="false"{% endif %}>
         {% else %}
-          <textarea data-day-field="{{ f.key }}" rows="{{ f.rows }}" placeholder="{{ f.placeholder }}"{% if f.kind == 'html' %} class="support-advent-code" spellcheck="false"{% endif %}></textarea>
+          <textarea data-day-field="{{ f.key }}" rows="{{ f.rows }}" placeholder="{{ f.placeholder }}"{% if f.kind == 'html' %} class="support-advent-code" spellcheck="false"{% elif f.mono %} class="support-cx-mono" spellcheck="false"{% endif %}></textarea>
         {% endif %}
       </label>
       {% if f.media %}
@@ -100,6 +100,18 @@
         </details>
       {% endif %}
     {% endfor %}
+    {% if section.has_preview %}
+      <div class="cx-box support-cx-preview" id="sd-preview-box">
+        <div class="support-cx-preview__head">
+          <h3 class="cx-box__title">{{ section.preview_title }}</h3>
+          {% if section.help_template %}
+            <button type="button" class="support-cx-help-link" data-help-open><i class="ph ph-book-open-text" aria-hidden="true"></i> {{ section.help_label }}</button>
+          {% endif %}
+        </div>
+        <div id="sd-preview"></div>
+        <div id="sd-preview-check" class="cx-check" role="status" aria-live="polite"></div>
+      </div>
+    {% endif %}
     <input type="file" id="sd-media-input" hidden>
     <p class="support-hint support-ladder-edit-error" id="sd-edit-error" hidden></p>
     <div class="support-action-row support-action-row--mt">
@@ -109,6 +121,16 @@
     </div>
   </div>
 </div>
+
+{% if section.help_template %}
+<div id="sd-help-modal" class="new-rules-modal support-cx-help-modal" role="dialog" aria-labelledby="cx-help-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-help-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-help-close>×</button>
+    {% include section.help_template %}
+  </div>
+</div>
+{% endif %}
 
 <script>
 (function () {
@@ -124,7 +146,8 @@
     upload: "{% url 'support:'|add:section.game_id|add:'_upload' %}",
     detailTpl: "{% url 'support:'|add:section.game_id|add:'_detail' 0 %}",
     saveTpl: "{% url 'support:'|add:section.game_id|add:'_update' 0 %}",
-    deleteTpl: "{% url 'support:'|add:section.game_id|add:'_delete' 0 %}"
+    deleteTpl: "{% url 'support:'|add:section.game_id|add:'_delete' 0 %}",
+    preview: {% if section.has_preview %}"{% url 'support:'|add:section.game_id|add:'_preview' %}"{% else %}null{% endif %}
   };
   var listEl = document.getElementById('sd-list');
   var metaEl = document.getElementById('sd-meta');
@@ -239,6 +262,39 @@
       box.innerHTML = source ? source.value : '';
     });
   }
+
+  // Server-side preview (cryptic explanation): debounced, the latest reply wins.
+  var previewTimer = null;
+  var previewSeq = 0;
+  function currentFields() {
+    var fields = {};
+    dayFields.forEach(function (input) { fields[input.getAttribute('data-day-field')] = input.value; });
+    return fields;
+  }
+  function refreshServerPreview(now) {
+    if (!endpoints.preview) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      var seq = ++previewSeq;
+      tabs.postJson(endpoints.preview, { fields: currentFields() }).then(function (data) {
+        if (seq !== previewSeq) return;
+        var box = field('sd-preview');
+        var check = field('sd-preview-check');
+        box.innerHTML = data.html || '';
+        if (data.empty) {
+          check.className = 'cx-check';
+          check.textContent = 'Разбор не заполнен: после решения покажем только ответ.';
+        } else if (data.errors && data.errors.length) {
+          check.className = 'cx-check cx-check--err';
+          check.innerHTML = '<i class="ph ph-warning-circle" aria-hidden="true"></i> Разбор не сходится:<ul>' +
+            data.errors.map(function (e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') + '</ul>';
+        } else {
+          check.className = 'cx-check cx-check--ok';
+          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '');
+        }
+      }).catch(function () {});
+    }, now ? 0 : 350);
+  }
   function fillModal(item, atNumber) {
     var isNew = !item;
     item = item || {};
@@ -259,6 +315,7 @@
     field('sd-edit-error').hidden = true;
     modalEl.querySelectorAll('[data-media-status]').forEach(function (el) { el.textContent = ''; });
     updatePreviews();
+    refreshServerPreview(true);
   }
   function openNew(atNumber, trigger) {
     fillModal(null, atNumber);
@@ -342,7 +399,30 @@
     });
   });
 
-  dayFields.forEach(function (input) { input.addEventListener('input', updatePreviews); });
+  dayFields.forEach(function (input) {
+    input.addEventListener('input', function () { updatePreviews(); refreshServerPreview(false); });
+  });
+  var helpEl = document.getElementById('sd-help-modal');
+  if (helpEl) {
+    // Help opens above the day editor: Escape closes only the help, and the
+    // page stays scroll-locked while the editor is still open.
+    var helpModal = tabs.mountModal(helpEl, {
+      closeSelector: '[data-help-close]',
+      onClose: function () {
+        if (modalEl.classList.contains('is-open')) document.body.style.overflow = 'hidden';
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && helpEl.classList.contains('is-open')) {
+        e.stopImmediatePropagation();
+        helpModal.close();
+      }
+    }, true);
+    modalEl.addEventListener('click', function (e) {
+      var opener = e.target.closest('[data-help-open]');
+      if (opener) helpModal.open(opener);
+    });
+  }
   field('sd-edit-save').addEventListener('click', saveDay);
 
   listEl.addEventListener('click', function (e) {

@@ -2035,3 +2035,37 @@ html.new-ui-dark .support-ladder-item__mixed {
   gap: 0.4rem;
   margin-top: 0.4rem;
 }
+
+/* Криптики: поля разбора и предпросмотр (стили разбора — .cx-* в new.css). */
+.support-cx-mono {
+  font-family: var(--new-font-mono);
+  font-size: 0.9rem;
+}
+.support-cx-preview { margin-top: 0.25rem; }
+.support-cx-preview__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+.support-cx-help-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+.support-cx-help-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.support-cx-help-modal .new-rules-modal__box { max-width: min(44rem, calc(100vw - 2rem)); }

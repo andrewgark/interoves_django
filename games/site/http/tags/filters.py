@@ -665,3 +665,19 @@ def simple_daily_share(game, task, ai, tg_number, share_host):
         'elapsed': elapsed,
         'link': '{}/{}/{}'.format(share_host or 'interoves.com', game_id, tg_number),
     }
+
+
+@register.simple_tag
+def cryptic_explanation(task=None, clue='', answer='', markup='', formula=''):
+    """Разбор криптика: из ``task.tags`` или из явных строк (примеры в правилах)."""
+    from django.utils.safestring import mark_safe
+
+    from games.puzzles.cryptic.explain import explanation_html
+
+    if task is not None:
+        tags = getattr(task, 'tags', None) or {}
+        clue = tags.get('cryptic_clue') or ''
+        answer = getattr(task, 'answer', '') or ''
+        markup = tags.get('cryptic_markup') or ''
+        formula = tags.get('cryptic_formula') or ''
+    return mark_safe(explanation_html(clue=clue, answer=answer, markup=markup, formula=formula))

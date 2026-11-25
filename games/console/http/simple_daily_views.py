@@ -113,6 +113,18 @@ def update(request, link_id, *, section):
 
 @section_console_required
 @require_POST
+def preview(request, *, section):
+    console = console_for(section)
+    if console.section.preview is None:
+        return _error('Предпросмотра нет', status=404)
+    body = parse_json_object_body(request)
+    if body is None:
+        return _error('Некорректный JSON')
+    return JsonResponse({'ok': True, **console.section.preview(_fields(console, body) or {})})
+
+
+@section_console_required
+@require_POST
 def reorder(request, *, section):
     body = parse_json_object_body(request)
     order = body.get('order') if body else None
@@ -176,6 +188,7 @@ def urlpatterns_for(section):
         path(f'{section}/create/', create, kw, name=f'{section}_create'),
         path(f'{section}/reorder/', reorder, kw, name=f'{section}_reorder'),
         path(f'{section}/upload/', upload, kw, name=f'{section}_upload'),
+        path(f'{section}/preview/', preview, kw, name=f'{section}_preview'),
         path(f'{section}/<int:link_id>/', detail, kw, name=f'{section}_detail'),
         path(f'{section}/<int:link_id>/save/', update, kw, name=f'{section}_update'),
         path(f'{section}/<int:link_id>/delete/', delete, kw, name=f'{section}_delete'),

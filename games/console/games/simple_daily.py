@@ -60,6 +60,8 @@ class DayField:
     required: bool = False
     # Кнопки загрузки картинки и mp3, которые вставляют HTML в это поле.
     media: bool = False
+    # Моноширинный шрифт: служебная разметка, формулы.
+    mono: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,17 @@ class SimpleDailySection:
     default_author_user_id: int | None = None
     # Как назвать автора по умолчанию в подсказке поля «Автор».
     default_author_label: str = 'автор раздела'
+    # Живой предпросмотр под полями: поля формы → {'html': …, 'errors': […]}.
+    preview: Optional[Callable[[dict[str, str]], dict[str, Any]]] = None
+    preview_title: str = 'Как это увидят игроки'
+    # Шаблон справки, которая открывается ссылкой над предпросмотром.
+    help_template: str = ''
+    help_label: str = ''
+
+    @property
+    def has_preview(self) -> bool:
+        # Templates call callables, so they test this flag, not ``preview``.
+        return self.preview is not None
 
     def auto_name(self, number: int) -> str:
         return self.day_name.format(n=number)

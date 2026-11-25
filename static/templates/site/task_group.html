@@ -171,6 +171,11 @@
         </div>
       </div>
     </div>
+    {% elif section_rules_type == 'cryptic' %}
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <p class="pal-kicker">Криптики</p>
+    <h2 id="rules-modal-title" class="pal-title">как решать</h2>
+    {% include "site/_cryptic_rules_body.html" %}
     {% elif section_rules_type == 'walls' %}
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
     <p class="pal-kicker">Стены</p>

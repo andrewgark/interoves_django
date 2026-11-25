@@ -18,6 +18,12 @@
   <div class="new-taskcard__answer">
     <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
   </div>
+  {% if game.id == 'cryptic' and task.tags.cryptic_markup %}{% cryptic_explanation task as cryptic_html %}{% if cryptic_html %}
+    <section class="cx-box" aria-label="Разбор">
+      <h3 class="cx-box__title">Разбор</h3>
+      {{ cryptic_html }}
+    </section>
+  {% endif %}{% endif %}
   {% if task.answer_comment %}
     <div class="new-taskcard__answer-comment new-login-hint">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
   {% endif %}

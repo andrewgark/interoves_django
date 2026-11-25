@@ -86,7 +86,7 @@ PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
 SECTION_RULES_GAME_IDS = (
     'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'censorly',
-    'week_task', WORD_SALAD_GAME_ID,
+    'week_task', WORD_SALAD_GAME_ID, 'cryptic',
 )
 
 

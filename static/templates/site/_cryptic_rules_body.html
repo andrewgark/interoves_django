@@ -1,0 +1,102 @@
+{# Правила Криптиков: модалка «?» на странице криптика. Примеры приёмов не должны пересекаться с вышедшими криптиками. #}
+<p class="pal-lead">Криптик — загадка из одной фразы. В ней два пути к одному слову: обычное определение, как в кроссворде, и игра с буквами.</p>
+<div class="pal-rules">
+  <div class="pal-rule">
+    <div class="pal-rule-number">1</div>
+    <div class="pal-rule-text">
+      <strong>Фраза делится на две части.</strong> Одна — определение ответа, оно всегда в начале или в конце. Другая — инструкция, как собрать ответ из букв.
+    </div>
+  </div>
+  <div class="pal-rule">
+    <div class="pal-rule-number">2</div>
+    <div class="pal-rule-text">
+      <strong>Не верьте смыслу фразы.</strong> Он нарочно уводит в сторону: «разбитый» может означать «перемешай буквы», а «головы» — «возьми первые буквы».
+    </div>
+  </div>
+  <div class="pal-rule">
+    <div class="pal-rule-number">3</div>
+    <div class="pal-rule-text">
+      <strong>Число в скобках — длина ответа:</strong> (6) — шесть букв, (5, 4) — два слова, (3-4) — через дефис.
+    </div>
+  </div>
+  <div class="pal-rule">
+    <div class="pal-rule-number">4</div>
+    <div class="pal-rule-text">
+      Регистр и пробелы при проверке не важны. После решения покажем разбор.
+    </div>
+  </div>
+</div>
+
+<div class="pal-example-box cx-wrap">
+  <div class="pal-example-title">Примеры с разбором</div>
+  <p class="cx-example-clue">Спор внутри центра Сколково <span class="cryptic-clue__len">(6)</span></p>
+  {% cryptic_explanation clue="Спор внутри центра Сколково" answer="РАСКОЛ" markup="{Спор} | *внутри* (центра Сколково)" formula="скрыт[внутри](ЦЕНТРА СКОЛКОВО)=РАСКОЛ" %}
+  <p class="cx-example-clue">Служба в храме не белом в сторону запада <span class="cryptic-clue__len">(7)</span></p>
+  {% cryptic_explanation clue="Служба в храме не белом в сторону запада" answer="МОЛЕБЕН" markup="{Служба в храме} | (не белом) *в сторону запада*" formula="обр[в сторону запада](НЕ БЕЛОМ)" %}
+  <p class="cx-example-clue">Первое начало термодинамики объясняет, как слишком интенсивный нагрев может вызвать смерть <span class="cryptic-clue__len">(6)</span></p>
+  {% cryptic_explanation clue="Первое начало термодинамики объясняет, как слишком интенсивный нагрев может вызвать смерть" answer="ТОКСИН" markup="*Первое начало* (термодинамики объясняет, как слишком интенсивный нагрев) | {может вызвать смерть}" formula="нач[Первое начало](ТЕРМОДИНАМИКИ ОБЪЯСНЯЕТ КАК СЛИШКОМ ИНТЕНСИВНЫЙ НАГРЕВ)" %}
+</div>
+
+<h3 class="pal-example-title cx-tricks-title">Какие бывают приёмы</h3>
+<p class="pal-lead cx-tricks-lead">Курсивом — слова, которые обычно указывают на приём. Список неполный: авторы любят находить новые.</p>
+<div class="cx-tricks cx-wrap">
+  <div class="cx-trick"><div class="cx-trick__name">Анаграмма</div><div>
+    <div>Буквы куска фразы переставлены.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">разбитый</span><span class="cx-ind-chip">странно</span><span class="cx-ind-chip">в беспорядке</span><span class="cx-ind-chip">перепутав</span><span class="cx-ind-chip">иначе</span><span class="cx-ind-chip">дикий</span><span class="cx-ind-chip">танцующий</span></div>
+    <div class="cx-trick__ex"><i>странный</i> марш → <span class="cx-word">ШРАМ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Спрятанное слово</div><div>
+    <div>Ответ стоит в тексте подряд, на стыке слов.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">в</span><span class="cx-ind-chip">часть</span><span class="cx-ind-chip">кусочек</span><span class="cx-ind-chip">содержит</span><span class="cx-ind-chip">в составе</span><span class="cx-ind-chip">отчасти</span></div>
+    <div class="cx-trick__ex"><i>часть</i> моряКИ Тонут → <span class="cx-word">КИТ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Наоборот</div><div>
+    <div>Кусок читается справа налево.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">обратно</span><span class="cx-ind-chip">вспять</span><span class="cx-ind-chip">справа налево</span><span class="cx-ind-chip">отражённый</span><span class="cx-ind-chip">разворот</span></div>
+    <div class="cx-trick__ex">сон <i>обратно</i> → <span class="cx-word">НОС</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Первые буквы</div><div>
+    <div>Берутся первые буквы нескольких слов подряд.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">головы</span><span class="cx-ind-chip">верхушки</span><span class="cx-ind-chip">вожаки</span><span class="cx-ind-chip">первые</span><span class="cx-ind-chip">зачинщики</span></div>
+    <div class="cx-trick__ex"><i>головы</i> лисиц, енотов, соболей → <span class="cx-word">ЛЕС</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Последние буквы</div><div>
+    <div>То же, но с конца слов.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">хвосты</span><span class="cx-ind-chip">концы</span><span class="cx-ind-chip">окончания</span><span class="cx-ind-chip">финалы</span></div>
+    <div class="cx-trick__ex"><i>хвосты</i> сад, вино, ком → <span class="cx-word">ДОМ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Через одну</div><div>
+    <div>Берутся чётные или нечётные буквы.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">через раз</span><span class="cx-ind-chip">изредка</span><span class="cx-ind-chip">нечётные</span><span class="cx-ind-chip">местами</span></div>
+    <div class="cx-trick__ex">стойка <i>через раз</i> → <span class="cx-word">СОК</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Без буквы</div><div>
+    <div>У слова отрезано начало, конец или середина.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">безголовый</span><span class="cx-ind-chip">обезглавленный</span><span class="cx-ind-chip">без хвоста</span><span class="cx-ind-chip">укороченный</span><span class="cx-ind-chip">потерявший центр</span></div>
+    <div class="cx-trick__ex"><i>безголовый</i> шум → <span class="cx-word">УМ</span>, ствол <i>потерял центр</i> → <span class="cx-word">СТОЛ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Вставка</div><div>
+    <div>Одно слово помещается внутрь другого.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">обнимает</span><span class="cx-ind-chip">проглотил</span><span class="cx-ind-chip">съел</span><span class="cx-ind-chip">вокруг</span><span class="cx-ind-chip">держит в себе</span></div>
+    <div class="cx-trick__ex">щека <i>обнимает</i> кота → <span class="cx-word">ЩЕ(КОТ)КА</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Созвучие</div><div>
+    <div>Ответ звучит так же, как кусок фразы.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">на слух</span><span class="cx-ind-chip">слышим</span><span class="cx-ind-chip">по радио</span><span class="cx-ind-chip">в эфире</span><span class="cx-ind-chip">послышалось</span></div>
+    <div class="cx-trick__ex">луг <i>на слух</i> → <span class="cx-word">ЛУК</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Замена</div><div>
+    <div>Одна буква меняется на другую.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">вместо</span><span class="cx-ind-chip">сменив</span><span class="cx-ind-chip">меняет</span></div>
+    <div class="cx-trick__ex">кот, <i>сменив</i> К на Р → <span class="cx-word">РОТ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Склейка</div><div>
+    <div>Ответ собирается из кусков по порядку. Куски часто даёт синоним или сокращение: река — ПО, кислород — О, север — С.</div>
+    <div class="cx-trick__inds"><span class="cx-ind-chip">затем</span><span class="cx-ind-chip">рядом</span><span class="cx-ind-chip">следом</span><span class="cx-ind-chip">с</span></div>
+    <div class="cx-trick__ex">река, <i>затем</i> рог → <span class="cx-word">ПО + РОГ = ПОРОГ</span></div>
+  </div></div>
+  <div class="cx-trick"><div class="cx-trick__name">Двойное определение</div><div>
+    <div>Обе части — определения одного слова в разных смыслах.</div>
+    <div class="cx-trick__ex">родник | открывает замок → <span class="cx-word">КЛЮЧ</span></div>
+  </div></div>
+</div>

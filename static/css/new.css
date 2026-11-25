@@ -14392,6 +14392,224 @@ html.new-ui-dark .new-pay-hub__inline-icon {
   opacity: 0.45;
 }
 
+/* Разбор криптика (games/puzzles/cryptic/explain.py). Цвет — операция:
+   индикатор, его буквенный блок и его шаг в цепочке окрашены одинаково.
+   Игровая палитра локальна для разбора; у каждого цвета пара в тёмной теме. */
+:root {
+  --cx-1: #a8620a;
+  --cx-2: #7444c0;
+  --cx-3: #1d6cb0;
+  --cx-4: #b0365f;
+}
+html.new-ui-dark {
+  --cx-1: #e3a650;
+  --cx-2: #b69bf0;
+  --cx-3: #7db3ef;
+  --cx-4: #ee8fb1;
+}
+
+.cx-box {
+  container-type: inline-size;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.cx-wrap { container-type: inline-size; }
+.cx-box__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cx-line {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 2.9;
+  overflow-wrap: break-word;
+}
+.cx-plain { color: var(--muted); }
+.cx-nowrap { white-space: nowrap; }
+
+.cx-seg {
+  --cx-c: var(--text);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  vertical-align: baseline;
+  line-height: 1.35;
+  white-space: normal;
+}
+.cx-seg__text {
+  padding: 0 0.12rem;
+  text-align: center;
+}
+.cx-seg__label {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--cx-c);
+}
+
+/* определение: сплошное подчёркивание акцентом */
+.cx-seg--def { --cx-c: var(--accent); }
+.cx-seg--def > .cx-seg__text {
+  border-bottom: 3px solid var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+.cx-seg--def .cx-plain { color: var(--text); }
+
+/* индикатор: цвет операции, курсив, пунктир */
+.cx-seg--ind { --cx-c: var(--muted); }
+.cx-seg--ind > .cx-seg__text {
+  font-style: italic;
+  color: var(--cx-c);
+  border-bottom: 2px dotted var(--cx-c);
+}
+
+/* буквенный блок: рамка цвета операции, которая его берёт */
+.cx-seg--fod { --cx-c: var(--muted); }
+.cx-seg--fod > .cx-seg__text {
+  border: 1.5px solid var(--cx-c);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cx-c) 9%, transparent);
+  color: var(--text);
+}
+
+.cx-split {
+  display: inline-block;
+  width: 0;
+  height: 1.7em;
+  margin: 0 0.6rem;
+  border-left: 2px solid var(--border);
+  vertical-align: -0.45em;
+}
+
+/* цепочка шагов */
+.cx-steps {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0 0;
+  border-top: 1px dashed var(--border);
+  display: grid;
+  grid-template-columns: minmax(0, max-content) max-content minmax(max-content, 1fr);
+  gap: 0.4rem 0.6rem;
+  align-items: center;
+}
+.cx-step { --cx-c: var(--muted); display: contents; }
+.cx-step__in { justify-self: end; text-align: right; min-width: 0; }
+.cx-step__op {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--cx-c);
+  white-space: nowrap;
+}
+.cx-step__op i { font-size: 0.95rem; }
+.cx-step__name {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--cx-c) 45%, transparent);
+  background: color-mix(in srgb, var(--cx-c) 8%, transparent);
+}
+.cx-word {
+  font-family: var(--new-font-mono);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+.cx-word--out { font-weight: 700; white-space: nowrap; overflow-wrap: normal; }
+.cx-step:last-child .cx-word--out { color: var(--accent); }
+.cx-join { margin: 0 0.3rem; color: var(--muted); font-size: 0.85rem; }
+.cx-hit {
+  color: var(--cx-c);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.cx-note { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9rem; }
+
+@container (max-width: 30rem) {
+  .cx-steps { display: block; }
+  .cx-step {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.45rem;
+    margin-bottom: 0.45rem;
+  }
+  .cx-step__in { text-align: left; }
+}
+
+/* цвет операции: после базовых правил, чтобы перебить --cx-c */
+.cx-seg.cx-c1, .cx-step.cx-c1 { --cx-c: var(--cx-1); }
+.cx-seg.cx-c2, .cx-step.cx-c2 { --cx-c: var(--cx-2); }
+.cx-seg.cx-c3, .cx-step.cx-c3 { --cx-c: var(--cx-3); }
+.cx-seg.cx-c4, .cx-step.cx-c4 { --cx-c: var(--cx-4); }
+.cx-seg--fod > .cx-seg__label { color: var(--muted); }
+.cx-seg--fod.cx-c1 > .cx-seg__label,
+.cx-seg--fod.cx-c2 > .cx-seg__label,
+.cx-seg--fod.cx-c3 > .cx-seg__label,
+.cx-seg--fod.cx-c4 > .cx-seg__label { color: var(--cx-c); }
+
+/* проверка разбора в редакторе */
+.cx-check { margin: 0.5rem 0 0; font-size: 0.88rem; color: var(--muted); }
+.cx-check--ok { color: var(--accent); }
+.cx-check--err { color: var(--danger); }
+.cx-check ul { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+
+/* правила: примеры и список приёмов */
+.cx-example-clue { margin: 1rem 0 0; }
+.cx-example-clue:first-of-type { margin-top: 0.5rem; }
+.cx-tricks-title { margin-top: 1.25rem; }
+.cx-tricks-lead { margin-bottom: 0; }
+.cx-tricks { display: grid; margin: 0.5rem 0 0; }
+.cx-trick {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 0.2rem 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+}
+.cx-trick:first-child { border-top: 0; }
+.cx-trick__name { font-weight: 700; }
+.cx-trick__inds { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+.cx-ind-chip {
+  padding: 0.05rem 0.45rem;
+  border: 1px dotted var(--muted);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+.cx-trick__ex { margin-top: 0.3rem; color: var(--muted); font-size: 0.9rem; }
+.cx-trick__ex .cx-word { color: var(--text); }
+@container (max-width: 30rem) {
+  .cx-trick { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* словарик разбора */
+.cx-ref { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.cx-ref th, .cx-ref td {
+  padding: 0.35rem 0.5rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.cx-ref th { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.cx-ref code, .cx-code { font-family: var(--new-font-mono); font-size: 0.85rem; }
+.cx-code { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
+.cx-ref-gap { margin-top: 1rem; }
+
 .new-taskcard__byline {
   margin: -0.25rem 0 0.75rem;
   color: var(--muted);
