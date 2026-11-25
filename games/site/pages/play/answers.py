@@ -122,7 +122,27 @@ def get_answer(request, task_id):
             ),
         })
 
-    return JsonResponse({'html': _answer_popup_html(task.answer, task.answer_comment)})
+    html = _answer_popup_html(task.answer, task.answer_comment)
+    if game.id == 'cryptic':
+        html += _cryptic_explanation_html(task)
+    return JsonResponse({'html': html})
+
+
+def _cryptic_explanation_html(task):
+    """The breakdown under the answer, as on a solved cryptic card."""
+    from games.puzzles.cryptic.explain import explanation_html
+
+    tags = task.tags or {}
+    body = explanation_html(
+        clue=tags.get('cryptic_clue') or '', answer=task.answer or '',
+        markup=tags.get('cryptic_markup') or '', formula=tags.get('cryptic_formula') or '',
+    )
+    if not body:
+        return ''
+    return format_html(
+        '<section class="cx-box" aria-label="Разбор"><h3 class="cx-box__title">Разбор</h3>{}</section>',
+        mark_safe(body),
+    )
 
 
 @require_http_methods(['GET'])

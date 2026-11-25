@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -62,6 +63,10 @@ _OP_ALIASES = {'чет': 'чёт', 'нечет': 'нечёт'}
 
 PALETTE_SIZE = 4
 _VARIANT_LIMIT = 400
+# Сколько вариантов и проб можно перебрать за один разбор: вложенные вставки
+# множат варианты, а предпросмотр считается на каждое нажатие клавиши.
+WORK_BUDGET = 50_000
+_budget: ContextVar[list[int]] = ContextVar('cryptic_explain_budget')
 
 
 class ExplainError(Exception):
@@ -70,6 +75,20 @@ class ExplainError(Exception):
 
 def up(text) -> str:
     return str(text or '').upper().replace('Ё', 'Е')
+
+
+def shown_upper(text) -> str:
+    """Заглавные для показа: Ё остаётся Ё (сравнение — через ``letters``)."""
+    return str(text or '').upper()
+
+
+def _spend(amount: int = 1) -> None:
+    left = _budget.get(None)
+    if left is None:
+        return
+    left[0] -= amount
+    if left[0] < 0:
+        raise ExplainError('Формула слишком ветвится: уточните промежуточные шаги через «=»')
 
 
 def letters(text) -> str:
@@ -183,7 +202,7 @@ def parse_markup(src: str) -> SNode:
 # --- формула -------------------------------------------------------------
 
 _TOKEN_RE = re.compile(
-    r'\s+|−|\s-\s|→|->|[()\[\],=+]|[0-9A-Za-zА-Яа-яЁё_«»]+(?:-[0-9A-Za-zА-Яа-яЁё«»]+)*'
+    r'\s[-–—]\s|\s+|−|→|->|[()\[\],=+]|[0-9A-Za-zА-Яа-яЁё_«»]+(?:-[0-9A-Za-zА-Яа-яЁё«»]+)*'
 )
 
 
@@ -199,7 +218,7 @@ def _tokenize(src: str) -> list[tuple[str, str]]:
         i = m.end()
         if s.isspace():
             continue
-        if s == '−' or re.fullmatch(r'\s-\s', s):
+        if s == '−' or re.fullmatch(r'\s[-–—]\s', s):
             tokens.append(('-', s))
         elif s in ('→', '->'):
             tokens.append(('→', s))
@@ -364,6 +383,7 @@ def _match(parts, target: str, pos: int, picks: dict) -> Optional[dict]:
             return None
         return _match(rest, target, pos + len(piece), {**picks, part[2]: piece})
     for length in range(len(target) - pos, 0, -1):
+        _spend()
         piece = target[pos:pos + length]
         if piece in part[1]:
             found = _match(rest, target, pos + length, {**picks, part[2]: piece})
@@ -395,6 +415,7 @@ def _evaluate(node: FNode) -> list[_Variant]:
 
 
 def _fix(text: str, base: dict, node_id: int) -> _Variant:
+    _spend()
     return _Variant([('fix', text, [text])], {**base, node_id: text})
 
 
@@ -402,6 +423,7 @@ def _concat(items: list[FNode]) -> list[_Variant]:
     acc = [_Variant([], {})]
     for item in items:
         values = _evaluate(item)
+        _spend(len(acc) * len(values))
         acc = [
             _Variant(a.parts + b.parts, {**a.picks, **b.picks})
             for a in acc for b in values
@@ -477,6 +499,8 @@ def _evaluate_raw(node: FNode) -> list[_Variant]:
             for inner in args[1]:
                 inner_text, _ = _fixed(inner, 'вставляемого')
                 for k in range(1, len(text)):
+                    if len(out) >= _VARIANT_LIMIT:
+                        break
                     out.append(_fix(text[:k] + inner_text + text[k:], {**picks, **inner.picks}, node.id))
     return out[:_VARIANT_LIMIT]
 
@@ -496,16 +520,17 @@ class Step:
 
 def _shown(node: FNode, picks: dict) -> str:
     if node.kind == 'lit':
-        return node.result or up(' '.join(node.words))
-    if node.kind == 'cat':
-        return ''.join(_shown(arg, picks) for arg in node.args)
+        return node.result or shown_upper(' '.join(node.words))
+    if node.kind == 'cat' or (node.kind == 'op' and node.op == 'склеить' and not node.result):
+        return ''.join(letters(_shown(arg, picks)) for arg in node.args)
     return picks.get(node.id) or node.result or '?'
 
 
 def _steps(node: FNode, picks: dict, colors: dict, answer: str, out: list, top: bool) -> None:
+    """``answer`` — ответ для показа (с пробелами и Ё): им подписан последний шаг."""
     if node.kind == 'lit':
         if node.result:
-            out.append(Step((up(' '.join(node.words)),), 'значит', node.result))
+            out.append(Step((shown_upper(' '.join(node.words)),), 'значит', answer if top else node.result))
         return
     if node.kind == 'cat':
         for arg in node.args:
@@ -518,7 +543,7 @@ def _steps(node: FNode, picks: dict, colors: dict, answer: str, out: list, top: 
             _steps(arg, picks, colors, answer, out, False)
         out.append(Step(
             tuple(_shown(a, picks) for a in node.args), 'убрать',
-            picks.get(node.id) or answer, joiner='−',
+            answer if top else picks.get(node.id, '?'), joiner='−',
         ))
         return
     for arg in node.args:
@@ -536,9 +561,9 @@ def _steps(node: FNode, picks: dict, colors: dict, answer: str, out: list, top: 
         inputs = (inputs[1], inputs[0])
         joiner = 'в'
     elif node.op == 'скрыт':
-        inputs = (up(' '.join(node.args[0].words)) if node.args[0].kind == 'lit' else inputs[0],)
+        inputs = (shown_upper(' '.join(node.args[0].words)) if node.args[0].kind == 'lit' else inputs[0],)
     out.append(Step(
-        inputs, name, picks.get(node.id) or (answer if top else '?'),
+        inputs, name, answer if top else _shown(node, picks),
         color=colors.get(node.id, 0), joiner=joiner,
         hit=picks.get(node.id, '') if node.op == 'скрыт' else '',
     ))
@@ -555,6 +580,8 @@ class Explanation:
     fod_colors: dict[int, int] = field(default_factory=dict)
     double_definition: bool = False
     answer: str = ''
+    # Не мешают сохранить, но скорее всего это недосмотр автора.
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -562,7 +589,20 @@ class Explanation:
 
 
 def analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation:
+    token = _budget.set([WORK_BUDGET])
+    try:
+        return _analyze(clue=clue, answer=answer, markup=markup, formula=formula)
+    finally:
+        _budget.reset(token)
+
+
+def _latin_hint(word: str) -> str:
+    return ' (в нём латинские буквы)' if re.search(r'[A-Z]', word) and re.search(r'[А-Я]', word) else ''
+
+
+def _analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation:
     res = Explanation(answer=letters(answer))
+    answer_shown = re.sub(r'\s+', ' ', shown_upper(answer)).strip()
     try:
         surface = parse_markup(markup)
     except ExplainError as exc:
@@ -604,6 +644,8 @@ def analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation
             if node.indicator:
                 colors[node.id] = len(bound) % PALETTE_SIZE + 1
                 bound.append(node)
+            elif node.op not in ('склеить', 'убрать'):
+                res.warnings.append('У «{}» нет индикатора: обычно его подсказывает слово в подсказке'.format(node.op))
             for arg in node.args:
                 scan(arg, node)
             return
@@ -616,7 +658,7 @@ def analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation
     for word, parent in lit_words:
         at = next((i for i, (w, _b) in enumerate(pool) if w == word), None)
         if at is None:
-            res.errors.append('В формуле «{}», а в блоках (…) такого слова нет'.format(word))
+            res.errors.append('В формуле «{}», а в блоках (…) такого слова нет{}'.format(word, _latin_hint(word)))
             continue
         block = pool.pop(at)[1]
         if block not in res.fod_colors and parent is not None and parent.id in colors:
@@ -629,7 +671,9 @@ def analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation
         key = letters(node.indicator)
         target = next((n for n in free if letters(n.text) == key), None)
         if target is None:
-            res.errors.append('Индикатора «{}» нет в разметке *…*'.format(node.indicator))
+            res.errors.append('Индикатора «{}» нет в разметке *…*{}'.format(
+                node.indicator, _latin_hint(up(node.indicator)),
+            ))
             continue
         free.remove(target)
         target.color = colors[node.id]
@@ -658,7 +702,7 @@ def analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanation
             ))
         res.errors.append('Формула даёт {}, а не {}'.format(' или '.join(shown) or 'пустоту', res.answer))
         return res
-    _steps(tree, picks, colors, res.answer, res.steps, True)
+    _steps(tree, picks, colors, answer_shown, res.steps, True)
     return res
 
 
@@ -741,10 +785,10 @@ def _glue(children: list[SNode], render) -> str:
 
 
 def _mark_hit(text: str, hit: str) -> str:
-    chars = list(up(text))
-    positions = [i for i, ch in enumerate(chars) if re.match(r'[А-ЯA-Z0-9]', ch)]
-    only = ''.join(chars[i] for i in positions)
-    at = only.find(hit)
+    chars = list(shown_upper(text))
+    positions = [i for i, ch in enumerate(chars) if letters(ch)]
+    only = ''.join(up(chars[i]) for i in positions)
+    at = only.find(up(hit))
     if at < 0 or not hit:
         return escape(text)
     start, end = positions[at], positions[at + len(hit) - 1] + 1

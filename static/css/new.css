@@ -14566,6 +14566,7 @@ html.new-ui-dark {
 .cx-check--ok { color: var(--accent); }
 .cx-check--err { color: var(--danger); }
 .cx-check ul { margin: 0.2rem 0 0; padding-left: 1.1rem; }
+.cx-check__warn { color: var(--warning); }
 
 /* правила: примеры и список приёмов */
 .cx-example-clue { margin: 1rem 0 0; }

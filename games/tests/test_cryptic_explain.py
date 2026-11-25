@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from django.test import Client, SimpleTestCase, TestCase
 
 from games.console.games.simple_daily import SimpleDailyError
@@ -117,6 +119,44 @@ class LanguageTests(SimpleTestCase):
         )
         self.assertNotIn('<b>', html)
 
+    def test_nested_glue_shows_its_letters(self):
+        res = analyze(clue='Тело с 0 лет назад', answer='ТЕЛО', markup='{Тело} | *с* (0 лет) *назад*',
+                      formula='обр[назад](склеить[с](0=О, ЛЕТ))')
+        self.assertEqual([(s.inputs, s.output) for s in res.steps][1:],
+                         [(('О', 'ЛЕТ'), 'ОЛЕТ'), (('ОЛЕТ',), 'ТЕЛО')])
+
+    def test_display_keeps_yo_and_spaces(self):
+        res = analyze(clue='Разбитый лёд мой — лёд', answer='дёл', markup='*Разбитый* (лёд) | {мой — лёд}',
+                      formula='анаг[Разбитый](ЛЁД)')
+        self.assertEqual((res.steps[0].inputs, res.steps[0].output), (('ЛЁД',), 'ДЁЛ'))
+        res = analyze(clue='Странная тропа лесная — тропа', answer='лесная  тропа',
+                      markup='*Странная* (тропа лесная) | {— тропа}', formula='анаг[Странная](ТРОПА ЛЕСНАЯ)')
+        self.assertEqual(res.steps[-1].output, 'ЛЕСНАЯ ТРОПА')
+
+    def test_every_minus_spelling(self):
+        for formula in ('СЛОН - С', 'СЛОН – С', 'СЛОН — С', 'СЛОН − С'):
+            with self.subTest(formula=formula):
+                res = analyze(clue='Слон с — лон', answer='ЛОН', markup='(Слон) (с) — | {лон}', formula=formula)
+                self.assertEqual(res.errors, [])
+
+    def test_latin_lookalikes_are_named(self):
+        errors = _errors('анаг[Пьяный](MУЖЧИНА ЖЕ)')
+        self.assertIn('В формуле «MУЖЧИНА», а в блоках (…) такого слова нет (в нём латинские буквы)', errors)
+
+    def test_operation_without_indicator_is_a_warning(self):
+        res = analyze(clue=CLUE, answer='ЖЕМЧУЖИНА', markup='Пьяный (мужчина же) | {сокровище}',
+                      formula='анаг(МУЖЧИНА ЖЕ)')
+        self.assertEqual(res.errors, [])
+        self.assertEqual(res.warnings, ['У «анаг» нет индикатора: обычно его подсказывает слово в подсказке'])
+
+    def test_branching_formula_stays_cheap(self):
+        a, b = 'АБВГДЕЖЗИКЛМНОПРСТУ', 'ФХЦЧШЩЭЮЯ'
+        inner = 'вокруг(вокруг({}, {}), {})'.format(a, b, b)
+        started = time.monotonic()
+        res = analyze(clue='x', answer='Я', markup='{x} | (a)', formula='вокруг({0}, {0})'.format(inner))
+        self.assertTrue(res.errors)
+        self.assertLess(time.monotonic() - started, 2)
+
 
 class ConsoleExplanationTests(TestCase):
     def setUp(self):
@@ -178,3 +218,16 @@ class SiteExplanationTests(TestCase):
         page = client.get('/cryptic/1/')
         self.assertContains(page, 'aria-label="Разбор"')
         self.assertContains(page, 'cx-seg--ind cx-c1')
+
+    def test_answer_button_shows_the_explanation_too(self):
+        _cryptic_game(start='2020-12-04T00:00:00+03:00', show_answer_button=True)
+        item = console_for(CRYPTIC_GAME_ID).create(at_number=1, fields={
+            'clue': CLUE, 'answer': 'ЖЕМЧУЖИНА', 'markup': MARKUP, 'formula': 'анаг[Пьяный](МУЖЧИНА ЖЕ)',
+        })
+        task = Task.objects.get(task_group_id=item['task_group_id'])
+        client = Client()
+        client.force_login(_user('cryptic_peeker'))
+        client.post('/send_attempt/{}/'.format(task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
+        html = client.get('/answer/{}/'.format(task.pk)).json()['html']
+        self.assertIn('ЖЕМЧУЖИНА', html)
+        self.assertIn('cx-steps', html)

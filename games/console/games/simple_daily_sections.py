@@ -165,7 +165,7 @@ def _cryptic_preview(fields: dict[str, str]) -> dict:
     )
     if not formula:
         res.errors.append('Заполните формулу')
-    return {'html': render_html(res), 'errors': res.errors, 'answer': res.answer}
+    return {'html': render_html(res), 'errors': res.errors, 'warnings': res.warnings, 'answer': res.answer}
 
 
 def _cryptic_summary(task) -> str:

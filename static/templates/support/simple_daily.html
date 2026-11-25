@@ -290,7 +290,10 @@
             data.errors.map(function (e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') + '</ul>';
         } else {
           check.className = 'cx-check cx-check--ok';
-          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '');
+          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '') +
+            (data.warnings && data.warnings.length
+              ? '<ul class="cx-check__warn">' + data.warnings.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>'
+              : '');
         }
       }).catch(function () {});
     }, now ? 0 : 350);
