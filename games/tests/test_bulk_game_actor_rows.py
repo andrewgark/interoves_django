@@ -47,8 +47,8 @@ def build_scoring_fixture(prefix, n_actors):
       raddle: Wrong 0 then Partial 5; even ``i`` takes a real hint (penalty 2)
         and a raddle assist (penalty 5, not counted); everyone has a
         non-real request (ignored);
-      word_salad: two attempts, the last with 2 solved words and ``i % 2``
-        letter hints on word 0.
+      word_salad (points=2, so its score doubles): two attempts, the last with
+        2 solved words and ``i % 2`` letter hints on word 0.
     """
     game = Game.objects.create(id=prefix + '_game', name='g', author='a', author_extra='', is_ready=True)
     task_group = TaskGroup.objects.create(label=prefix + '_tg')
@@ -123,7 +123,8 @@ def expected_cell(task_type, i):
     if task_type == 'raddle':
         return (Decimal(3), ['1', '2']) if i % 2 == 0 else (Decimal(5), [])
     # Two words solved, half a point per letter hint; word 0 is displayed second.
-    return (Decimal('1.5'), ['2.1']) if i % 2 else (Decimal(2), [])
+    # The salad score is multiplied by the task points (2).
+    return (Decimal(3), ['2.1']) if i % 2 else (Decimal(4), [])
 
 
 def score_all_rows(rows_by_task):

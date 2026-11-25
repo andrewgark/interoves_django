@@ -521,7 +521,8 @@ class AnonMigrateTests(TestCase):
 
         guest.refresh_from_db()
         self.assertEqual(sorted(json.loads(guest.state)['solved_indices']), [0, 1])
-        self.assertEqual(float(guest.points), 2.0)
+        # Two words at the task's 2 points each.
+        self.assertEqual(float(guest.points), 4.0)
         row = ChainTaskState.objects.get(
             user=self.user, task=task, game=self.game, game_mode='general',
         )

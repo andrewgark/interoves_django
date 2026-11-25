@@ -30,10 +30,10 @@ class TaskResultsMaxPointsTests(SimpleTestCase):
         t = Task(task_type='raddle', points=2, checker_data=checker_data, text='')
         self.assertEqual(t.get_results_max_points(), 4)
 
-    def test_word_salad_awards_one_point_per_word(self):
+    def test_word_salad_awards_task_points_per_word(self):
         checker_data = json.dumps({
             'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
             'words': ['ABCDEFGHIJKLMNOP', 'ABCD'],
         })
         t = Task(task_type='word_salad', points=2, checker_data=checker_data, text='')
-        self.assertEqual(t.get_results_max_points(), 2)
+        self.assertEqual(t.get_results_max_points(), 4)
