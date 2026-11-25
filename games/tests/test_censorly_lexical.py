@@ -68,6 +68,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('приводит', 'извести'),
             ('цветы', 'цвета'),
             ('изображались', 'образом'),
+            ('сознание', 'познавательный'),
+            ('успех', 'успели'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertFalse(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target)))
@@ -351,9 +353,42 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
                 self.assertTrue(_has_sense(lemma, root))
 
     def test_know_and_nobility_readings_of_znat_are_separate(self):
-        self.assertTrue({'sense:cognize', 'sense:nobility'} <= _sense_set('знать'))
+        self.assertTrue({'sense:know', 'sense:nobility'} <= _sense_set('знать'))
         self.assertTrue(_has_sense('знатность', 'sense:nobility'))
         self.assertEqual(_sense_set('знатный'), {'sense:nobility'})
+
+    def test_knowing_words_split_by_modern_meaning(self):
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
+
+        for guess, target, expected in (
+            ('сознание', 'осознать', True),
+            ('познание', 'познавательный', True),
+            ('узнать', 'опознать', True),
+            ('узнать', 'разузнать', True),
+            ('успеть', 'успевающий', True),
+            ('преуспеть', 'успех', True),
+            ('подоспеть', 'успеть', True),
+            ('знать', 'познание', False),
+            ('сознание', 'признание', False),
+            ('успешный', 'успевать', False),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertEqual(bool(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target))), expected)
+
+    def test_further_and_nickname_split_from_distance_and_naming(self):
+        def gameplay_opens(guess, text):
+            return bool(matching_lemmas(tokenize_text(text), guess))
+
+        for guess, text, expected in (
+            ('даль', 'далее', False), ('даль', 'Пойдём дальше.', False),
+            ('далеко', 'Пойдём дальше.', False), ('дальше', 'далеко', False),
+            ('дальше', 'далее', True), ('далее', 'Пойдём дальше.', True),
+            ('далее', 'дальнейшем', True), ('даль', 'далекий', True),
+            ('прозвище', 'названием', False), ('прозвище', 'прозвать', True),
+            ('назвать', 'название', True),
+        ):
+            with self.subTest(guess=guess, text=text):
+                self.assertEqual(gameplay_opens(guess, text), expected)
 
     def test_write_and_urinate_readings_of_pisat_are_separate(self):
         for lemma in ('писать', 'писаться'):
@@ -1650,3 +1685,22 @@ class IndexAgreesWithMatcherTests(SimpleTestCase):
         self.assertIn('поток', matching_lemmas(tokens, 'потоков'))
         tokens = tokenize_text('Постоянная Планк ввёл.')
         self.assertTrue(matching_lemmas(tokens, 'Планка'))
+
+
+class SenseAuditTests(SimpleTestCase):
+    def test_alternants_stay_core_and_drifted_roots_are_flagged(self):
+        from games.puzzles.censorly.offline.tools.review.sense_audit import classify
+
+        roots = {
+            'тянуть': ('тя',), 'тяга': ('тяг',), 'тяжка': ('тяж',), 'вытягивать': ('тяг',),
+            'состязание': ('состяза',), 'состязаться': ('состяза',),
+            'дерн': ('дерн',), 'дерновый': ('дерн',),
+        }
+        groups = {
+            g.root: g.kind
+            for g in classify(list(roots), lambda lemma: roots[lemma], {}, ['тяг', 'тяж'])
+        }
+        self.assertEqual(groups['тя'], 'core')
+        self.assertEqual(groups['тяж'], 'core')
+        self.assertEqual(groups['состяза'], 'fused')
+        self.assertEqual(groups['дерн'], 'foreign')

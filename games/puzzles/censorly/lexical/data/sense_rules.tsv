@@ -76,7 +76,8 @@ family	pattern	sense	note
 чист|чищ	.*	sense:review_cleaning	
 мал¹	(?:мальч|малыш|малец).*	sense:review_boy	
 мал¹	.*	sense:review_small	
-зв|зов|зыв	(?:назван|назыв|прозван|прозвищ).*	sense:review_designation	
+зв|зов|зыв	(?:прозва|прозвищ|прозыв).*	sense:review_nickname	Nickname, not naming: прозвище does not feel like название (complaint 76)
+зв|зов|зыв	(?:назва|назыв).*	sense:review_designation	
 зв|зов|зыв	(?:звание|отозвание)	sense:review_title	
 зв|зов|зыв	.*	sense:review_calling	
 чин¹	(?:беспричин|причин).*	sense:review_cause	
@@ -426,7 +427,8 @@ family	pattern	sense	note
 пят²|пяч	(?:пятит|пятить|попят|отпят|вспят).*	sense:review_retreat	
 пят²|пяч	.*	sense:review_five_heel	
 спе	(?:спеш|наспех|поспеш|заспеш).*	sense:review_haste	
-спе	(?:успеш|успев|успеть|преусп|успех|безуспеш).*	sense:review_success	
+спе	(?:успеш|преусп|успех|безуспеш).*	sense:review_success	Success, split from being on time (complaint 363)
+спе	(?:успев|успеть|подоспе).*	sense:review_on_time	
 спе	доспех.*	sense:review_armor	
 спе	.*	sense:review_ripening	
 кащ|кост|кощ	кощ.*	sense:review_koschei	

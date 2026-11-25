@@ -22,3 +22,5 @@ surface	article_lemma	allowed	mode	note
 вяжущих	вяжущий	вяжущий	filter	not the participle of вязать
 барабанов	барабан	барабан	substitute	the guess-side analysis drops this inflected surface
 есть	быть	быть	substitute	existential «есть» chosen by the tokenizer, not «eat»
+дальше	далекий	дальше	substitute	next, further on (complaint 91); the comparative of далёкий would tie it to «даль»
+дальше	далеко	дальше	substitute	

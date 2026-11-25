@@ -71,6 +71,7 @@
 | семьи составных без корня (трек C) | `compound_queue --count 150 --tsv /tmp/c.tsv` (~1 мин) |
 | лист ревью базовых слов вне словарей (трек B) | `absent_sheet /tmp/gaps.tsv --count 160` (~1 мин, gaps из `coverage_report`) |
 | очереди кандидатов (opaque, authorization holes) | `candidate_miner --output-dir /tmp/miner` (~40 с) |
+| смыслы, в которых слились разные значения: члены смысла по корню Тихонова, `!` чужой корень (кладбище в lay), `~` приставка срослась с корнем (со+держ); проверенную группу запиши `keep` в `data/sense_audit_reviewed.tsv`; `--db` через `with_rds.sh --raw` поднимает смыслы с живыми жалобами; `--sense sense:X` — один смысл целиком | `review.sense_audit --out /tmp/sense_audit.tsv` (~10 с) |
 | открывающие пары статьи | `candidates.article_candidates` |
 | пропущенные открытия статьи | `candidates.near_miss_candidates` |
 | Wiktionary: вердикт и гнёзда по каждой дыре | `wiktionary.compare --gaps-out /tmp/wk.tsv` (~1 мин) |

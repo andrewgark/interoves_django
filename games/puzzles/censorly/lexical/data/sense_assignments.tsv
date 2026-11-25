@@ -169,22 +169,22 @@ lemma	senses	note
 свершитель	sense:accomplish	
 свершить	sense:accomplish	
 свершиться	sense:accomplish	
-совершать	sense:accomplish	
-совершаться	sense:accomplish	
-совершение	sense:accomplish	
-совершенный	sense:accomplish	
-совершенство	sense:accomplish	
-совершенствование	sense:accomplish	
-совершенствовать	sense:accomplish	
-совершенствоваться	sense:accomplish	
+совершать	sense:accomplish	Sense audit 2026-11-25: split from sense:accomplish
+совершаться	sense:accomplish	Sense audit 2026-11-25: split from sense:accomplish
+совершение	sense:accomplish	Sense audit 2026-11-25: split from sense:accomplish
+совершенный	sense:perfection|sense:accomplish	Sense audit 2026-11-25: split from sense:accomplish
+совершенство	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
+совершенствование	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
+совершенствовать	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
+совершенствоваться	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
 совершитель	sense:accomplish	
-совершить	sense:accomplish	
-совершиться	sense:accomplish	
-усовершенствование	sense:accomplish	
+совершить	sense:accomplish	Kept with завершить (required pair); совершенство split off as perfection
+совершиться	sense:accomplish	Sense audit 2026-11-25: split from sense:accomplish
+усовершенствование	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
 усовершенствованность	sense:accomplish	
-усовершенствованный	sense:accomplish	
-усовершенствовать	sense:accomplish	
-усовершенствоваться	sense:accomplish	
+усовершенствованный	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
+усовершенствовать	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
+усовершенствоваться	sense:perfection	Sense audit 2026-11-25: split from sense:accomplish
 знакомец	sense:acquaint	
 знакомить	sense:acquaint	
 знакомиться	sense:acquaint	
@@ -264,8 +264,8 @@ lemma	senses	note
 подбавка	sense:add	
 подбавлять	sense:add	
 подбавляться	sense:add	
-позабавить	sense:add	
-позабавиться	sense:add	
+позабавить	sense:amuse	Sense audit 2026-11-25: split from sense:add
+позабавиться	sense:amuse	Sense audit 2026-11-25: split from sense:add
 посбавить	sense:add	
 поубавить	sense:add	
 прибавить	sense:add	
@@ -572,13 +572,13 @@ lemma	senses	note
 мышьячный	sense:arsenic	
 безыскусный	sense:art	
 безыскусственность	sense:art	
-безыскусственный	sense:art	
+безыскусственный	sense:artificial	Sense audit 2026-11-25
 искусник	sense:art	
 искусница	sense:art	
 искусность	sense:art	
 искусный	sense:art	
 искусственность	sense:art	
-искусственный	sense:art	
+искусственный	sense:artificial	Sense audit 2026-11-25
 искусство	sense:art	
 постатейный	sense:article	
 статеечка	sense:article	
@@ -855,15 +855,15 @@ lemma	senses	note
 быть	sense:be	
 бытье	sense:be	
 небытие	sense:be	
-незабываемый	sense:be	
+незабываемый	sense:forget	Sense audit 2026-11-25: split from sense:be
 перебывать	sense:be	
-перезабыть	sense:be	
-перезабыться	sense:be	
+перезабыть	sense:forget	Sense audit 2026-11-25: split from sense:be
+перезабыться	sense:forget	Sense audit 2026-11-25: split from sense:be
 побывать	sense:be	
 побывка	sense:be	
 побыть	sense:be	
-подзабывать	sense:be	
-подзабыть	sense:be	
+подзабывать	sense:forget	Sense audit 2026-11-25: split from sense:be
+подзабыть	sense:forget	Sense audit 2026-11-25: split from sense:be
 пребывание	sense:be	
 пребывать	sense:be	
 пребыть	sense:be	
@@ -926,7 +926,7 @@ lemma	senses	note
 добивать	sense:beat	
 добиваться	sense:beat	
 добить	sense:beat	
-добиться	sense:beat	
+добиться	sense:achieve	Sense audit 2026-11-25, single lemmas
 забивание	sense:beat	
 забивать	sense:beat	
 забиваться	sense:beat	
@@ -1140,7 +1140,7 @@ lemma	senses	note
 украшать	sense:beauty	
 украшаться	sense:beauty	
 украшение	sense:beauty	
-безобманный	sense:beckon	
+безобманный	sense:deceive	Sense audit 2026-11-25, single lemmas
 взманивать	sense:beckon	
 взманиваться	sense:beckon	
 взманить	sense:beckon	
@@ -1192,11 +1192,11 @@ lemma	senses	note
 прежде	sense:before_time	
 прежний	sense:before_time	
 вначале	sense:begin_start	
-зачатие	sense:begin_start	
-зачатковый	sense:begin_start	
-зачаток	sense:begin_start	
+зачатие	sense:conception	Sense audit 2026-11-25: split from sense:begin_start
+зачатковый	sense:conception	Sense audit 2026-11-25: split from sense:begin_start
+зачаток	sense:conception	Sense audit 2026-11-25: split from sense:begin_start
 зачаточность	sense:begin_start	
-зачаточный	sense:begin_start	
+зачаточный	sense:conception	Sense audit 2026-11-25: split from sense:begin_start
 зачать	sense:begin_start	
 зачаться	sense:begin_start	
 зачин	sense:begin_start	
@@ -1223,10 +1223,10 @@ lemma	senses	note
 начинать	sense:begin_start	
 начинаться	sense:begin_start	
 начинающий	sense:begin_start	
-подначивать	sense:begin_start	
-подначить	sense:begin_start	
+подначивать	sense:tease	Sense audit 2026-11-25: split from sense:begin_start
+подначить	sense:tease	Sense audit 2026-11-25: split from sense:begin_start
 поначалу	sense:begin_start	
-початок	sense:begin_start	
+початок	sense:corncob	Sense audit 2026-11-25, single lemmas
 початый	sense:begin_start	
 почать	sense:begin_start	
 почин	sense:begin_start	
@@ -1258,12 +1258,12 @@ lemma	senses	note
 доверчивый	sense:believe	
 доверять	sense:believe	
 доверяться	sense:believe	
-заверение	sense:believe	
-заверитель	sense:believe	
-заверительница	sense:believe	
-заверить	sense:believe	
-заверять	sense:believe	
-заверяться	sense:believe	
+заверение	sense:certify	Sense audit 2026-11-25: split from sense:believe
+заверитель	sense:certify	Sense audit 2026-11-25: split from sense:believe
+заверительница	sense:certify	Sense audit 2026-11-25: split from sense:believe
+заверить	sense:certify	Sense audit 2026-11-25: split from sense:believe
+заверять	sense:certify	Sense audit 2026-11-25: split from sense:believe
+заверяться	sense:certify	Sense audit 2026-11-25: split from sense:believe
 извериться	sense:believe	
 наверно	sense:believe	
 наверное	sense:believe	
@@ -1637,10 +1637,10 @@ lemma	senses	note
 хлопотун	sense:bother	
 хлопотунья	sense:bother	
 хлопоты	sense:bother	
-вонзать	sense:bottom	
-вонзаться	sense:bottom	
-вонзить	sense:bottom	
-вонзиться	sense:bottom	
+вонзать	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+вонзаться	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+вонзить	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+вонзиться	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
 вынизать	sense:bottom	
 вынизывание	sense:bottom	
 вынизывать	sense:bottom	
@@ -1683,12 +1683,12 @@ lemma	senses	note
 принизка	sense:bottom	
 принизывать	sense:bottom	
 принизываться	sense:bottom	
-пронзать	sense:bottom	
-пронзаться	sense:bottom	
+пронзать	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+пронзаться	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
 пронзительность	sense:bottom	
-пронзительный	sense:bottom	
-пронзить	sense:bottom	
-пронзиться	sense:bottom	
+пронзительный	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+пронзить	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
+пронзиться	sense:pierce	Sense audit 2026-11-25: split from sense:bottom
 пронизать	sense:bottom	
 пронизка	sense:bottom	
 пронизывать	sense:bottom	
@@ -1717,17 +1717,17 @@ lemma	senses	note
 отрубной	sense:bran	
 отрубный	sense:bran	
 вдох	sense:breath	
-вдохновение	sense:breath	
-вдохновенность	sense:breath	
-вдохновенный	sense:breath	
-вдохновитель	sense:breath	
-вдохновительница	sense:breath	
-вдохновительный	sense:breath	
-вдохновить	sense:breath	
-вдохновиться	sense:breath	
+вдохновение	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновенность	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновенный	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновитель	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновительница	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновительный	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновить	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновиться	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
 вдохновленность	sense:breath	
-вдохновлять	sense:breath	
-вдохновляться	sense:breath	
+вдохновлять	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
+вдохновляться	sense:inspiration	Sense audit 2026-11-25: split from sense:breath
 вдохнуть	sense:breath	
 вдохнуться	sense:breath	
 вздох	sense:breath	
@@ -1882,13 +1882,13 @@ lemma	senses	note
 угар	sense:burn	
 угарный	sense:burn	
 пригорать	sense:burn	
-воспаление	sense:burn_fire	
-воспаленный	sense:burn_fire	
-воспалительный	sense:burn_fire	
-воспалить	sense:burn_fire	
-воспалиться	sense:burn_fire	
-воспалять	sense:burn_fire	
-воспаляться	sense:burn_fire	
+воспаление	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспаленный	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспалительный	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспалить	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспалиться	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспалять	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
+воспаляться	sense:inflammation	Sense audit 2026-11-25: split from sense:burn_fire
 выпаливать	sense:burn_fire	
 выпаливаться	sense:burn_fire	
 выпалить	sense:burn_fire	
@@ -1990,16 +1990,16 @@ lemma	senses	note
 объемность	sense:capacity	
 объемный	sense:capacity	
 косач	sense:capercaillie	
-беспечность	sense:care	
-беспечный	sense:care	
-обеспечение	sense:care	
-обеспеченность	sense:care	
-обеспеченный	sense:care	
-обеспечивать	sense:care	
-обеспечиваться	sense:care	
+беспечность	sense:carefree	Sense audit 2026-11-25: split from sense:care
+беспечный	sense:carefree	Sense audit 2026-11-25: split from sense:care
+обеспечение	sense:provide	Sense audit 2026-11-25: split from sense:care
+обеспеченность	sense:provide	Sense audit 2026-11-25: split from sense:care
+обеспеченный	sense:provide	Sense audit 2026-11-25: split from sense:care
+обеспечивать	sense:provide	Sense audit 2026-11-25: split from sense:care
+обеспечиваться	sense:provide	Sense audit 2026-11-25: split from sense:care
 обеспечительный	sense:care	
-обеспечить	sense:care	
-обеспечиться	sense:care	
+обеспечить	sense:provide	Sense audit 2026-11-25: split from sense:care
+обеспечиться	sense:provide	Sense audit 2026-11-25: split from sense:care
 опека	sense:care	
 опекать	sense:care	
 опекаться	sense:care	
@@ -2665,94 +2665,94 @@ lemma	senses	note
 надгробный	sense:coffin	
 угробить	sense:coffin	
 угробиться	sense:coffin	
-бессознательность	sense:cognize	
-бессознательный	sense:cognize	
-вызнавать	sense:cognize	
-вызнать	sense:cognize	
-дознаваться	sense:cognize	
-дознание	sense:cognize	
-дознать	sense:cognize	
-дознаться	sense:cognize	
-зазнаваться	sense:cognize	
-зазнайка	sense:cognize	
-зазнайство	sense:cognize	
-зазнаться	sense:cognize	
-знавать	sense:cognize	
-знаемый	sense:cognize	
-знание	sense:cognize	
-знаток	sense:cognize	
-знаточество	sense:cognize	
-знаться	sense:cognize	
-знахарить	sense:cognize	
-знахарка	sense:cognize	
-знахарский	sense:cognize	
-знахарство	sense:cognize	
-знахарь	sense:cognize	
-знающий	sense:cognize	
-наузнавать	sense:cognize	
-незнаемый	sense:cognize	
-незнайка	sense:cognize	
-незнамо	sense:cognize	
-неузнаваемость	sense:cognize	
-неузнаваемый	sense:cognize	
-обознаваться	sense:cognize	
-обознаться	sense:cognize	
-опознавание	sense:cognize	
-опознавательный	sense:cognize	
-опознавать	sense:cognize	
-опознаваться	sense:cognize	
-опознание	sense:cognize	
-опознать	sense:cognize	
-осознавать	sense:cognize	
-осознаваться	sense:cognize	
-осознание	sense:cognize	
-осознать	sense:cognize	
-подсознание	sense:cognize	
-подсознательность	sense:cognize	
-подсознательный	sense:cognize	
-познаваемость	sense:cognize	
-познавание	sense:cognize	
-познавательный	sense:cognize	
-познавать	sense:cognize	
-познаваться	sense:cognize	
-познание	sense:cognize	
-познать	sense:cognize	
-поразузнать	sense:cognize	
-признавать	sense:cognize	
-признаваться	sense:cognize	
-признание	sense:cognize	
-признанный	sense:cognize	
-признательность	sense:cognize	
-признательный	sense:cognize	
-признать	sense:cognize	
-признаться	sense:cognize	
-прознавать	sense:cognize	
-прознать	sense:cognize	
-разузнавать	sense:cognize	
-разузнаваться	sense:cognize	
-разузнать	sense:cognize	
-распознаваемость	sense:cognize	
-распознавание	sense:cognize	
-распознавать	sense:cognize	
-распознаваться	sense:cognize	
-распознание	sense:cognize	
-распознать	sense:cognize	
-сознавать	sense:cognize	
-сознаваться	sense:cognize	
-сознание	sense:cognize	
-сознательность	sense:cognize	
-сознательный	sense:cognize	
-сознать	sense:cognize	
-сознаться	sense:cognize	
-узнавание	sense:cognize	
-узнавать	sense:cognize	
-узнаваться	sense:cognize	
-узнать	sense:cognize	
-неопознанный	sense:cognize	
-узнаться	sense:cognize	
-непознанный	sense:cognize	
-непознаваемый	sense:cognize	
-знать	sense:cognize|sense:nobility	
+бессознательность	sense:conscious	Consciousness/awareness; not cognition (#364: сознание ≠ познавательный).
+бессознательный	sense:conscious	
+вызнавать	sense:find_out	Finding out, inquiring.
+вызнать	sense:find_out	
+дознаваться	sense:find_out	
+дознание	sense:find_out	
+дознать	sense:find_out	
+дознаться	sense:find_out	
+зазнаваться	sense:conceit	Conceit (зазнаться).
+зазнайка	sense:conceit	
+зазнайство	sense:conceit	
+зазнаться	sense:conceit	
+знавать	sense:know	Split of the old sense:cognize (#364): plain knowing.
+знаемый	sense:know	
+знание	sense:know	
+знаток	sense:know	
+знаточество	sense:know	
+знаться	sense:know	
+знахарить	sense:folk_healer	Folk healer (знахарь).
+знахарка	sense:folk_healer	
+знахарский	sense:folk_healer	
+знахарство	sense:folk_healer	
+знахарь	sense:folk_healer	
+знающий	sense:know	
+наузнавать	sense:find_out	
+незнаемый	sense:know	
+незнайка	sense:know	
+незнамо	sense:know	
+неузнаваемость	sense:recognize	Recognizing/identifying someone or something.
+неузнаваемый	sense:recognize	
+обознаваться	sense:recognize	
+обознаться	sense:recognize	
+опознавание	sense:recognize	
+опознавательный	sense:recognize	
+опознавать	sense:recognize	
+опознаваться	sense:recognize	
+опознание	sense:recognize	
+опознать	sense:recognize	
+осознавать	sense:conscious	
+осознаваться	sense:conscious	
+осознание	sense:conscious	
+осознать	sense:conscious	
+подсознание	sense:conscious	
+подсознательность	sense:conscious	
+подсознательный	sense:conscious	
+познаваемость	sense:cognition	Learning/cognition, «познавательный» = informative.
+познавание	sense:cognition	
+познавательный	sense:cognition	
+познавать	sense:cognition	
+познаваться	sense:cognition	
+познание	sense:cognition	
+познать	sense:cognition	
+поразузнать	sense:find_out	
+признавать	sense:acknowledge	Acknowledging, recognition by others.
+признаваться	sense:confess	Confessing.
+признание	sense:confess|sense:acknowledge	
+признанный	sense:acknowledge	
+признательность	sense:gratitude	Gratitude (признательный).
+признательный	sense:gratitude	
+признать	sense:acknowledge	
+признаться	sense:confess	
+прознавать	sense:find_out	
+прознать	sense:find_out	
+разузнавать	sense:find_out	
+разузнаваться	sense:find_out	
+разузнать	sense:find_out	
+распознаваемость	sense:recognize	
+распознавание	sense:recognize	
+распознавать	sense:recognize	
+распознаваться	sense:recognize	
+распознание	sense:recognize	
+распознать	sense:recognize	
+сознавать	sense:conscious	
+сознаваться	sense:confess	
+сознание	sense:conscious	
+сознательность	sense:conscious	
+сознательный	sense:conscious	
+сознать	sense:conscious	
+сознаться	sense:confess	
+узнавание	sense:recognize	
+узнавать	sense:know|sense:recognize|sense:find_out	
+узнаваться	sense:recognize	
+узнать	sense:know|sense:recognize|sense:find_out	
+неопознанный	sense:recognize	
+узнаться	sense:find_out	
+непознанный	sense:cognition	
+непознаваемый	sense:cognition	
+знать	sense:know|sense:nobility	
 сожитель	sense:cohabitation	
 сожительница	sense:cohabitation	
 сожительство	sense:cohabitation	
@@ -2817,7 +2817,7 @@ lemma	senses	note
 сочетать	sense:combine	
 сочетаться	sense:combine	
 чета	sense:combine	
-знаменательный	sense:commemoration	
+знаменательный	sense:commemoration|sense:meaning	Notable, close to «значительный»
 знаменовать	sense:commemoration	
 знаменоваться	sense:commemoration	
 ознаменование	sense:commemoration	
@@ -2844,14 +2844,14 @@ lemma	senses	note
 общаться	sense:commune	
 общение	sense:commune	
 сообща	sense:commune	
-сообщать	sense:commune	
-сообщаться	sense:commune	
-сообщение	sense:commune	
+сообщать	sense:message	Sense audit 2026-11-25: split from sense:commune
+сообщаться	sense:message	Sense audit 2026-11-25: split from sense:commune
+сообщение	sense:message	Sense audit 2026-11-25: split from sense:commune
 сообщество	sense:commune	
 сообщительность	sense:commune	
-сообщительный	sense:commune	
-сообщить	sense:commune	
-сообщиться	sense:commune	
+сообщительный	sense:message	Sense audit 2026-11-25: split from sense:commune
+сообщить	sense:message	Sense audit 2026-11-25: split from sense:commune
+сообщиться	sense:message	Sense audit 2026-11-25: split from sense:commune
 сообщник	sense:commune	
 сообщница	sense:commune	
 сообщнический	sense:commune	
@@ -3012,7 +3012,7 @@ lemma	senses	note
 поваживать	sense:conduct	
 повести	sense:conduct	
 повестись	sense:conduct	
-повзводно	sense:conduct	
+повзводно	sense:squad	Sense audit 2026-11-25, single lemmas
 повод	sense:conduct	
 поводить	sense:conduct	
 поводиться	sense:conduct	
@@ -3023,7 +3023,7 @@ lemma	senses	note
 подведенный	sense:conduct	
 подвести	sense:conduct	
 подвод	sense:conduct	
-подвода	sense:conduct	
+подвода	sense:cart	Sense audit 2026-11-25, single lemmas
 подводить	sense:conduct	
 подводиться	sense:conduct	
 подводка	sense:conduct	
@@ -3042,7 +3042,7 @@ lemma	senses	note
 приводной	sense:conduct	
 приводчик	sense:conduct	
 проваживать	sense:conduct	
-произвести	sense:conduct	
+произвести	sense:produce	Sense audit 2026-11-25, single lemmas
 разведение	sense:conduct	
 развести	sense:conduct	
 раззавод	sense:conduct	
@@ -3414,10 +3414,10 @@ lemma	senses	note
 вытворяться	sense:create	
 натворить	sense:create	
 подтворить	sense:create	
-потворство	sense:create	
-потворствовать	sense:create	
-потворщик	sense:create	
-потворщица	sense:create	
+потворство	sense:connive	Sense audit 2026-11-25: split from sense:create
+потворствовать	sense:connive	Sense audit 2026-11-25: split from sense:create
+потворщик	sense:connive	Sense audit 2026-11-25: split from sense:create
+потворщица	sense:connive	Sense audit 2026-11-25: split from sense:create
 претворение	sense:create	
 претворить	sense:create	
 претвориться	sense:create	
@@ -3722,7 +3722,7 @@ lemma	senses	note
 сдохнуть	sense:dead_of	
 тупик	sense:deadend	
 тупиковый	sense:deadend	
-безоброчный	sense:deadline	
+безоброчный	sense:quitrent	Sense audit 2026-11-25, single lemmas
 безурочный	sense:deadline	
 бессрочность	sense:deadline	
 бессрочный	sense:deadline	
@@ -3964,8 +3964,8 @@ lemma	senses	note
 обозначение	sense:designation	
 обозначить	sense:designation	
 обозначиться	sense:designation	
-означать	sense:designation	
-означаться	sense:designation	
+означать	sense:meaning	«Означать» = to mean, not to designate
+означаться	sense:meaning	
 означенный	sense:designation	
 означить	sense:designation	
 означиться	sense:designation	
@@ -4461,8 +4461,8 @@ lemma	senses	note
 наволакивать	sense:drag	
 наволакиваться	sense:drag	
 наволок	sense:drag	
-наволока	sense:drag	
-наволочка	sense:drag	
+наволока	sense:pillowcase	Sense audit 2026-11-25: split from sense:drag
+наволочка	sense:pillowcase	Sense audit 2026-11-25: split from sense:drag
 наволочь	sense:drag	
 наизволок	sense:drag	
 обволакивание	sense:drag	
@@ -4513,8 +4513,8 @@ lemma	senses	note
 сволакивать	sense:drag	
 сволакиваться	sense:drag	
 сволочить	sense:drag	
-сволочной	sense:drag	
-сволочь	sense:drag	
+сволочной	sense:scum	Sense audit 2026-11-25: split from sense:drag
+сволочь	sense:scum	Sense audit 2026-11-25: split from sense:drag
 сволочься	sense:drag	
 уволакивать	sense:drag	
 уволакиваться	sense:drag	
@@ -4767,18 +4767,18 @@ lemma	senses	note
 заедки	sense:eat	
 заесть	sense:eat	
 заесться	sense:eat	
-заядлый	sense:eat	
+заядлый	sense:inveterate	Sense audit 2026-11-25, single lemmas
 изъедание	sense:eat	
 изъедать	sense:eat	
 изъесть	sense:eat	
-надоеда	sense:eat	
+надоеда	sense:annoy	Sense audit 2026-11-25: split from sense:eat
 надоедала	sense:eat	
 надоедание	sense:eat	
-надоедать	sense:eat	
-надоедливость	sense:eat	
-надоедливый	sense:eat	
-надоедный	sense:eat	
-надоесть	sense:eat	
+надоедать	sense:annoy	Sense audit 2026-11-25: split from sense:eat
+надоедливость	sense:annoy	Sense audit 2026-11-25: split from sense:eat
+надоедливый	sense:annoy	Sense audit 2026-11-25: split from sense:eat
+надоедный	sense:annoy	Sense audit 2026-11-25: split from sense:eat
+надоесть	sense:annoy	Sense audit 2026-11-25: split from sense:eat
 наедать	sense:eat	
 наедаться	sense:eat	
 наесть	sense:eat	
@@ -4889,8 +4889,8 @@ lemma	senses	note
 попасть	sense:encounter	
 попасться	sense:encounter	
 совпадание	sense:encounter	
-совпадать	sense:encounter	
-совпадение	sense:encounter	
+совпадать	sense:coincide	Sense audit 2026-11-25: split from sense:encounter
+совпадение	sense:coincide	Sense audit 2026-11-25: split from sense:encounter
 совпасть	sense:encounter	
 достаток	sense:enough	
 достаточность	sense:enough	
@@ -4911,7 +4911,7 @@ lemma	senses	note
 заровнять	sense:equal	
 заровняться	sense:equal	
 наравне	sense:equal	
-несравненный	sense:equal	
+несравненный	sense:compare	Sense audit 2026-11-25: split from sense:equal
 несравнимо	sense:equal	
 обравнивать	sense:equal	
 обравниваться	sense:equal	
@@ -4939,15 +4939,15 @@ lemma	senses	note
 разравнять	sense:equal	
 разровнитель	sense:equal	
 разровнять	sense:equal	
-сравнение	sense:equal	
+сравнение	sense:compare	Sense audit 2026-11-25: split from sense:equal
 сравнивать	sense:equal	
 сравниваться	sense:equal	
 сравнимость	sense:equal	
-сравнимый	sense:equal	
-сравнительно	sense:equal	
-сравнительный	sense:equal	
-сравнить	sense:equal	
-сравниться	sense:equal	
+сравнимый	sense:compare	Sense audit 2026-11-25: split from sense:equal
+сравнительно	sense:compare	Sense audit 2026-11-25: split from sense:equal
+сравнительный	sense:compare	Sense audit 2026-11-25: split from sense:equal
+сравнить	sense:compare	Sense audit 2026-11-25: split from sense:equal
+сравниться	sense:compare	Sense audit 2026-11-25: split from sense:equal
 сравнять	sense:equal	
 сравняться	sense:equal	
 сровнять	sense:equal	
@@ -5021,7 +5021,7 @@ lemma	senses	note
 усадьба	sense:estate_plot	
 течка	sense:estrus	
 вечник	sense:eternal	
-бессчетный	sense:even	
+бессчетный	sense:countless	Sense audit 2026-11-25, single lemmas
 вровень	sense:even	
 нечетный	sense:even	
 поровну	sense:even	
@@ -6774,7 +6774,7 @@ lemma	senses	note
 шибкий	sense:hit_strike	
 безудержный	sense:hold	
 бессодержательность	sense:hold	
-бессодержательный	sense:hold	
+бессодержательный	sense:contain	Sense audit 2026-11-25: split from sense:hold
 вдержка	sense:hold	
 вздержка	sense:hold	
 воздержание	sense:hold	
@@ -6827,10 +6827,10 @@ lemma	senses	note
 додерживаться	sense:hold	
 задернелый	sense:hold	
 задерновать	sense:hold	
-издержать	sense:hold	
-издержаться	sense:hold	
-издерживать	sense:hold	
-издерживаться	sense:hold	
+издержать	sense:expense	Sense audit 2026-11-25: split from sense:hold
+издержаться	sense:expense	Sense audit 2026-11-25: split from sense:hold
+издерживать	sense:expense	Sense audit 2026-11-25: split from sense:hold
+издерживаться	sense:expense	Sense audit 2026-11-25: split from sense:hold
 издержка	sense:hold	
 издирать	sense:hold	
 издираться	sense:hold	
@@ -6864,8 +6864,8 @@ lemma	senses	note
 подержать	sense:hold	
 подержаться	sense:hold	
 подирать	sense:hold	
-поиздержать	sense:hold	
-поиздержаться	sense:hold	
+поиздержать	sense:expense	Sense audit 2026-11-25: split from sense:hold
+поиздержаться	sense:expense	Sense audit 2026-11-25: split from sense:hold
 попридержать	sense:hold	
 попридерживать	sense:hold	
 придержать	sense:hold	
@@ -6883,17 +6883,17 @@ lemma	senses	note
 сдержаться	sense:hold	
 сдерживать	sense:hold	
 сдерживаться	sense:hold	
-содержание	sense:hold	
-содержанка	sense:hold	
-содержатель	sense:hold	
-содержательница	sense:hold	
-содержательность	sense:hold	
-содержательный	sense:hold	
-содержать	sense:hold	
-содержаться	sense:hold	
-содержимое	sense:hold	
+содержание	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержанка	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержатель	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержательница	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержательность	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержательный	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержать	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержаться	sense:contain	Sense audit 2026-11-25: split from sense:hold
+содержимое	sense:contain	Sense audit 2026-11-25: split from sense:hold
 содержимость	sense:hold	
-содержимый	sense:hold	
+содержимый	sense:contain	Sense audit 2026-11-25: split from sense:hold
 удерж	sense:hold	
 удержание	sense:hold	
 удержать	sense:hold	
@@ -6914,10 +6914,10 @@ lemma	senses	note
 святцы	sense:holy	
 священный	sense:holy	
 святыня	sense:holy	
-причт	sense:honor	
-причтовый	sense:honor	
+причт	sense:honor	Kept with честь: required pair честь → причт
+причтовый	sense:honor	Sense audit 2026-11-25: split from sense:honor
 чтица	sense:honor	
-причет	sense:honor	
+причет	sense:honor	Sense audit 2026-11-25: split from sense:honor
 причетник	sense:honor	
 причетнический	sense:honor	
 честной	sense:honor	
@@ -7298,13 +7298,13 @@ lemma	senses	note
 изобретение	sense:invent	
 доследование	sense:investigate	
 доследовать	sense:investigate	
-исследование	sense:investigate	
-исследованный	sense:investigate	
-исследователь	sense:investigate	
-исследовательница	sense:investigate	
-исследовательский	sense:investigate	
-исследовать	sense:investigate	
-исследоваться	sense:investigate	
+исследование	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследованный	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследователь	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследовательница	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследовательский	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследовать	sense:research	Sense audit 2026-11-25: split from sense:investigate
+исследоваться	sense:research	Sense audit 2026-11-25: split from sense:investigate
 обследование	sense:investigate	
 обследователь	sense:investigate	
 обследовательский	sense:investigate	
@@ -7387,7 +7387,7 @@ lemma	senses	note
 смычечный	sense:join_link	
 смычка	sense:join_link	
 смычный	sense:join_link	
-смычок	sense:join_link	
+смычок	sense:bow_violin	Sense audit 2026-11-25, single lemmas
 сомкнутость	sense:join_link	
 сомкнутый	sense:join_link	
 сомкнуть	sense:join_link	
@@ -7603,8 +7603,8 @@ lemma	senses	note
 выкладывание	sense:lay	
 выкладывать	sense:lay	
 выкладываться	sense:lay	
-доклад	sense:lay	
-докладной	sense:lay	
+доклад	sense:report	Sense audit 2026-11-25: split from sense:lay
+докладной	sense:report	Sense audit 2026-11-25: split from sense:lay
 докладчик	sense:lay	
 докладчица	sense:lay	
 докладывать	sense:lay	
@@ -7620,9 +7620,9 @@ lemma	senses	note
 закладывание	sense:lay	
 закладывать	sense:lay	
 закладываться	sense:lay	
-заклание	sense:lay	
-кладбище	sense:lay	
-кладбищенский	sense:lay	
+заклание	sense:sacrifice	Sense audit 2026-11-25, single lemmas
+кладбище	sense:cemetery	Sense audit 2026-11-25: split from sense:lay
+кладбищенский	sense:cemetery	Sense audit 2026-11-25: split from sense:lay
 кладево	sense:lay	
 кладенец	sense:lay	
 кладеный	sense:lay	
@@ -7677,8 +7677,8 @@ lemma	senses	note
 подкладчик	sense:lay	
 подкладывать	sense:lay	
 подкладываться	sense:lay	
-покладистость	sense:lay	
-покладистый	sense:lay	
+покладистость	sense:compliant	Sense audit 2026-11-25, single lemmas
+покладистый	sense:compliant	Sense audit 2026-11-25, single lemmas
 поклажа	sense:lay	
 покласть	sense:lay	
 приклад	sense:lay	
@@ -7693,8 +7693,8 @@ lemma	senses	note
 прокладчик	sense:lay	
 прокладывать	sense:lay	
 прокладываться	sense:lay	
-содоклад	sense:lay	
-содокладчик	sense:lay	
+содоклад	sense:report	Sense audit 2026-11-25: split from sense:lay
+содокладчик	sense:report	Sense audit 2026-11-25: split from sense:lay
 уклад	sense:lay	
 укладистый	sense:lay	
 укладка	sense:lay	
@@ -8320,10 +8320,10 @@ lemma	senses	note
 значительный	sense:meaning	
 значить	sense:meaning	
 значиться	sense:meaning	
-значкист	sense:meaning	
-значкистка	sense:meaning	
-значковый	sense:meaning	
-значок	sense:meaning	
+значкист	sense:sign	Badge words come from «знак»
+значкистка	sense:sign	
+значковый	sense:sign	
+значок	sense:sign	
 опосредование	sense:means	
 опосредствование	sense:means	
 опосредствованный	sense:means	
@@ -8608,8 +8608,8 @@ lemma	senses	note
 назеркалить	sense:mirror	
 подзеркальник	sense:mirror	
 подзеркальный	sense:mirror	
-дозор	sense:mischief	
-дозорный	sense:mischief	
+дозор	sense:patrol	Sense audit 2026-11-25: split from sense:mischief
+дозорный	sense:patrol	Sense audit 2026-11-25: split from sense:mischief
 дозорщик	sense:mischief	
 озорник	sense:mischief	
 озорница	sense:mischief	
@@ -8617,10 +8617,10 @@ lemma	senses	note
 озорной	sense:mischief	
 озоровать	sense:mischief	
 озорство	sense:mischief	
-прозорливец	sense:mischief	
-прозорливица	sense:mischief	
-прозорливость	sense:mischief	
-прозорливый	sense:mischief	
+прозорливец	sense:perspicacious	Sense audit 2026-11-25: split from sense:mischief
+прозорливица	sense:perspicacious	Sense audit 2026-11-25: split from sense:mischief
+прозорливость	sense:perspicacious	Sense audit 2026-11-25: split from sense:mischief
+прозорливый	sense:perspicacious	Sense audit 2026-11-25: split from sense:mischief
 созорничать	sense:mischief	
 беда	sense:misery	
 бедненький	sense:misery	
@@ -8826,11 +8826,11 @@ lemma	senses	note
 вдвигаться	sense:move	
 вдвинуть	sense:move	
 вдвинуться	sense:move	
-воздвигать	sense:move	
-воздвигаться	sense:move	
-воздвигнуть	sense:move	
-воздвигнуться	sense:move	
-воздвижение	sense:move	
+воздвигать	sense:erect	Sense audit 2026-11-25: split from sense:move
+воздвигаться	sense:erect	Sense audit 2026-11-25: split from sense:move
+воздвигнуть	sense:erect	Sense audit 2026-11-25: split from sense:move
+воздвигнуться	sense:erect	Sense audit 2026-11-25: split from sense:move
+воздвижение	sense:erect	Sense audit 2026-11-25: split from sense:move
 воздвиженье	sense:move	
 выдвигание	sense:move	
 выдвигать	sense:move	
@@ -8894,13 +8894,13 @@ lemma	senses	note
 подвигнуть	sense:move	
 подвигнуться	sense:move	
 подвижка	sense:move	
-подвижница	sense:move	
-подвижнический	sense:move	
-подвижничество	sense:move	
+подвижница	sense:ascetic	Sense audit 2026-11-25: split from sense:move
+подвижнический	sense:ascetic	Sense audit 2026-11-25: split from sense:move
+подвижничество	sense:ascetic	Sense audit 2026-11-25: split from sense:move
 подвижной	sense:move	
 подвижность	sense:move	
 подвижный	sense:move	
-подвизаться	sense:move	
+подвизаться	sense:ascetic	Sense audit 2026-11-25: split from sense:move
 подвинуть	sense:move	
 подвинуться	sense:move	
 поддвинуть	sense:move	
@@ -9128,7 +9128,7 @@ lemma	senses	note
 повздорить	sense:nonsense	
 подзадоривать	sense:nonsense	
 подзадорить	sense:nonsense	
-раздор	sense:nonsense	
+раздор	sense:discord	Sense audit 2026-11-25, single lemmas
 раззадоривать	sense:nonsense	
 раззадориваться	sense:nonsense	
 раззадорить	sense:nonsense	
@@ -9173,13 +9173,13 @@ lemma	senses	note
 доставать	sense:obtain	
 доставаться	sense:obtain	
 доставитель	sense:obtain	
-доставить	sense:obtain	
-доставка	sense:obtain	
-доставление	sense:obtain	
-доставлять	sense:obtain	
-доставляться	sense:obtain	
-доставщик	sense:obtain	
-доставщица	sense:obtain	
+доставить	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставка	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставление	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставлять	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставляться	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставщик	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
+доставщица	sense:deliver	Sense audit 2026-11-25: split from sense:obtain
 достаивать	sense:obtain	
 достаиваться	sense:obtain	
 достать	sense:obtain	
@@ -9258,24 +9258,24 @@ lemma	senses	note
 беспорядочный	sense:order	
 зауряд	sense:order	
 заурядность	sense:order	
-заурядный	sense:order	
+заурядный	sense:mediocre	Sense audit 2026-11-25, single lemmas
 неурядица	sense:order	
 порядковый	sense:order	
 порядком	sense:order	
 порядливый	sense:order	
 порядок	sense:order	
-порядочность	sense:order	
-порядочный	sense:order	
-распорядитель	sense:order	
-распорядительница	sense:order	
+порядочность	sense:decent	Sense audit 2026-11-25: split from sense:order
+порядочный	sense:decent	Sense audit 2026-11-25: split from sense:order
+распорядитель	sense:dispose	Sense audit 2026-11-25: split from sense:order
+распорядительница	sense:dispose	Sense audit 2026-11-25: split from sense:order
 распорядительность	sense:order	
-распорядительный	sense:order	
-распорядительский	sense:order	
+распорядительный	sense:dispose	Sense audit 2026-11-25: split from sense:order
+распорядительский	sense:dispose	Sense audit 2026-11-25: split from sense:order
 распорядительство	sense:order	
-распорядиться	sense:order	
+распорядиться	sense:dispose	Sense audit 2026-11-25: split from sense:order
 распорядок	sense:order	
-распоряжаться	sense:order	
-распоряжение	sense:order	
+распоряжаться	sense:dispose	Sense audit 2026-11-25: split from sense:order
+распоряжение	sense:dispose	Sense audit 2026-11-25: split from sense:order
 упорядочение	sense:order	
 упорядоченный	sense:order	
 упорядочивать	sense:order	
@@ -9285,23 +9285,23 @@ lemma	senses	note
 уряд	sense:order	
 урядить	sense:order	
 урядиться	sense:order	
-урядник	sense:order	
-урядничий	sense:order	
+урядник	sense:constable	Sense audit 2026-11-25: split from sense:order
+урядничий	sense:constable	Sense audit 2026-11-25: split from sense:order
 урядничиха	sense:order	
 заказ	sense:order_cmd	
 заказать	sense:order_cmd	
 заказец	sense:order_cmd	
-заказник	sense:order_cmd	
+заказник	sense:purchase_order	Sense audit 2026-11-25: split from sense:order_cmd
 заказной	sense:order_cmd	
-заказчик	sense:order_cmd	
+заказчик	sense:purchase_order	Sense audit 2026-11-25: split from sense:order_cmd
 заказывание	sense:order_cmd	
 заказывать	sense:order_cmd	
 заказываться	sense:order_cmd	
 казать	sense:order_cmd	
 наказ	sense:order_cmd	
 наказной	sense:order_cmd	
-наказуемость	sense:order_cmd	
-наказуемый	sense:order_cmd	
+наказуемость	sense:penalty	Sense audit 2026-11-25
+наказуемый	sense:penalty	Sense audit 2026-11-25
 приказ	sense:order_cmd	
 приказание	sense:order_cmd	
 приказать	sense:order_cmd	
@@ -9891,9 +9891,9 @@ lemma	senses	note
 растолченный	sense:pound	
 столочь	sense:pound	
 столочься	sense:pound	
-сутолока	sense:pound	
+сутолока	sense:bustle	Sense audit 2026-11-25: split from sense:pound
 сутолочиться	sense:pound	
-сутолочный	sense:pound	
+сутолочный	sense:bustle	Sense audit 2026-11-25: split from sense:pound
 сутолочь	sense:pound	
 толока	sense:pound	
 толокно	sense:pound	
@@ -10221,7 +10221,7 @@ lemma	senses	note
 переиздать	sense:publishing	
 соиздатель	sense:publishing	
 беспритязательность	sense:pull	
-беспритязательный	sense:pull	
+беспритязательный	sense:claim_pretension	Sense audit 2026-11-25: split from sense:pull
 бестягольный	sense:pull	
 взатяжку	sense:pull	
 внатяжку	sense:pull	
@@ -10256,12 +10256,12 @@ lemma	senses	note
 затяжчик	sense:pull	
 затянуть	sense:pull	
 затянуться	sense:pull	
-истязание	sense:pull	
-истязатель	sense:pull	
-истязательница	sense:pull	
-истязать	sense:pull	
-истязаться	sense:pull	
-истязуемый	sense:pull	
+истязание	sense:torture	Sense audit 2026-11-25: split from sense:pull
+истязатель	sense:torture	Sense audit 2026-11-25: split from sense:pull
+истязательница	sense:torture	Sense audit 2026-11-25: split from sense:pull
+истязать	sense:torture	Sense audit 2026-11-25: split from sense:pull
+истязаться	sense:torture	Sense audit 2026-11-25: split from sense:pull
+истязуемый	sense:torture	Sense audit 2026-11-25: split from sense:pull
 навытяжку	sense:pull	
 натягать	sense:pull	
 натягивание	sense:pull	
@@ -10322,10 +10322,10 @@ lemma	senses	note
 притягиваться	sense:pull	
 притяжательный	sense:pull	
 притяжение	sense:pull	
-притязание	sense:pull	
+притязание	sense:claim_pretension	Sense audit 2026-11-25: split from sense:pull
 притязательность	sense:pull	
-притязательный	sense:pull	
-притязать	sense:pull	
+притязательный	sense:claim_pretension	Sense audit 2026-11-25: split from sense:pull
+притязать	sense:claim_pretension	Sense audit 2026-11-25: split from sense:pull
 притянуть	sense:pull	
 притянуться	sense:pull	
 просутяжить	sense:pull	
@@ -10354,35 +10354,35 @@ lemma	senses	note
 растянутый	sense:pull	
 растянуть	sense:pull	
 растянуться	sense:pull	
-состязание	sense:pull	
-состязательный	sense:pull	
-состязаться	sense:pull	
+состязание	sense:contest	Sense audit 2026-11-25: split from sense:pull
+состязательный	sense:contest	Sense audit 2026-11-25: split from sense:pull
+состязаться	sense:contest	Sense audit 2026-11-25: split from sense:pull
 стягивание	sense:pull	
 стягивать	sense:pull	
 стягиваться	sense:pull	
-стяжание	sense:pull	
-стяжатель	sense:pull	
+стяжание	sense:acquisitive	Sense audit 2026-11-25: split from sense:pull
+стяжатель	sense:acquisitive	Sense audit 2026-11-25: split from sense:pull
 стяжательный	sense:pull	
-стяжательство	sense:pull	
-стяжать	sense:pull	
-стяжаться	sense:pull	
+стяжательство	sense:acquisitive	Sense audit 2026-11-25: split from sense:pull
+стяжать	sense:acquisitive	Sense audit 2026-11-25: split from sense:pull
+стяжаться	sense:acquisitive	Sense audit 2026-11-25: split from sense:pull
 стяжение	sense:pull	
 стяжечный	sense:pull	
 стяжка	sense:pull	
 стяжной	sense:pull	
 стянуть	sense:pull	
 стянуться	sense:pull	
-сутяга	sense:pull	
-сутяжество	sense:pull	
-сутяжить	sense:pull	
-сутяжливый	sense:pull	
-сутяжник	sense:pull	
-сутяжница	sense:pull	
-сутяжничать	sense:pull	
-сутяжнический	sense:pull	
-сутяжничество	sense:pull	
-сутяжничий	sense:pull	
-сутяжный	sense:pull	
+сутяга	sense:litigious	
+сутяжество	sense:litigious	
+сутяжить	sense:litigious	
+сутяжливый	sense:litigious	
+сутяжник	sense:litigious	
+сутяжница	sense:litigious	
+сутяжничать	sense:litigious	
+сутяжнический	sense:litigious	
+сутяжничество	sense:litigious	
+сутяжничий	sense:litigious	
+сутяжный	sense:litigious	
 тяга	sense:pull	
 тягальный	sense:pull	
 тягать	sense:pull	
@@ -10424,7 +10424,7 @@ lemma	senses	note
 карать	sense:punish_kar	
 караться	sense:punish_kar	
 непокорливый	sense:punish_kar	
-непокорство	sense:punish_kar	
+непокорство	sense:submit	Sense audit 2026-11-25, single lemmas
 покарать	sense:punish_kar	
 расправиться	sense:punish|sense:straighten	
 зрачковый	sense:pupil	
@@ -10839,24 +10839,24 @@ lemma	senses	note
 представляться	sense:represent	
 вперекор	sense:reproach	
 корить	sense:reproach	
-наперекор	sense:reproach	
-опорочение	sense:reproach	
-опорочивать	sense:reproach	
-опорочиваться	sense:reproach	
-опорочить	sense:reproach	
+наперекор	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+опорочение	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+опорочивать	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+опорочиваться	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+опорочить	sense:vice	Sense audit 2026-11-25: split from sense:reproach
 опорочиться	sense:reproach	
 перекоры	sense:reproach	
 перекоряться	sense:reproach	
-порицание	sense:reproach	
-порицательный	sense:reproach	
-порицать	sense:reproach	
-порицаться	sense:reproach	
-порок	sense:reproach	
-порочение	sense:reproach	
-порочить	sense:reproach	
-порочиться	sense:reproach	
-порочность	sense:reproach	
-порочный	sense:reproach	
+порицание	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порицательный	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порицать	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порицаться	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порок	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порочение	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порочить	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порочиться	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порочность	sense:vice	Sense audit 2026-11-25: split from sense:reproach
+порочный	sense:vice	Sense audit 2026-11-25: split from sense:reproach
 укор	sense:reproach	
 укоризна	sense:reproach	
 укоризненность	sense:reproach	
@@ -11299,10 +11299,10 @@ lemma	senses	note
 пустыня	sense:review_desert	
 назвать	sense:review_designation	назвать is the perfective of называть: naming, not calling (звать, вызвать).
 назваться	sense:review_designation	
-прозвать	sense:review_designation	
-прозваться	sense:review_designation	
-прозывать	sense:review_designation	
-прозываться	sense:review_designation	
+прозвать	sense:review_nickname	
+прозваться	sense:review_nickname	
+прозывать	sense:review_nickname	
+прозываться	sense:review_nickname	
 прибор	sense:review_device	
 приборный	sense:review_device	
 приборостроение	sense:review_device	
@@ -11319,7 +11319,7 @@ lemma	senses	note
 смещаться	sense:review_displacement	
 сместиться	sense:review_displacement	
 располагать	sense:review_dispose	
-далее	sense:review_distance	
+далее	sense:review_further	«Далее»/«дальше» = next, further on; not «даль» (complaint 91)
 удаление	sense:review_distance|sense:review_removal	Удаление can be an act of moving something away or removing it; удалённый likewise means either remote or deleted.
 удаленный	sense:review_distance|sense:review_removal	
 удалить	sense:review_distance|sense:review_removal	
@@ -11552,7 +11552,7 @@ lemma	senses	note
 перелицовщик	sense:review_face	
 перелицовывать	sense:review_face	
 перелицовываться	sense:review_face	
-наличник	sense:review_face	
+наличник	sense:window_trim	Sense audit 2026-11-25, single lemmas
 заподлицо	sense:review_face	
 безвестность	sense:review_fame	
 безвестный	sense:review_fame	
@@ -11686,7 +11686,7 @@ lemma	senses	note
 впечатлить	sense:review_impression	
 впечатлиться	sense:review_impression	
 неотразимость	sense:review_impression	
-неотразимый	sense:review_impression	
+неотразимый	sense:irresistible	Sense audit 2026-11-25, single lemmas
 поразительный	sense:review_impression	
 разительность	sense:review_impression	
 разительный	sense:review_impression	
@@ -11998,8 +11998,8 @@ lemma	senses	note
 съемка	sense:review_photography	
 съемочный	sense:review_photography	
 съемцы	sense:review_photography	
-съемщик	sense:review_photography	
-съемщица	sense:review_photography	
+съемщик	sense:rent	Sense audit 2026-11-25
+съемщица	sense:rent	Sense audit 2026-11-25
 картина	sense:review_picture	
 картинка	sense:review_picture	
 картинность	sense:review_picture	
@@ -12055,12 +12055,12 @@ lemma	senses	note
 растыкать	sense:review_poke	
 растыкаться	sense:review_poke	
 соткнуть	sense:review_poke	
-споткнуться	sense:review_poke	
+споткнуться	sense:stumble	Sense audit 2026-11-25: split from sense:review_poke
 спотыкание	sense:review_poke	
-спотыкаться	sense:review_poke	
+спотыкаться	sense:stumble	Sense audit 2026-11-25: split from sense:review_poke
 спотыкач	sense:review_poke	
-спотыкливый	sense:review_poke	
-спотыкнуться	sense:review_poke	
+спотыкливый	sense:stumble	Sense audit 2026-11-25: split from sense:review_poke
+спотыкнуться	sense:stumble	Sense audit 2026-11-25: split from sense:review_poke
 стык	sense:review_poke	
 стыкать	sense:review_poke	
 стыкование	sense:review_poke	
@@ -12233,7 +12233,7 @@ lemma	senses	note
 выявить	sense:review_revelation	
 выявиться	sense:review_revelation	
 спетость	sense:review_ripening	
-подоспевать	sense:review_ripening	
+подоспевать	sense:review_on_time	Arriving in time, not ripening
 восход	sense:review_rise	
 восходитель	sense:review_rise	
 восходить	sense:review_rise	
@@ -12723,13 +12723,13 @@ lemma	senses	note
 надрывный	sense:rip	
 нарвать	sense:rip	
 нарваться	sense:rip	
-нарыв	sense:rip	
+нарыв	sense:abscess	Sense audit 2026-11-25: split from sense:rip
 нарывание	sense:rip	
 нарывать	sense:rip	
 нарываться	sense:rip	
 нарывник	sense:rip	
-нарывной	sense:rip	
-нарывный	sense:rip	
+нарывной	sense:abscess	Sense audit 2026-11-25: split from sense:rip
+нарывный	sense:abscess	Sense audit 2026-11-25: split from sense:rip
 нарывчатый	sense:rip	
 неотрывность	sense:rip	
 неотрывный	sense:rip	
@@ -12762,7 +12762,7 @@ lemma	senses	note
 отрывистость	sense:rip	
 отрывистый	sense:rip	
 отрывной	sense:rip	
-отрывок	sense:rip	
+отрывок	sense:excerpt	Sense audit 2026-11-25, single lemmas
 отрывочность	sense:rip	
 отрывочный	sense:rip	
 перервать	sense:rip	
@@ -12811,7 +12811,7 @@ lemma	senses	note
 рвота	sense:rip	
 рвотный	sense:rip	
 рывок	sense:rip	
-сорванец	sense:rip	
+сорванец	sense:tomboy	Sense audit 2026-11-25, single lemmas
 сорвать	sense:rip	
 сорваться	sense:rip	
 срыв	sense:rip	
@@ -13127,7 +13127,7 @@ lemma	senses	note
 валек	sense:roller	
 валик	sense:roller	
 валовой	sense:roller	
-подвальный	sense:roller	
+подвальный	sense:basement	Sense audit 2026-11-25
 помещение	sense:room|sense:placement	
 бесповоротность	sense:rotate	
 бесповоротный	sense:rotate	
@@ -13169,9 +13169,9 @@ lemma	senses	note
 наворачиваться	sense:rotate	
 наворотить	sense:rotate	
 навыворот	sense:rotate	
-невозвратимый	sense:rotate	
-невозвращенец	sense:rotate	
-невозвращенчество	sense:rotate	
+невозвратимый	sense:giveback	Sense audit 2026-11-25: split from sense:rotate
+невозвращенец	sense:giveback	Sense audit 2026-11-25: split from sense:rotate
+невозвращенчество	sense:giveback	Sense audit 2026-11-25: split from sense:rotate
 невпроворот	sense:rotate	
 неповоротливость	sense:rotate	
 неповоротливый	sense:rotate	
@@ -13226,10 +13226,10 @@ lemma	senses	note
 сворот	sense:rotate	
 своротить	sense:rotate	
 своротиться	sense:rotate	
-совратительница	sense:rotate	
+совратительница	sense:corruption	Sense audit 2026-11-25: split from sense:rotate
 совратительный	sense:rotate	
-совратиться	sense:rotate	
-совращаться	sense:rotate	
+совратиться	sense:corruption	Sense audit 2026-11-25: split from sense:rotate
+совращаться	sense:corruption	Sense audit 2026-11-25: split from sense:rotate
 затухание	sense:rotten	
 затухать	sense:rotten	
 затухнуть	sense:rotten	
@@ -13597,27 +13597,27 @@ lemma	senses	note
 припечатка	sense:seal	
 припечатывать	sense:seal	
 припечатываться	sense:seal	
-взыскательность	sense:search	
-взыскательный	sense:search	
-взыскать	sense:search	
-взыскаться	sense:search	
-взыскивание	sense:search	
-взыскивать	sense:search	
-взыскиваться	sense:search	
-взыскующий	sense:search	
+взыскательность	sense:demanding	Sense audit 2026-11-25
+взыскательный	sense:demanding	Sense audit 2026-11-25
+взыскать	sense:claim_suit	Sense audit 2026-11-25
+взыскаться	sense:claim_suit	Sense audit 2026-11-25
+взыскивание	sense:claim_suit	Sense audit 2026-11-25
+взыскивать	sense:claim_suit	Sense audit 2026-11-25
+взыскиваться	sense:claim_suit	Sense audit 2026-11-25
+взыскующий	sense:demanding	Sense audit 2026-11-25
 выискать	sense:search	
 выискаться	sense:search	
 выискивание	sense:search	
 выискивать	sense:search	
 выискиваться	sense:search	
-довзыскать	sense:search	
-довзыскивать	sense:search	
-довзыскиваться	sense:search	
+довзыскать	sense:claim_suit	Sense audit 2026-11-25: split from sense:search
+довзыскивать	sense:claim_suit	Sense audit 2026-11-25: split from sense:search
+довзыскиваться	sense:claim_suit	Sense audit 2026-11-25: split from sense:search
 доискаться	sense:search	
 доискиваться	sense:search	
-заискивание	sense:search	
-заискивать	sense:search	
-заискивающий	sense:search	
+заискивание	sense:fawn	Sense audit 2026-11-25: split from sense:search
+заискивать	sense:fawn	Sense audit 2026-11-25: split from sense:search
+заискивающий	sense:fawn	Sense audit 2026-11-25: split from sense:search
 изыскание	sense:search	
 изысканность	sense:search	
 изысканный	sense:search	
@@ -13674,9 +13674,9 @@ lemma	senses	note
 разыскиваться	sense:search	
 розыск	sense:search	
 розыскной	sense:search	
-снискать	sense:search	
-снискивать	sense:search	
-снискиваться	sense:search	
+снискать	sense:win_favor	Sense audit 2026-11-25: split from sense:search
+снискивать	sense:win_favor	Sense audit 2026-11-25: split from sense:search
+снискиваться	sense:win_favor	Sense audit 2026-11-25: split from sense:search
 соискание	sense:search	
 соискатель	sense:search	
 соискательница	sense:search	
@@ -13823,10 +13823,10 @@ lemma	senses	note
 обозримый	sense:see	
 озирать	sense:see	
 озираться	sense:see	
-подозрительность	sense:see	
-подозрительный	sense:see	
+подозрительность	sense:suspect	Sense audit 2026-11-25: split from sense:see
+подозрительный	sense:suspect	Sense audit 2026-11-25: split from sense:see
 презрительность	sense:see	
-презрительный	sense:see	
+презрительный	sense:despise	Sense audit 2026-11-25, single lemmas
 прозревать	sense:see	
 прозрение	sense:see	
 прозреть	sense:see	
@@ -13886,15 +13886,15 @@ lemma	senses	note
 ссыльная	sense:send	
 ссыльный	sense:send	
 вряд	sense:series	
-изрядный	sense:series	
+изрядный	sense:considerable	Sense audit 2026-11-25, single lemmas
 кряду	sense:series	
 навряд	sense:series	
 ряд	sense:series	
 ряда	sense:series	
 рядковый	sense:series	
 рядком	sense:series	
-ряднина	sense:series	
-рядно	sense:series	
+ряднина	sense:sackcloth	Sense audit 2026-11-25: split from sense:series
+рядно	sense:sackcloth	Sense audit 2026-11-25: split from sense:series
 рядность	sense:series	
 рядный	sense:series	
 рядовик	sense:series	
@@ -14044,13 +14044,13 @@ lemma	senses	note
 заостриться	sense:sharp_edge	
 заострять	sense:sharp_edge	
 заостряться	sense:sharp_edge	
-изощрение	sense:sharp_edge	
-изощренность	sense:sharp_edge	
-изощренный	sense:sharp_edge	
-изощрить	sense:sharp_edge	
-изощриться	sense:sharp_edge	
-изощрять	sense:sharp_edge	
-изощряться	sense:sharp_edge	
+изощрение	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощренность	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощренный	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощрить	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощриться	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощрять	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
+изощряться	sense:refined	Sense audit 2026-11-25: split from sense:sharp_edge
 навастривать	sense:sharp_edge	
 навастриваться	sense:sharp_edge	
 навострить	sense:sharp_edge	
@@ -14075,10 +14075,10 @@ lemma	senses	note
 острячка	sense:sharp_edge	
 подострить	sense:sharp_edge	
 поострить	sense:sharp_edge	
-поощрение	sense:sharp_edge	
-поощрительный	sense:sharp_edge	
-поощрить	sense:sharp_edge	
-поощрять	sense:sharp_edge	
+поощрение	sense:encourage	Sense audit 2026-11-25: split from sense:sharp_edge
+поощрительный	sense:encourage	Sense audit 2026-11-25: split from sense:sharp_edge
+поощрить	sense:encourage	Sense audit 2026-11-25: split from sense:sharp_edge
+поощрять	sense:encourage	Sense audit 2026-11-25: split from sense:sharp_edge
 выточенный	sense:sharpen	
 выточить	sense:sharpen	
 выточиться	sense:sharpen	
@@ -14157,9 +14157,9 @@ lemma	senses	note
 взаперти	sense:shove	
 впереть	sense:shove	
 впереться	sense:shove	
-вперить	sense:shove	
-вперять	sense:shove	
-вперяться	sense:shove	
+вперить	sense:stare	Sense audit 2026-11-25: split from sense:shove
+вперять	sense:stare	Sense audit 2026-11-25: split from sense:shove
+вперяться	sense:stare	Sense audit 2026-11-25: split from sense:shove
 впирать	sense:shove	
 впираться	sense:shove	
 выпереть	sense:shove	
@@ -14167,7 +14167,7 @@ lemma	senses	note
 выпирание	sense:shove	
 выпирать	sense:shove	
 выпираться	sense:shove	
-выспаривать	sense:shove	
+выспаривать	sense:dispute	Sense audit 2026-11-25: split from sense:shove
 допереть	sense:shove	
 запереть	sense:shove	
 запереться	sense:shove	
@@ -14212,7 +14212,7 @@ lemma	senses	note
 попрание	sense:shove	
 попранный	sense:shove	
 попрать	sense:shove	
-поприще	sense:shove	
+поприще	sense:field_of_work	Sense audit 2026-11-25
 поприщный	sense:shove	
 прения	sense:shove	
 припереть	sense:shove	
@@ -14224,13 +14224,13 @@ lemma	senses	note
 пропирать	sense:shove	
 распереть	sense:shove	
 распирать	sense:shove	
-распря	sense:shove	
-соперник	sense:shove	
-соперница	sense:shove	
-соперничать	sense:shove	
-сопернический	sense:shove	
-соперничество	sense:shove	
-соперничествовать	sense:shove	
+распря	sense:feud	Sense audit 2026-11-25, single lemmas
+соперник	sense:rival	Sense audit 2026-11-25: split from sense:shove
+соперница	sense:rival	Sense audit 2026-11-25: split from sense:shove
+соперничать	sense:rival	Sense audit 2026-11-25: split from sense:shove
+сопернический	sense:rival	Sense audit 2026-11-25: split from sense:shove
+соперничество	sense:rival	Sense audit 2026-11-25: split from sense:shove
+соперничествовать	sense:rival	Sense audit 2026-11-25: split from sense:shove
 спереть	sense:shove	
 спереться	sense:shove	
 спертость	sense:shove	
@@ -14283,10 +14283,10 @@ lemma	senses	note
 осажденный	sense:siege	
 знак	sense:sign	
 знаковый	sense:sign	
-знамение	sense:sign	
-знаменный	sense:sign	
-знаменщик	sense:sign	
-знамя	sense:sign	
+знамение	sense:omen	Portent, with «предзнаменование»
+знаменный	sense:banner	Banner, split from «знак»
+знаменщик	sense:banner	
+знамя	sense:banner	
 признак	sense:sign	
 вывеска	sense:signboard	
 вывесочный	sense:signboard	
@@ -14298,8 +14298,8 @@ lemma	senses	note
 подобие	sense:similar	
 подобно	sense:similar	
 подобный	sense:similar	
-преподобие	sense:similar	
-преподобный	sense:similar	
+преподобие	sense:reverend	Sense audit 2026-11-25: split from sense:similar
+преподобный	sense:reverend	Sense audit 2026-11-25: split from sense:similar
 расподобление	sense:similar	
 расподобляться	sense:similar	
 уподобить	sense:similar	
@@ -14661,17 +14661,17 @@ lemma	senses	note
 приговариваться	sense:speak	
 данный	sense:specified	The adjectival «данный» means specified / in question, not a transfer.
 мара	sense:specter	
-беспорочный	sense:speech	
+беспорочный	sense:vice	Sense audit 2026-11-25, single lemmas
 изрекать	sense:speech	
 изречение	sense:speech	
 изречь	sense:speech	
 наречие	sense:speech	
 наречный	sense:speech	
-нарочный	sense:speech	
-ненароком	sense:speech	
+нарочный	sense:deliberate	Sense audit 2026-11-25, single lemmas
+ненароком	sense:inadvertently	Sense audit 2026-11-25
 непререкаемость	sense:speech	
 непререкаемый	sense:speech	
-понарошку	sense:speech	
+понарошку	sense:pretend	Sense audit 2026-11-25: «понарошку» is not speech
 произнесение	sense:speech	
 произнести	sense:speech	
 произносительный	sense:speech	
@@ -14735,7 +14735,7 @@ lemma	senses	note
 достелить	sense:spread	
 достилать	sense:spread	
 достлать	sense:spread	
-заслать	sense:spread	
+заслать	sense:dispatch	Sense audit 2026-11-25, single lemmas
 застелить	sense:spread	
 застилать	sense:spread	
 застилаться	sense:spread	
@@ -14770,7 +14770,7 @@ lemma	senses	note
 постелить	sense:spread	
 постелиться	sense:spread	
 постелишка	sense:spread	
-постель	sense:spread	
+постель	sense:spread	Kept with стелить: required pair постель → стелить
 постелька	sense:spread	
 постельник	sense:spread	
 постельничий	sense:spread	
@@ -14788,17 +14788,17 @@ lemma	senses	note
 простлать	sense:spread	
 разостлать	sense:spread	
 разостлаться	sense:spread	
-распространение	sense:spread	
-распространенность	sense:spread	
-распространенный	sense:spread	
-распространитель	sense:spread	
-распространительница	sense:spread	
-распространительный	sense:spread	
-распространительский	sense:spread	
-распространить	sense:spread	
-распространиться	sense:spread	
-распространять	sense:spread	
-распространяться	sense:spread	
+распространение	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространенность	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространенный	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространитель	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространительница	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространительный	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространительский	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространить	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространиться	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространять	sense:propagate	Sense audit 2026-11-25: split from sense:spread
+распространяться	sense:propagate	Sense audit 2026-11-25: split from sense:spread
 расстелить	sense:spread	
 расстелиться	sense:spread	
 расстил	sense:spread	
@@ -15031,8 +15031,8 @@ lemma	senses	note
 стоячка	sense:stand	
 стоячок	sense:stand	
 стоящий	sense:stand	
-удостаивать	sense:stand	
-удостаиваться	sense:stand	
+удостаивать	sense:worthy	Sense audit 2026-11-25: split from sense:stand
+удостаиваться	sense:worthy	Sense audit 2026-11-25: split from sense:stand
 устаивать	sense:stand	
 устаиваться	sense:stand	
 устоять	sense:stand	
@@ -15055,22 +15055,22 @@ lemma	senses	note
 выступать	sense:step	
 выступить	sense:step	
 выступление	sense:step	
-доступ	sense:step	
-доступность	sense:step	
-доступный	sense:step	
-заступ	sense:step	
-заступа	sense:step	
+доступ	sense:access	Sense audit 2026-11-25: split from sense:step
+доступность	sense:access	Sense audit 2026-11-25: split from sense:step
+доступный	sense:access	Sense audit 2026-11-25: split from sense:step
+заступ	sense:intercede	Sense audit 2026-11-25: split from sense:step
+заступа	sense:intercede	Sense audit 2026-11-25: split from sense:step
 заступать	sense:step	
-заступаться	sense:step	
+заступаться	sense:intercede	Sense audit 2026-11-25: split from sense:step
 заступить	sense:step	
-заступиться	sense:step	
-заступник	sense:step	
-заступница	sense:step	
-заступнический	sense:step	
-заступничество	sense:step	
-исступление	sense:step	
-исступленность	sense:step	
-исступленный	sense:step	
+заступиться	sense:intercede	Sense audit 2026-11-25: split from sense:step
+заступник	sense:intercede	Sense audit 2026-11-25: split from sense:step
+заступница	sense:intercede	Sense audit 2026-11-25: split from sense:step
+заступнический	sense:intercede	Sense audit 2026-11-25: split from sense:step
+заступничество	sense:intercede	Sense audit 2026-11-25: split from sense:step
+исступление	sense:frenzy	Sense audit 2026-11-25: split from sense:step
+исступленность	sense:frenzy	Sense audit 2026-11-25: split from sense:step
+исступленный	sense:frenzy	Sense audit 2026-11-25: split from sense:step
 наступательный	sense:step	
 наступать	sense:step	
 наступить	sense:step	
@@ -15106,13 +15106,13 @@ lemma	senses	note
 подступить	sense:step	
 подступиться	sense:step	
 поступательность	sense:step	
-поступательный	sense:step	
-поступать	sense:step	
-поступаться	sense:step	
-поступить	sense:step	
-поступиться	sense:step	
+поступательный	sense:review_act	Sense audit 2026-11-25: split from sense:step
+поступать	sense:review_act	Sense audit 2026-11-25: split from sense:step
+поступаться	sense:review_act	Sense audit 2026-11-25: split from sense:step
+поступить	sense:review_act	Sense audit 2026-11-25: split from sense:step
+поступиться	sense:review_act	Sense audit 2026-11-25: split from sense:step
 поступление	sense:step	
-поступок	sense:step	
+поступок	sense:review_act	Sense audit 2026-11-25: split from sense:step
 поступь	sense:step	
 приступ	sense:step	
 приступать	sense:step	
@@ -15626,11 +15626,11 @@ lemma	senses	note
 засластить	sense:sweet	
 заслащивать	sense:sweet	
 заслащиваться	sense:sweet	
-насладить	sense:sweet	
-насладиться	sense:sweet	
-наслаждать	sense:sweet	
-наслаждаться	sense:sweet	
-наслаждение	sense:sweet	
+насладить	sense:delight	Sense audit 2026-11-25: split from sense:sweet
+насладиться	sense:delight	Sense audit 2026-11-25: split from sense:sweet
+наслаждать	sense:delight	Sense audit 2026-11-25: split from sense:sweet
+наслаждаться	sense:delight	Sense audit 2026-11-25: split from sense:sweet
+наслаждение	sense:delight	Sense audit 2026-11-25: split from sense:sweet
 насластить	sense:sweet	
 наслащивать	sense:sweet	
 наслащиваться	sense:sweet	
@@ -15804,8 +15804,8 @@ lemma	senses	note
 застольный	sense:table	
 настольный	sense:table	
 подстолье	sense:table	
-престол	sense:table	
-престольный	sense:table	
+престол	sense:throne	Sense audit 2026-11-25: split from sense:table
+престольный	sense:throne	Sense audit 2026-11-25: split from sense:table
 стол	sense:table	
 столешник	sense:table	
 столешница	sense:table	
@@ -15871,7 +15871,7 @@ lemma	senses	note
 наставительность	sense:teach	
 наставительный	sense:teach	
 наставить	sense:teach	
-наставка	sense:teach	
+наставка	sense:extension_piece	Sense audit 2026-11-25: split from sense:teach
 наставление	sense:teach	
 наставлять	sense:teach	
 наставляться	sense:teach	
@@ -15879,7 +15879,7 @@ lemma	senses	note
 наставница	sense:teach	
 наставнический	sense:teach	
 наставничество	sense:teach	
-наставной	sense:teach	
+наставной	sense:extension_piece	Sense audit 2026-11-25: split from sense:teach
 проучивать	sense:teach_lesson	проучить is to punish («я его проучу»).
 проучить	sense:teach_lesson	
 преподавание	sense:teaching	
@@ -15999,9 +15999,9 @@ lemma	senses	note
 искушение	sense:tempt	
 искушенный	sense:tempt	
 неискушенный	sense:tempt	
-покуситься	sense:tempt	
-покушаться	sense:tempt	
-покушение	sense:tempt	
+покуситься	sense:assassination_attempt	Sense audit 2026-11-25: split from sense:tempt
+покушаться	sense:assassination_attempt	Sense audit 2026-11-25: split from sense:tempt
+покушение	sense:assassination_attempt	Sense audit 2026-11-25: split from sense:tempt
 напрягать	sense:tension	
 напрягаться	sense:tension	
 напряжение	sense:tension	
@@ -16166,9 +16166,9 @@ lemma	senses	note
 примышлять	sense:thought	
 примышляться	sense:thought	
 промысл	sense:thought	
-промыслить	sense:thought	
-промысловик	sense:thought	
-промысловый	sense:thought	
+промыслить	sense:trade_craft	Sense audit 2026-11-25: split from sense:thought
+промысловик	sense:trade_craft	Sense audit 2026-11-25: split from sense:thought
+промысловый	sense:trade_craft	Sense audit 2026-11-25: split from sense:thought
 размыслить	sense:thought	
 размыслиться	sense:thought	
 размышление	sense:thought	
@@ -16497,7 +16497,7 @@ lemma	senses	note
 сверх	sense:top	
 сверху	sense:top	
 безотвальный	sense:topple	
-бесподвальный	sense:topple	
+бесподвальный	sense:basement	Sense audit 2026-11-25: split from sense:topple
 валежник	sense:topple	
 валивать	sense:topple	
 валить	sense:topple	
@@ -16591,7 +16591,7 @@ lemma	senses	note
 повальный	sense:topple	
 повалять	sense:topple	
 поваляться	sense:topple	
-подвал	sense:topple	
+подвал	sense:basement	Sense audit 2026-11-25: split from sense:topple
 подваливать	sense:topple	
 подваливаться	sense:topple	
 подвалить	sense:topple	
@@ -16696,8 +16696,8 @@ lemma	senses	note
 пересадочный	sense:transfer_trip	
 превратить	sense:transformation	
 превратиться	sense:transformation	
-превратность	sense:transformation	
-превратный	sense:transformation	
+превратность	sense:perverse	Sense audit 2026-11-25: split from sense:transformation
+превратный	sense:perverse	Sense audit 2026-11-25: split from sense:transformation
 превращаемость	sense:transformation	
 превращать	sense:transformation	
 превращаться	sense:transformation	
@@ -16998,12 +16998,12 @@ lemma	senses	note
 укручивать	sense:twist	
 укручиваться	sense:twist	
 накрутка	sense:twist	
-всучать	sense:twist_yarn	
-всучаться	sense:twist_yarn	
+всучать	sense:foist	Sense audit 2026-11-25: split from sense:twist_yarn
+всучаться	sense:foist	Sense audit 2026-11-25: split from sense:twist_yarn
 всучивание	sense:twist_yarn	
-всучивать	sense:twist_yarn	
-всучиваться	sense:twist_yarn	
-всучить	sense:twist_yarn	
+всучивать	sense:foist	Sense audit 2026-11-25: split from sense:twist_yarn
+всучиваться	sense:foist	Sense audit 2026-11-25: split from sense:twist_yarn
+всучить	sense:foist	Sense audit 2026-11-25: split from sense:twist_yarn
 высучивать	sense:twist_yarn	
 высучиваться	sense:twist_yarn	
 высучить	sense:twist_yarn	
@@ -17149,8 +17149,8 @@ lemma	senses	note
 вразумлять	sense:understand	
 вразумляться	sense:understand	
 недопонимать	sense:understand	
-подразумевать	sense:understand	
-подразумеваться	sense:understand	
+подразумевать	sense:imply	Sense audit 2026-11-25: split from sense:understand
+подразумеваться	sense:imply	Sense audit 2026-11-25: split from sense:understand
 понимание	sense:understand	
 понимать	sense:understand	
 пониматься	sense:understand	
@@ -17218,8 +17218,8 @@ lemma	senses	note
 долинный	sense:valley	
 подолье	sense:valley	
 подолянин	sense:valley	
-раздолье	sense:valley	
-раздольный	sense:valley	
+раздолье	sense:expanse	Sense audit 2026-11-25: split from sense:valley
+раздольный	sense:expanse	Sense audit 2026-11-25: split from sense:valley
 вече	sense:veche	
 вечевой	sense:veche	
 растение	sense:vegetation	Growing keeps расти/вырасти/рост; a plant, age and adulthood, an industry branch and usury are lexicalized meanings of the same root.
@@ -17381,10 +17381,10 @@ lemma	senses	note
 отмыкаться	sense:wander_myk	
 помыкать	sense:wander_myk	
 помыкаться	sense:wander_myk	
-пресмыкательство	sense:wander_myk	
-пресмыкаться	sense:wander_myk	
-пресмыкающееся	sense:wander_myk	
-пресмыкающийся	sense:wander_myk	
+пресмыкательство	sense:grovel	Sense audit 2026-11-25: split from sense:wander_myk
+пресмыкаться	sense:grovel	Sense audit 2026-11-25: split from sense:wander_myk
+пресмыкающееся	sense:reptile	Sense audit 2026-11-25, single lemmas
+пресмыкающийся	sense:grovel	Sense audit 2026-11-25: split from sense:wander_myk
 примыкание	sense:wander_myk	
 примыкать	sense:wander_myk	
 размыкание	sense:wander_myk	
@@ -17643,11 +17643,11 @@ lemma	senses	note
 измачивать	sense:wet	
 измокать	sense:wet	
 измокнуть	sense:wet	
-измочаленный	sense:wet	
-измочаливать	sense:wet	
-измочаливаться	sense:wet	
-измочалить	sense:wet	
-измочалиться	sense:wet	
+измочаленный	sense:bast	Sense audit 2026-11-25: split from sense:wet
+измочаливать	sense:bast	Sense audit 2026-11-25: split from sense:wet
+измочаливаться	sense:bast	Sense audit 2026-11-25: split from sense:wet
+измочалить	sense:bast	Sense audit 2026-11-25: split from sense:wet
+измочалиться	sense:bast	Sense audit 2026-11-25: split from sense:wet
 измочиться	sense:wet	
 мокнуть	sense:wet	
 мокренек	sense:wet	
@@ -17717,10 +17717,10 @@ lemma	senses	note
 размачиваться	sense:wet	
 размокать	sense:wet	
 размокнуть	sense:wet	
-размочаливать	sense:wet	
-размочаливаться	sense:wet	
-размочалить	sense:wet	
-размочалиться	sense:wet	
+размочаливать	sense:bast	Sense audit 2026-11-25: split from sense:wet
+размочаливаться	sense:bast	Sense audit 2026-11-25: split from sense:wet
+размочалить	sense:bast	Sense audit 2026-11-25: split from sense:wet
+размочалиться	sense:bast	Sense audit 2026-11-25: split from sense:wet
 размоченный	sense:wet	
 размочить	sense:wet	
 размочиться	sense:wet	
@@ -18195,3 +18195,99 @@ lemma	senses	note
 усердствовать	sense:zeal	
 ретивость	sense:zealous	
 ретивый	sense:zealous	
+поспеть	sense:review_ripening|sense:review_on_time	Both ripen and be in time
+поспевать	sense:review_ripening|sense:review_on_time	
+спех	sense:review_haste	«Не к спеху» is haste, not ripening
+приспешник	sense:review_henchman	Henchman, not ripening
+приспешница	sense:review_henchman	
+приспешничать	sense:review_henchman	
+приспеть	sense:review_on_time	«Время приспело»: the moment came
+приспевать	sense:review_on_time	
+споспешествовать	sense:review_assist	Archaic «to assist»
+поспешествовать	sense:review_assist	
+успеваемость	sense:review_success	School performance is success, not being on time
+позволять	sense:review_will_freedom|sense:permit	неволя → позволять is a labelled OPEN (s3/s4); permit joins позволить and дозволить
+позволить	sense:review_will_freedom|sense:permit	
+позволяться	sense:review_will_freedom|sense:permit	
+позволение	sense:review_will_freedom|sense:permit	
+позволенный	sense:review_will_freedom|sense:permit	
+позволительный	sense:review_will_freedom|sense:permit	
+дозволить	sense:review_will_freedom|sense:permit	
+дозволение	sense:review_will_freedom|sense:permit	
+дозволяться	sense:review_will_freedom|sense:permit	
+дозволенный	sense:review_will_freedom|sense:permit	
+дозволительный	sense:review_will_freedom|sense:permit	
+дозволять	sense:review_will_freedom|sense:permit	
+изволить	sense:deign	Deign, not permit
+соизволить	sense:deign	
+изволение	sense:deign	
+соизволение	sense:deign	
+соизволять	sense:deign	
+вызволить	sense:rescue	Sense audit 2026-11-25: split from sense:review_will_freedom
+вызволять	sense:rescue	
+вызволиться	sense:rescue	
+вызволяться	sense:rescue	
+произвольный	sense:arbitrary	Sense audit 2026-11-25: split from sense:review_will_freedom
+произвол	sense:arbitrary	
+осведомить	sense:inform	Sense audit 2026-11-25: split from sense:know
+осведомитель	sense:inform	
+осведомительница	sense:inform	
+осведомительный	sense:inform	
+осведомиться	sense:inform	
+осведомленность	sense:inform	
+осведомление	sense:inform	
+осведомлять	sense:inform	
+осведомляться	sense:inform	
+распродать	sense:sell	Sense audit 2026-11-25: split from sense:give
+перепродажа	sense:sell	
+перепродать	sense:sell	
+распродавать	sense:sell	
+распродажа	sense:sell	
+перепродавать	sense:sell	
+допродавать	sense:sell	
+допродаваться	sense:sell	
+допродать	sense:sell	
+запродавать	sense:sell	
+запродаваться	sense:sell	
+запродажа	sense:sell	
+запродажный	sense:sell	
+запродать	sense:sell	
+перепродаваться	sense:sell	
+перепродавец	sense:sell	
+распродаваться	sense:sell	
+негодяй	sense:scoundrel	Sense audit 2026-11-25: split from sense:review_suitability
+негодяйка	sense:scoundrel	
+негодяйский	sense:scoundrel	
+негодяйство	sense:scoundrel	
+учтивость	sense:courteous	Sense audit 2026-11-25: split from sense:honor
+учтивый	sense:courteous	
+ведомость	sense:register_list	Sense audit 2026-11-25: split from sense:administration
+ведомостичка	sense:register_list	
+поборник	sense:champion	Sense audit 2026-11-25: split from sense:review_taking
+поборница	sense:champion	
+подзаборник	sense:under_fence	Sense audit 2026-11-25: split from sense:review_taking
+подзаборный	sense:under_fence	
+забрало	sense:visor	
+изнаночный	sense:review_reverse_side	Sense audit 2026-11-25: split from sense:review_penetration
+наизнанку	sense:review_reverse_side	
+прихлебатель	sense:sponger	Sense audit 2026-11-25: split from sense:review_consuming
+прихлебательство	sense:sponger	
+наведываться	sense:visit	Sense audit 2026-11-25
+наведаться	sense:visit	
+пустельга	sense:kestrel	Sense audit 2026-11-25, single lemmas
+скостить	sense:reduce_debt	Sense audit 2026-11-25, single lemmas
+безотчетный	sense:instinctive	Sense audit 2026-11-25, single lemmas
+непременный	sense:indispensable	Sense audit 2026-11-25, single lemmas
+беспременно	sense:indispensable	Sense audit 2026-11-25, single lemmas
+отменный	sense:excellent	Sense audit 2026-11-25, single lemmas
+преклонный	sense:old_age	Sense audit 2026-11-25, single lemmas
+притон	sense:den	Sense audit 2026-11-25, single lemmas
+невзгода	sense:adversity	Sense audit 2026-11-25, single lemmas
+податной	sense:tax_levy	Sense audit 2026-11-25, single lemmas
+отповедь	sense:rebuff	Sense audit 2026-11-25, single lemmas
+забеспокоиться	sense:review_anxiety	Sense audit 2026-11-25, single lemmas
+спятить	sense:crazy	Sense audit 2026-11-25, single lemmas
+довлеть	sense:loom	Sense audit 2026-11-25, single lemmas
+просклонять	sense:review_inclination	Sense audit 2026-11-25, single lemmas
+дальнейший	sense:review_further	
+дальше	sense:review_further	
