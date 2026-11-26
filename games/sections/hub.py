@@ -239,6 +239,8 @@ SECTION_HUB_META = {
         # Карточка «Скоро!» появляется с этой даты (МСК), запуск — по расписанию.
         'visible_from': '2026-12-01',
         'title_from_game': True,
+        'create_url_name': 'ui_create_cryptic',
+        'create_label': 'Создать свой Криптик',
     },
 }
 

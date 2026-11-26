@@ -909,6 +909,61 @@ def notify_new_censorly_offer(offer_id: int) -> bool:
     return send_admin_message(format_censorly_offer_message(offer), reply_markup=_offer_keyboard('censorly', offer))
 
 
+def format_cryptic_offer_message(offer) -> str:
+    from games.daily.catalog.cryptic import enumeration_for
+
+    enum = offer.enumeration or enumeration_for(offer.answer)
+    body = [
+        '',
+        '<b>{}</b> ({})'.format(_escape(offer.clue), _escape(enum)),
+        'Ответ: <b>{}</b>'.format(_escape(offer.answer)),
+        'Разбор: <code>{}</code>'.format(_escape(offer.formula)),
+    ]
+    return _offer_message(
+        title='🔑 <b>Новый криптик на проверку</b>',
+        offer=offer,
+        body=body,
+        comment=offer.comment,
+        support_path='/support/cryptic/#offers',
+        play_path=offer.play_url(),
+    )
+
+
+def cryptic_editor_chat_ids() -> list[int]:
+    """Редакторы криптиков с привязанным Telegram: им пишет бот в личку."""
+    from games.console.http.constants import CRYPTIC_CONSOLE_GROUP
+    from games.models import Profile
+
+    return list(
+        Profile.objects.filter(
+            user__groups__name=CRYPTIC_CONSOLE_GROUP, user__is_active=True, telegram_user_id__isnull=False,
+        ).values_list('telegram_user_id', flat=True).distinct()
+    )
+
+
+def notify_new_cryptic_offer(offer_id: int) -> bool:
+    """Админский чат — с кнопками; редакторам в личку — со ссылкой на консоль.
+
+    Кнопки работают только в админском чате (webhook принимает callback'и
+    только оттуда), поэтому редакторы решают в /support/cryptic/.
+    """
+    from games.models import CrypticOffer
+    from games.ops.telegram.transport.api import send_message
+
+    offer = CrypticOffer.objects.select_related('user', 'user__profile').get(pk=offer_id)
+    text = format_cryptic_offer_message(offer)
+    sent = send_admin_message(text, reply_markup=_offer_keyboard('cryptic', offer))
+    admin = str(admin_chat_id() or '')
+    for chat_id in cryptic_editor_chat_ids():
+        if str(chat_id) == admin:
+            continue
+        try:
+            sent = send_message(chat_id, text) or sent
+        except Exception:
+            logger.exception('Failed to notify cryptic editor %s about offer %s', chat_id, offer_id)
+    return sent
+
+
 # --- Bug reports ----------------------------------------------------------
 
 def bug_report_thread_url(report: BugReport) -> str:

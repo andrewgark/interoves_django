@@ -9,10 +9,11 @@ from games.site.views.account.team import (
     reject_user_joining_team,
 )
 from games.site.views.game import censorly as game_censorly
+from games.site.views.offers import cryptic as cryptic_offers
 from games.site.views.pages import ui
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|advent|cryptic|team|profile|friends|notifications|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad|create_censorly)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|advent|cryptic|team|profile|friends|notifications|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad|create_censorly|create_cryptic)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -115,6 +116,15 @@ urlpatterns = [
     path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='ui_create_salad_detail'),
     path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='ui_create_salad_send'),
     path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='ui_create_salad_reset'),
+    path('create_cryptic/', cryptic_offers.offer_cryptic_page, name='ui_create_cryptic'),
+    path('create_cryptic/create/', cryptic_offers.offer_cryptic_create, name='ui_create_cryptic_create'),
+    path('create_cryptic/preview/', cryptic_offers.offer_cryptic_preview, name='ui_create_cryptic_preview'),
+    path('create_cryptic/<int:offer_id>/', cryptic_offers.offer_cryptic_detail, name='ui_create_cryptic_detail'),
+    path('create_cryptic/<int:offer_id>/send/', cryptic_offers.offer_cryptic_send, name='ui_create_cryptic_send'),
+    path(
+        'create_cryptic/check/<str:share_hash>/', cryptic_offers.offer_cryptic_check,
+        name='ui_cryptic_offer_check',
+    ),
     path('create_censorly/', ui.offer_censorly_page, name='ui_create_censorly'),
     path('create_censorly/create/', ui.offer_censorly_create, name='ui_create_censorly_create'),
     path('create_censorly/suggest/', ui.offer_censorly_suggest, name='ui_create_censorly_suggest'),

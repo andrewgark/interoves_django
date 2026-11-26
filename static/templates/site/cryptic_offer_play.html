@@ -1,0 +1,107 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Криптик{% endblock %}
+{% block content %}
+{% csrf_token %}
+<div class="new-section-header new-tg-heading">
+  <p class="new-login-hint new-meta-kicker new-tg-heading__game">Криптики</p>
+  <h1 class="new-heading new-heading--page new-tg-heading__title">Криптик игрока</h1>
+  <button type="button" class="new-rules-trigger" aria-label="Правила" data-tooltip="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
+</div>
+<p class="new-login-hint new-stack-gap">
+  {% if is_author %}Ваш черновик: его видят все, у кого есть ссылка.{% else %}Криптик от {{ author_name }}. Его ещё не смотрели редакторы.{% endif %}
+  Ответы здесь не сохраняются и не попадают в результаты.
+</p>
+
+<article class="new-taskcard pal-card cryptic-draft" id="cryptic-draft">
+  {% if ready %}
+    <div class="new-taskcard__text">
+      <p class="cryptic-clue">{{ offer.clue }} <span class="cryptic-clue__len" data-cryptic-enum="{{ enumeration }}">({{ enumeration }})</span></p>
+    </div>
+    <form class="new-attempt-form" id="cryptic-draft-form" action="{{ check_url }}" method="post">
+      <div class="new-attempt-row">
+        <input type="text" name="text" autocomplete="off">
+        <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+      </div>
+      <div class="new-attempt-msg" aria-live="polite"></div>
+    </form>
+    <div id="cryptic-draft-solved" hidden>
+      <div class="new-taskcard__answer"><strong>Ответ:</strong> <span id="cryptic-draft-answer"></span></div>
+      <section class="cx-box" id="cryptic-draft-explanation" aria-label="Разбор" hidden>
+        <h3 class="cx-box__title">Разбор</h3>
+        <div id="cryptic-draft-explanation-body"></div>
+      </section>
+    </div>
+  {% else %}
+    <p class="new-login-hint">Автор ещё не дописал этот криптик.</p>
+  {% endif %}
+</article>
+
+{% if is_author %}
+<p class="new-stack-gap"><a class="new-link-dotted" href="{% url 'ui_create_cryptic' %}#offer-{{ offer.pk }}">Вернуться к редактированию</a></p>
+{% endif %}
+
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <p class="pal-kicker">Криптики</p>
+    <h2 id="rules-modal-title" class="pal-title">как решать</h2>
+    {% include "site/_cryptic_rules_body.html" %}
+  </div>
+</div>
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
+</p>
+
+<script src="{% static 'js/cryptic_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script>
+(function () {
+  var rules = document.getElementById('rules-modal');
+  function setRules(open) {
+    rules.hidden = !open;
+    rules.classList.toggle('is-open', open);
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  document.querySelectorAll('[data-rules-open]').forEach(function (b) {
+    b.addEventListener('click', function () { setRules(true); });
+  });
+  rules.querySelectorAll('[data-rules-close]').forEach(function (b) {
+    b.addEventListener('click', function () { setRules(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && rules.classList.contains('is-open')) setRules(false);
+  });
+
+  var form = document.getElementById('cryptic-draft-form');
+  if (!form) return;
+  var msg = form.querySelector('.new-attempt-msg');
+  var input = form.querySelector('input[name="text"]');
+  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var body = new FormData();
+    body.append('text', input.value);
+    fetch(form.action, {
+      method: 'POST', body: body, credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrf ? csrf.value : '' }
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.empty) return;
+      if (!data.ok) {
+        msg.textContent = 'Неверно, попробуйте ещё';
+        input.select();
+        return;
+      }
+      form.hidden = true;
+      document.getElementById('cryptic-draft-answer').textContent = data.answer;
+      document.getElementById('cryptic-draft-solved').hidden = false;
+      if (data.explanation_html) {
+        document.getElementById('cryptic-draft-explanation-body').innerHTML = data.explanation_html;
+        document.getElementById('cryptic-draft-explanation').hidden = false;
+      }
+    }).catch(function () { msg.textContent = 'Не получилось проверить, попробуйте ещё раз'; });
+  });
+})();
+</script>
+{% endblock %}

@@ -260,6 +260,7 @@ OFFER_GAMES = {
     'ladder': ('games.puzzles.raddle.models.LadderOffer', 'new_create_ladder', True, 'вашу лесенку'),
     'alphabetty': ('games.puzzles.alphabetty.models.AlphabettyOffer', 'new_create_alphabetty', True, 'вашу алфавитку'),
     'censorly': ('games.puzzles.censorly.models.CensorlyOffer', 'new_create_censorly', False, 'вашу цензурку'),
+    'cryptic': ('games.puzzles.cryptic.models.CrypticOffer', 'ui_create_cryptic', True, 'ваш криптик'),
 }
 
 
@@ -551,6 +552,7 @@ GAME_BROADCAST = register(NotificationKind(
 
 OFFER_NOMINATIVE = {
     'salad': 'ваш салатик', 'ladder': 'ваша лесенка', 'alphabetty': 'ваша алфавитка', 'censorly': 'ваша цензурка',
+    'cryptic': 'ваш криптик',
 }
 
 

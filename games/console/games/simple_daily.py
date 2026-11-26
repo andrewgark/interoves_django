@@ -101,6 +101,8 @@ class SimpleDailySection:
     # Шаблон справки, которая открывается ссылкой над предпросмотром.
     help_template: str = ''
     help_label: str = ''
+    # Блок предложений игроков над расписанием (шаблон консоли).
+    offers_template: str = ''
 
     @property
     def has_preview(self) -> bool:

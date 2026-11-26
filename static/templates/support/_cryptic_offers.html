@@ -1,0 +1,88 @@
+{# Криптики, предложенные игроками: принять в конец расписания или вернуть на доработку. #}
+{{ offers_json|json_script:"cx-offers-bootstrap" }}
+<section class="pal-card support-card" id="offers" aria-labelledby="cx-offers-title">
+  <h2 class="support-card__title" id="cx-offers-title">Предложения игроков <span class="support-flag" id="cx-offers-count"></span></h2>
+  <p class="support-hint">
+    Принятый криптик встаёт в конец расписания, автором дня записывается игрок, и ему придёт уведомление.
+    Перед приёмом криптик можно решить по ссылке. Править его можно после приёма, как обычный день.
+  </p>
+  <div id="cx-offers-list"></div>
+</section>
+
+<script>
+(function () {
+  var offers = JSON.parse(document.getElementById('cx-offers-bootstrap').textContent || '[]');
+  var listEl = document.getElementById('cx-offers-list');
+  var countEl = document.getElementById('cx-offers-count');
+  var busy = false;
+  var urls = {
+    accept: "{% url 'support:cryptic_offer_accept' 0 %}",
+    revise: "{% url 'support:cryptic_offer_revise' 0 %}"
+  };
+  function url(tpl, id) { return tpl.replace('/0/', '/' + id + '/'); }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function post(target, body) {
+    var csrf = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return fetch(target, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf ? csrf.value : '' },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function render() {
+    countEl.textContent = offers.length ? String(offers.length) : '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Новых предложений нет.</p>';
+      return;
+    }
+    listEl.innerHTML = offers.map(function (o) {
+      return '<article class="support-cx-offer" data-offer="' + o.id + '">' +
+        '<p class="cryptic-clue support-cx-offer__clue">' + esc(o.clue) +
+          ' <span class="cryptic-clue__len">(' + esc(o.shown_enumeration) + ')</span></p>' +
+        '<p class="support-hint">Ответ: <strong>' + esc(o.answer) + '</strong>. ' +
+          'Автор: ' + esc(o.user_name) + '. Отправлен ' + esc((o.sent_at || '').slice(0, 10)) + '.</p>' +
+        (o.comment ? '<p class="support-hint">Комментарий: ' + esc(o.comment) + '</p>' : '') +
+        (o.explanation_html ? '<div class="cx-box">' + o.explanation_html + '</div>' : '') +
+        '<div class="support-action-row support-action-row--mt">' +
+          '<button type="button" class="new-btn new-btn--mini" data-accept="' + o.id + '">Принять в конец расписания</button>' +
+          '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revise="' + o.id + '">На доработку</button>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + esc(o.play_url) + '" target="_blank" rel="noopener">решить</a>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+  }
+  listEl.addEventListener('click', function (e) {
+    if (busy) return;
+    var accept = e.target.closest('[data-accept]');
+    var revise = e.target.closest('[data-revise]');
+    if (!accept && !revise) return;
+    var id = (accept || revise).getAttribute(accept ? 'data-accept' : 'data-revise');
+    var request;
+    if (accept) {
+      if (!window.confirm('Принять криптик и поставить его в конец расписания?')) return;
+      request = post(url(urls.accept, id), {});
+    } else {
+      var note = window.prompt('Что поправить? Это увидит автор.', '');
+      if (note === null) return;
+      request = post(url(urls.revise, id), { note: note });
+    }
+    busy = true;
+    request.then(function (data) {
+      offers = data.offers || [];
+      render();
+      // The schedule below changed: reload it with the new day.
+      if (accept) window.location.reload();
+    }).catch(function (err) { alert(err.message || String(err)); })
+      .finally(function () { busy = false; });
+  });
+  render();
+})();
+</script>

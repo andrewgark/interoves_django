@@ -52,6 +52,12 @@ def _alphabetty():
     return alphabetty.accept_offer, alphabetty.request_revision
 
 
+def _cryptic():
+    from games.club.offers import cryptic
+
+    return cryptic.accept_offer, cryptic.request_revision
+
+
 def _censorly_accept(offer):
     from games.console.games.censorly import accept_censorly_offer
 
@@ -68,6 +74,7 @@ def _kinds() -> dict[str, OfferKind]:
     ladder_accept, ladder_revise = _ladder()
     salad_accept, salad_revise = _salad()
     alphabetty_accept, alphabetty_revise = _alphabetty()
+    cryptic_accept, cryptic_revise = _cryptic()
     return {
         'ladder': OfferKind('ladder', 'лесенка', 'LadderOffer', ladder_accept,
                             lambda offer, note: ladder_revise(offer, admin_note=note), None, 'Принята'),
@@ -77,10 +84,14 @@ def _kinds() -> dict[str, OfferKind]:
                                 lambda offer, note: alphabetty_revise(offer, admin_note=note), None, 'Принята'),
         'censorly': OfferKind('censorly', 'цензурка', 'CensorlyOffer', _censorly_accept,
                               None, _censorly_reject, 'Принята'),
+        'cryptic': OfferKind('cryptic', 'криптик', 'CrypticOffer', cryptic_accept,
+                             lambda offer, note: cryptic_revise(offer, admin_note=note), None, 'Принят'),
     }
 
 
-KIND_BY_LABEL = {'лесенка': 'ladder', 'салатик': 'salad', 'алфавитка': 'alphabetty', 'цензурка': 'censorly'}
+KIND_BY_LABEL = {
+    'лесенка': 'ladder', 'салатик': 'salad', 'алфавитка': 'alphabetty', 'цензурка': 'censorly', 'криптик': 'cryptic',
+}
 
 
 def offer_keyboard(kind: str, offer_id: int) -> dict:

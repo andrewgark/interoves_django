@@ -239,6 +239,13 @@ def task_group_page(
         id=game_id,
     )
     from games.sections.paths import section_play_path
+    if game_id == 'cryptic' and ladder_tutorial_task is None:
+        # A player's cryptic before an editor takes it: its own light page.
+        from games.site.views.offers.cryptic import draft_offer_for_segment, draft_offer_page
+
+        draft_cryptic = draft_offer_for_segment(str(task_group_number))
+        if draft_cryptic is not None:
+            return draft_offer_page(request, draft_cryptic)
     project_redirect = _root_project_game_redirect(
         request, game, '{}/'.format(task_group_number),
     )

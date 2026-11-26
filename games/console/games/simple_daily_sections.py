@@ -219,6 +219,7 @@ CRYPTIC_SECTION = SimpleDailySection(
     preview_title='Так увидят разбор',
     help_template='site/_cryptic_explain_help.html',
     help_label='Как записывать разбор',
+    offers_template='support/_cryptic_offers.html',
 )
 
 SECTIONS: dict[str, SimpleDailySection] = {

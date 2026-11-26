@@ -12,6 +12,8 @@
   Раздел на сайте: <a class="new-link-dotted" href="{{ section_settings.hub_url }}" target="_blank" rel="noopener">{{ section_settings.hub_url }}</a>
 </p>
 
+{% if section.offers_template %}{% include section.offers_template %}{% endif %}
+
 <section class="pal-card support-card">
   <h2 class="support-card__title">Настройки</h2>
   <div class="support-advent-settings">

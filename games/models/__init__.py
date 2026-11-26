@@ -135,6 +135,7 @@ from games.notifications.models import (  # noqa: F401
 )
 from games.puzzles.alphabetty.models import AlphabettyOffer  # noqa: F401
 from games.puzzles.censorly.models import CensorlyOffer  # noqa: F401
+from games.puzzles.cryptic.models import CrypticOffer  # noqa: F401
 from games.puzzles.raddle.models import LadderOffer, RaddleClueLike, RaddleUiState  # noqa: F401
 from games.puzzles.replacements.models import ReplacementsUiState  # noqa: F401
 from games.puzzles.salad.models import WordSaladOffer  # noqa: F401
@@ -251,6 +252,7 @@ __all__ = [
     'CorporateGameOrder',
     'AlphabettyOffer',
     'CensorlyOffer',
+    'CrypticOffer',
     'LadderOffer',
     'RaddleClueLike',
     'RaddleUiState',

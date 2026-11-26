@@ -42,6 +42,10 @@ def dashboard(request, *, section):
     ctx['page_title'] = console.section.title
     ctx['support_limited_sections'] = limited_console_sections(request.user)
     ctx['day_fields'] = console.day_fields()
+    if console.section.offers_template:
+        from games.club.offers.cryptic import sent_offers_for_console
+
+        ctx['offers_json'] = sent_offers_for_console()
     return render(request, 'support/simple_daily.html', ctx)
 
 
@@ -178,6 +182,47 @@ def upload(request, *, section):
     return JsonResponse({'ok': True, **media})
 
 
+def _cryptic_offer(offer_id):
+    from games.models import CrypticOffer
+
+    return CrypticOffer.objects.filter(pk=offer_id).first()
+
+
+@section_console_required
+@require_POST
+def offer_accept(request, offer_id, *, section):
+    from games.club.offers.cryptic import CrypticOfferError, accept_offer, sent_offers_for_console
+
+    offer = _cryptic_offer(offer_id)
+    if offer is None:
+        return _error('Предложение не найдено', status=404)
+    try:
+        accept_offer(offer, reviewer=request.user)
+    except CrypticOfferError as exc:
+        return _error(exc)
+    return JsonResponse({
+        'ok': True,
+        'rows': _rows_payload(console_for(section)),
+        'offers': sent_offers_for_console(),
+    })
+
+
+@section_console_required
+@require_POST
+def offer_revise(request, offer_id, *, section):
+    from games.club.offers.cryptic import CrypticOfferError, request_revision, sent_offers_for_console
+
+    offer = _cryptic_offer(offer_id)
+    if offer is None:
+        return _error('Предложение не найдено', status=404)
+    body = parse_json_object_body(request) or {}
+    try:
+        request_revision(offer, admin_note=str(body.get('note') or ''), reviewer=request.user)
+    except CrypticOfferError as exc:
+        return _error(exc)
+    return JsonResponse({'ok': True, 'offers': sent_offers_for_console()})
+
+
 def urlpatterns_for(section):
     from django.urls import path
 
@@ -189,6 +234,10 @@ def urlpatterns_for(section):
         path(f'{section}/reorder/', reorder, kw, name=f'{section}_reorder'),
         path(f'{section}/upload/', upload, kw, name=f'{section}_upload'),
         path(f'{section}/preview/', preview, kw, name=f'{section}_preview'),
+        *([
+            path(f'{section}/offers/<int:offer_id>/accept/', offer_accept, kw, name=f'{section}_offer_accept'),
+            path(f'{section}/offers/<int:offer_id>/revise/', offer_revise, kw, name=f'{section}_offer_revise'),
+        ] if section == 'cryptic' else []),
         path(f'{section}/<int:link_id>/', detail, kw, name=f'{section}_detail'),
         path(f'{section}/<int:link_id>/save/', update, kw, name=f'{section}_update'),
         path(f'{section}/<int:link_id>/delete/', delete, kw, name=f'{section}_delete'),

@@ -358,6 +358,12 @@ def cascade_delete_link(link: GameTaskGroup) -> None:
     удаляем только слот расписания: Task/посылки/лайки и сам offer сохраняем.
     """
     tg_id = link.task_group_id
+    from games.models import CrypticOffer
+
+    # A cryptic offer keeps its own text: back to the editors' queue.
+    CrypticOffer.objects.filter(accepted_link=link, status=CrypticOffer.STATUS_ACCEPTED).update(
+        accepted_link=None, status=CrypticOffer.STATUS_SENT, updated_at=timezone.now(),
+    )
     link.delete()
     if not tg_id:
         return

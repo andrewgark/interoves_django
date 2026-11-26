@@ -2069,3 +2069,18 @@ html.new-ui-dark .support-ladder-item__mixed {
   border-radius: 2px;
 }
 .support-cx-help-modal .new-rules-modal__box { max-width: min(44rem, calc(100vw - 2rem)); }
+.cx-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 9rem);
+  gap: 0 0.75rem;
+}
+@media (max-width: 30rem) {
+  .cx-field-row { grid-template-columns: minmax(0, 1fr); }
+}
+.cx-editor-head { margin-top: 0.75rem; }
+.support-cx-offer {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+.support-cx-offer:first-child { border-top: 0; }
+.support-cx-offer__clue { margin: 0 0 0.25rem; }

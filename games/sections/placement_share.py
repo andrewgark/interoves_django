@@ -28,7 +28,7 @@ def is_share_hash_segment(segment: str) -> bool:
 
 
 def allocate_share_hash() -> str:
-    from games.models import AlphabettyOffer, GameTaskGroup, LadderOffer, WordSaladOffer
+    from games.models import AlphabettyOffer, CrypticOffer, GameTaskGroup, LadderOffer, WordSaladOffer
 
     for _ in range(20):
         token = secrets.token_hex(8)
@@ -40,6 +40,7 @@ def allocate_share_hash() -> str:
             WordSaladOffer.objects.filter(share_hash=token).exists()
             or LadderOffer.objects.filter(share_hash=token).exists()
             or AlphabettyOffer.objects.filter(share_hash=token).exists()
+            or CrypticOffer.objects.filter(share_hash=token).exists()
         ):
             continue
         return token

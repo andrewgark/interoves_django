@@ -22,6 +22,7 @@ from games.models import (
     BugReport,
     BugReportMessage,
     ChainTaskState,
+    CrypticOffer,
     DailySolveTiming,
     Donation,
     GameAuthor,
@@ -274,6 +275,7 @@ def build_account_merge_preview(target_user, source_user):
             LadderOffer.objects.filter(user=source_user).count()
             + AlphabettyOffer.objects.filter(user=source_user).count()
             + WordSaladOffer.objects.filter(user=source_user).count()
+            + CrypticOffer.objects.filter(user=source_user).count()
         ),
         'conflicts': conflicts,
         'conflict_messages': [_conflict_message(code) for code in conflicts],
@@ -839,6 +841,7 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
         ('ladder_offers', LadderOffer, 'user'),
         ('alphabetty_offers', AlphabettyOffer, 'user'),
         ('word_salad_offers', WordSaladOffer, 'user'),
+        ('cryptic_offers', CrypticOffer, 'user'),
         ('next_game_vote_events', NextGameVoteEvent, 'matched_user'),
     ]
     # Payment models can be installed independently of account merging. When

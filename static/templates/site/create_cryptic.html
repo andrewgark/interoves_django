@@ -1,0 +1,384 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Создать свой Криптик{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  <script src="{% static 'js/offer_draft_autosave.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{{ offers_json|json_script:"cryptic-offers-bootstrap" }}
+<h1 class="new-heading new-heading--page">Создать свой Криптик</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать Криптики, укажите имя, фамилию и привяжите Telegram.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div>
+        <label for="offer-first-name">Имя</label>
+        <input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required>
+      </div>
+      <div>
+        <label for="offer-last-name">Фамилия</label>
+        <input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required>
+      </div>
+    </div>
+    {% include "site/offer_telegram_link.html" %}
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
+<p class="new-login-hint new-stack-gap">
+  Придумайте свои Криптики. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одним из ежедневных.
+  Предложенный криптик посмотрят редакторы раздела.
+</p>
+<div class="new-stack-gap new-stack-gap--after-button">
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить Криптик</button>
+</div>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши Криптики"></section>
+
+<div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Криптик</h2>
+    <p class="support-hint" id="offer-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Подсказка</span>
+      <textarea id="offer-edit-clue" rows="2" maxlength="600" placeholder="Без длины в скобках: её допишем сами"></textarea>
+    </label>
+    <div class="cx-field-row">
+      <label class="support-ladders-field">
+        <span>Ответ</span>
+        <input type="text" id="offer-edit-answer" class="support-input--upper" maxlength="120" autocomplete="off">
+      </label>
+      <label class="support-ladders-field">
+        <span>Длина</span>
+        <input type="text" id="offer-edit-enumeration" maxlength="64" autocomplete="off" placeholder="по ответу">
+      </label>
+    </div>
+    <div class="support-cx-preview__head cx-editor-head">
+      <strong>Разбор</strong>
+      <button type="button" class="support-cx-help-link" data-help-open><i class="ph ph-book-open-text" aria-hidden="true"></i> Как записывать разбор</button>
+    </div>
+    <label class="support-ladders-field">
+      <span>Разметка</span>
+      <textarea id="offer-edit-markup" rows="2" maxlength="1200" class="support-cx-mono" spellcheck="false" placeholder="*Разбитый* (полк) — | {кровопийца в постели}"></textarea>
+    </label>
+    <label class="support-ladders-field">
+      <span>Формула</span>
+      <input type="text" id="offer-edit-formula" maxlength="1200" class="support-cx-mono" spellcheck="false" autocomplete="off" placeholder="анаг[Разбитый](ПОЛК)">
+    </label>
+    <div class="cx-box support-cx-preview">
+      <h3 class="cx-box__title">Так увидят разбор</h3>
+      <div id="offer-preview"></div>
+      <div id="offer-preview-check" class="cx-check" role="status" aria-live="polite"></div>
+    </div>
+    <label class="support-ladders-field">
+      <span>Комментарий для редакторов</span>
+      <textarea id="offer-edit-comment" rows="2" maxlength="4000"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-autosave" id="offer-autosave-status" role="status" aria-live="polite">
+      <span class="support-autosave__icon" aria-hidden="true"><i class="ph ph-cloud-check"></i></span>
+      <span class="support-autosave__copy">
+        <strong id="offer-autosave-title">Автосохранение включено</strong>
+        <span id="offer-autosave-detail">Можно спокойно закрыть окно — изменения не пропадут.</span>
+      </span>
+    </div>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать Криптик</a>
+      <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div id="offer-help-modal" class="new-rules-modal support-cx-help-modal" role="dialog" aria-labelledby="cx-help-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-help-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-help-close>×</button>
+    {% include "site/_cryptic_explain_help.html" %}
+  </div>
+</div>
+
+<script>
+(function () {
+  var offers = JSON.parse(document.getElementById('cryptic-offers-bootstrap').textContent || '[]');
+  var listEl = document.getElementById('offer-list');
+  var modal = document.getElementById('offer-edit-modal');
+  var helpModal = document.getElementById('offer-help-modal');
+  var editId = null;
+  var busy = false;
+  var autosave = null;
+  var FIELDS = ['clue', 'answer', 'enumeration', 'markup', 'formula', 'comment'];
+  var endpoints = {
+    create: "{% url 'ui_create_cryptic_create' %}",
+    preview: "{% url 'ui_create_cryptic_preview' %}",
+    detailTpl: "{% url 'ui_create_cryptic_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'ui_create_cryptic_send' 0 %}".replace('/0/', '/{id}/')
+  };
+  var SEND_CONFIRM = 'Предложить Криптик редакторам? Пока он на проверке, редактировать нельзя.';
+
+  function el(id) { return document.getElementById(id); }
+  function fieldEl(key) { return el('offer-edit-' + key); }
+  function csrf() {
+    var input = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return input ? input.value : '';
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function upsert(offer) {
+    var i = offers.findIndex(function (o) { return o.id === offer.id; });
+    if (i >= 0) offers[i] = offer; else offers.unshift(offer);
+    renderList();
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока нет Криптиков. Нажмите «Добавить Криптик».</p>';
+      return;
+    }
+    offers.forEach(function (o) {
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item';
+      item.id = 'offer-' + o.id;
+      var num = o.accepted_number ? ('№' + o.accepted_number) : ('#' + o.id);
+      var date = (o.sent_at || o.created_at || '').slice(0, 10);
+      var clue = o.clue ? o.clue + (o.answer ? ' (' + o.shown_enumeration + ')' : '') : 'Подсказка не написана';
+      item.innerHTML =
+        '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(o.answer || 'Криптик') +
+            ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
+          '<div class="support-ladder-item__meta">' + escapeHtml(date) +
+            (o.admin_note ? ' — <em>' + escapeHtml(o.admin_note) + '</em>' : '') + '</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(clue) + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать Криптик</a>' +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+
+  function openLayer(layer) {
+    layer.hidden = false;
+    layer.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLayer(layer) {
+    layer.classList.remove('is-open');
+    layer.hidden = true;
+    var stillOpen = document.querySelector('.new-rules-modal.is-open');
+    document.body.style.overflow = stillOpen ? 'hidden' : '';
+  }
+  function closeModal() {
+    if (autosave) autosave.close();
+    closeLayer(modal);
+    editId = null;
+  }
+  modal.querySelectorAll('[data-offer-close]').forEach(function (b) { b.addEventListener('click', closeModal); });
+  helpModal.querySelectorAll('[data-help-close]').forEach(function (b) {
+    b.addEventListener('click', function () { closeLayer(helpModal); });
+  });
+  modal.addEventListener('click', function (e) {
+    if (e.target.closest('[data-help-open]')) openLayer(helpModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (helpModal.classList.contains('is-open')) closeLayer(helpModal);
+    else if (modal.classList.contains('is-open')) closeModal();
+  });
+
+  function readEditorPayload() {
+    var payload = {};
+    FIELDS.forEach(function (key) { payload[key] = fieldEl(key).value; });
+    return payload;
+  }
+  function restoreEditorPayload(payload) {
+    FIELDS.forEach(function (key) { fieldEl(key).value = payload[key] || ''; });
+    refreshPreview(true);
+  }
+
+  // Live breakdown preview from the server: debounced, the latest reply wins.
+  var previewTimer = null;
+  var previewSeq = 0;
+  function refreshPreview(now) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      var seq = ++previewSeq;
+      postJson(endpoints.preview, readEditorPayload()).then(function (data) {
+        if (seq !== previewSeq) return;
+        var check = el('offer-preview-check');
+        el('offer-preview').innerHTML = data.html || '';
+        if (data.empty) {
+          check.className = 'cx-check';
+          check.textContent = 'Разбор не заполнен. Без него Криптик не получится предложить.';
+        } else if (data.errors && data.errors.length) {
+          check.className = 'cx-check cx-check--err';
+          check.innerHTML = '<i class="ph ph-warning-circle" aria-hidden="true"></i> Разбор не сходится:<ul>' +
+            data.errors.map(function (m) { return '<li>' + escapeHtml(m) + '</li>'; }).join('') + '</ul>';
+        } else {
+          check.className = 'cx-check cx-check--ok';
+          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '') +
+            (data.warnings && data.warnings.length
+              ? '<ul class="cx-check__warn">' + data.warnings.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>'
+              : '');
+        }
+      }).catch(function () {});
+    }, now ? 0 : 350);
+  }
+
+  function autosaveTime(date) {
+    if (!date || typeof date.toLocaleTimeString !== 'function') return '';
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+  function showAutosaveStatus(state, detail) {
+    var box = el('offer-autosave-status');
+    var icon = box.querySelector('i');
+    detail = detail || {};
+    box.dataset.state = state;
+    var states = {
+      idle: ['Автосохранение включено', 'Можно спокойно закрыть окно — изменения не пропадут.', 'ph-cloud-check'],
+      pending: ['Изменения сохранены на устройстве', 'Скоро синхронизируем с сервером…', 'ph-cloud-arrow-up'],
+      saving: ['Сохраняем…', 'Отправляем черновик на сервер.', 'ph-circle-notch'],
+      saved: ['Все изменения сохранены', detail.savedAt ? ('Сохранено в ' + autosaveTime(detail.savedAt)) : 'Черновик синхронизирован с сервером.', 'ph-cloud-check'],
+      restored: ['Черновик восстановлен', 'Продолжайте с места, где остановились.', 'ph-arrow-counter-clockwise'],
+      local: ['Черновик сохранён на устройстве', detail.message || 'С сервером пока не получилось — данные не пропадут.', 'ph-device-mobile'],
+      error: ['Не удалось сохранить черновик', 'Не закрывайте страницу и проверьте соединение.', 'ph-warning-circle']
+    };
+    var value = states[state] || states.idle;
+    el('offer-autosave-title').textContent = value[0];
+    el('offer-autosave-detail').textContent = value[1];
+    icon.className = 'ph ' + value[2];
+  }
+
+  autosave = window.OfferDraftAutosave.create({
+    storagePrefix: 'interoves_offer_draft_v1:cryptic:{{ user.pk }}',
+    getPayload: readEditorPayload,
+    restorePayload: restoreEditorPayload,
+    canSync: function () { return true; },
+    save: function (id, payload) {
+      return postJson(endpoints.detailTpl.replace('{id}', String(id)), payload);
+    },
+    onSaved: function (data) { if (data && data.offer) upsert(data.offer); },
+    onStatus: showAutosaveStatus
+  });
+
+  modal.addEventListener('input', function (e) {
+    if (!e.target.matches('input, textarea')) return;
+    autosave.changed();
+    if (e.target.id !== 'offer-edit-comment') refreshPreview(false);
+  });
+
+  function openEdit(offer) {
+    editId = offer.id;
+    el('offer-edit-error').hidden = true;
+    var sub = [];
+    if (offer.status_label && offer.status_label !== 'Черновик') sub.push(offer.status_label);
+    if (offer.admin_note) sub.push('Редакторы: ' + offer.admin_note);
+    el('offer-edit-sub').textContent = sub.join('. ');
+    el('offer-edit-sub').hidden = !sub.length;
+    FIELDS.forEach(function (key) { fieldEl(key).value = offer[key] || ''; });
+    el('offer-edit-preview').href = offer.play_url || '#';
+    var canEdit = !!offer.can_edit;
+    FIELDS.forEach(function (key) { fieldEl(key).disabled = !canEdit; });
+    el('offer-edit-save').disabled = !canEdit;
+    el('offer-edit-send').disabled = !canEdit;
+    el('offer-autosave-status').hidden = !canEdit;
+    if (canEdit) autosave.open(offer.id, readEditorPayload());
+    openLayer(modal);
+    refreshPreview(true);
+  }
+
+  function showError(e) {
+    var err = el('offer-edit-error');
+    err.hidden = false;
+    err.textContent = e.message || String(e);
+  }
+
+  function sendById(id, fromModal) {
+    if (!id || busy) return;
+    if (!window.confirm(SEND_CONFIRM)) return;
+    busy = true;
+    (fromModal ? autosave.flush() : Promise.resolve()).then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(id)), {});
+    }).then(function (data) {
+      autosave.discard(id);
+      upsert(data.offer);
+      if (editId === id) closeModal();
+    }).catch(function (e) {
+      if (fromModal) showError(e); else alert(e.message || String(e));
+    }).finally(function () { busy = false; });
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      var id = parseInt(editBtn.getAttribute('data-edit'), 10);
+      var offer = offers.find(function (o) { return o.id === id; });
+      if (offer) openEdit(offer);
+      return;
+    }
+    var sendBtn = e.target.closest('[data-send]');
+    if (sendBtn) sendById(parseInt(sendBtn.getAttribute('data-send'), 10), false);
+  });
+
+  el('offer-create-btn').addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    postJson(endpoints.create, {})
+      .then(function (data) { upsert(data.offer); openEdit(data.offer); })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  });
+  el('offer-edit-save').addEventListener('click', function () {
+    if (!editId || busy) return;
+    busy = true;
+    autosave.flush().then(function () { closeModal(); })
+      .catch(showError)
+      .finally(function () { busy = false; });
+  });
+  el('offer-edit-send').addEventListener('click', function () { sendById(editId, true); });
+
+  renderList();
+  (function focusOfferFromHash() {
+    var m = /^#offer-(\d+)$/.exec(window.location.hash || '');
+    var item = m && el('offer-' + m[1]);
+    if (!item) return;
+    item.style.outline = '2px solid var(--accent)';
+    item.style.borderRadius = '8px';
+    item.scrollIntoView({ block: 'center' });
+  })();
+})();
+</script>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
+</p>
+{% endblock %}
