@@ -55,6 +55,8 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
 </p>
 
+<script src="{% static 'js/imask.min.js' %}"></script>
+<script src="{% static 'js/raddle_masked_input.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/cryptic_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
 (function () {

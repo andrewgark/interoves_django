@@ -14381,6 +14381,7 @@ html.new-ui-dark .new-pay-hub__inline-icon {
   white-space: nowrap;
 }
 
+/* Без IMask (скрипт не загрузился) — обычное поле с маской в placeholder. */
 .cryptic-answer-input {
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -14390,6 +14391,57 @@ html.new-ui-dark .new-pay-hub__inline-icon {
 .cryptic-answer-input::placeholder {
   letter-spacing: 0.12em;
   opacity: 0.45;
+}
+
+/* Поле-маска как в Лесенке (.new-raddle-line / .new-raddle-mask): ширина по
+   числу клеток маски, моноширинные буквы встают в серые квадратики.
+   raddle_masked_input.js мерит шрифт и пишет в строку --raddle-glyph-advance
+   и --raddle-char-gap. Контейнера с cqi здесь нет, поэтому шрифт считаем от
+   ширины окна: клетка маски ≈ 1em, ещё ~13rem уходят на поля страницы и
+   карточки и на кнопку «Проверить». Длинный ответ переносит кнопку вниз. */
+.new-raddle-line.cryptic-answer-line {
+  flex: 0 1 auto;
+  font-size: clamp(
+    0.8rem,
+    calc((min(100vw, 46rem) - 13rem) / var(--raddle-format-len, 5)),
+    1.35rem
+  );
+}
+
+.new-attempt-row .cryptic-answer-line input.cryptic-answer-input {
+  flex: 0 1 auto;
+  width: calc(
+    var(--raddle-format-len, 5) * var(--raddle-glyph-advance, 1em)
+    + var(--raddle-format-len, 5) * var(--raddle-char-gap)
+    + 0.7rem + 2px
+  );
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--control-height);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.3rem 0.35rem;
+  position: relative;
+  z-index: 2;
+  font-family: var(--new-font-mono);
+  font-size: inherit;
+  line-height: 1.2;
+  letter-spacing: var(--raddle-char-gap);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "clig" 0, "calt" 0;
+  caret-color: var(--text);
+}
+
+.cryptic-answer-line .cryptic-answer-input::placeholder {
+  color: transparent;
+  letter-spacing: 0.02em;
+  font-size: 1em;
+}
+
+.cryptic-answer-input:not(:placeholder-shown) + .new-raddle-mask,
+.cryptic-answer-input.new-raddle-input--filled + .new-raddle-mask {
+  display: none;
 }
 
 /* Разбор криптика (games/puzzles/cryptic/explain.py). Цвет — операция:
