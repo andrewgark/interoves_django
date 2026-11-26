@@ -46,7 +46,7 @@
     <div class="new-attempt-row">
       {{ task.get_attempt_form.text }}
       <button type="submit" class="new-btn new-btn--mini">Проверить</button>
-      {% if cryptic_hint and cryptic_hint.next %}<button type="submit" form="cryptic-hint-{{ task.id }}" class="new-raddle-assist-btn{% if cryptic_hint.level %} new-raddle-assist-btn--answer{% endif %} cryptic-hint-btn" data-tooltip="{% if cryptic_hint.level %}Увидеть разбор{% else %}Узнать, где определение{% endif %} (−{{ cryptic_hint.next.points_penalty|minimize_digits }})" aria-label="{% if cryptic_hint.level %}Увидеть разбор{% else %}Узнать, где определение{% endif %}"><i class="ph ph-lightbulb" aria-hidden="true"></i>{% if cryptic_hint.level %}<i class="ph ph-lightbulb" aria-hidden="true"></i>{% endif %}</button>{% endif %}
+      {% if cryptic_hint and cryptic_hint.next %}<button type="submit" form="cryptic-hint-{{ task.id }}" class="new-raddle-assist-btn{% if cryptic_hint.level %} new-raddle-assist-btn--answer{% endif %} cryptic-hint-btn" data-tooltip="{{ cryptic_hint.button }} (−{{ cryptic_hint.next.points_penalty|minimize_digits }} {{ cryptic_hint.next.points_penalty|ru_points_word }})" aria-label="{{ cryptic_hint.button }}, −{{ cryptic_hint.next.points_penalty|minimize_digits }} {{ cryptic_hint.next.points_penalty|ru_points_word }}"><i class="ph ph-lightbulb" aria-hidden="true"></i>{% if cryptic_hint.level %}<i class="ph ph-lightbulb" aria-hidden="true"></i>{% endif %}<span class="cryptic-hint-btn__cost" aria-hidden="true">−{{ cryptic_hint.next.points_penalty|minimize_digits }}</span></button>{% endif %}
     </div>
     <div class="new-attempt-msg" aria-live="polite"></div>
   </form>
@@ -63,10 +63,10 @@
     <input type="hidden" name="__ui_hint_points_word" value="{{ cryptic_hint.next.points_penalty|ru_points_word }}">
   </form>
   {% endif %}
-  {% if cryptic_hint.shown %}
+  {% if cryptic_hint.level %}
     <section class="cx-box cryptic-hint-box" aria-label="Подсказка">
-      <h3 class="cx-box__title">{% if cryptic_hint.level > 1 %}Разбор{% else %}Где определение{% endif %}</h3>
-      {% autoescape off %}{{ cryptic_hint.shown.text }}{% endautoescape %}
+      <h3 class="cx-box__title">{{ cryptic_hint.title }}</h3>
+      {{ cryptic_hint.html }}
     </section>
   {% endif %}
 {% endif %}

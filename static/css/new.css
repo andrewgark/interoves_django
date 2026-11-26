@@ -14507,6 +14507,12 @@ html.new-ui-dark {
   font-size: 1.15rem;
 }
 .new-attempt-row .cryptic-hint-btn.new-raddle-assist-btn--answer .ph + .ph { margin-left: -0.45em; }
+.cryptic-hint-btn__cost {
+  margin-left: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .cx-box__title {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;
@@ -14643,6 +14649,11 @@ html.new-ui-dark {
 .cx-note { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9rem; }
 
 @container (max-width: 30rem) {
+  /* Длинная часть переносится на несколько строк: по центру строки «плывут»,
+     и черта между частями теряется. Слева читается как обычный текст. */
+  .cx-seg--def { align-items: flex-start; }
+  .cx-seg--def > .cx-seg__text { text-align: left; }
+  .cx-split { margin: 0 0.45rem; }
   .cx-steps { display: block; }
   .cx-step {
     display: flex;
@@ -14666,6 +14677,17 @@ html.new-ui-dark {
 .cx-seg--fod.cx-c4 > .cx-seg__label { color: var(--cx-c); }
 
 /* проверка разбора в редакторе */
+.cx-hint-preview {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+}
+.cx-hint-preview__title {
+  margin: 0 0 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
 .cx-check { margin: 0.5rem 0 0; font-size: 0.88rem; color: var(--muted); }
 .cx-check--ok { color: var(--accent); }
 .cx-check--err { color: var(--danger); }

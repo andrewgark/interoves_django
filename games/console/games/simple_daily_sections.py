@@ -166,7 +166,35 @@ def _cryptic_preview(fields: dict[str, str]) -> dict:
 
 def _cryptic_summary(task) -> str:
     answer = (task.answer or '').strip()
-    return 'Ответ: {} ({})'.format(answer, task_enumeration(task)) if answer else ''
+    if not answer:
+        return ''
+    line = 'Ответ: {} ({})'.format(answer, task_enumeration(task))
+    hints = _cryptic_hint_usage(task)
+    return '{}. {}'.format(line, hints) if hints else line
+
+
+def _cryptic_hint_usage(task) -> str:
+    """«Решили 40, с 💡 12, с 💡💡 5»: сколько решивших брали подсказки до решения."""
+    from games.models import Attempt, HintAttempt
+
+    actor = ('team_id', 'user_id', 'anon_key')
+    solvers = set(
+        Attempt.manager.filter(task=task, status='Ok', skip=False, replay_slot__isnull=True)
+        .values_list(*actor).distinct()
+    )
+    if not solvers:
+        return ''
+    taken: dict[str, set] = {}
+    for *key, number in (
+        HintAttempt.objects.filter(hint__task=task, is_real_request=True, replay_slot__isnull=True)
+        .values_list(*actor, 'hint__number').distinct()
+    ):
+        if tuple(key) in solvers:
+            taken.setdefault(number, set()).add(tuple(key))
+    parts = ['Решили {}'.format(len(solvers))]
+    for level, number in enumerate(('1', '2'), start=1):
+        parts.append('с {} {}'.format('💡' * level, len(taken.get(number, ()))))
+    return ', '.join(parts)
 
 
 CRYPTIC_SECTION = SimpleDailySection(

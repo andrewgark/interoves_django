@@ -82,7 +82,28 @@ def cryptic_editor_preview(*, clue='', answer='', enumeration='', markup='', for
 
     result = editor_preview(clue=clue, answer=answer, markup=markup, formula=formula)
     result['answer_error'] = answer_error(answer, enumeration) if str(answer or '').strip() else None
+    if result.get('html') and not result.get('errors'):
+        result['html'] += _hints_preview_html(clue=clue, answer=answer, markup=markup, formula=formula)
     return result
+
+
+def _hints_preview_html(*, clue, answer, markup, formula) -> str:
+    """Что увидит игрок по 💡 и 💡💡 до решения: автору видно, не много ли выдаёт первая."""
+    from django.utils.html import escape
+
+    from games.puzzles.cryptic.explain import hint_htmls
+    from games.puzzles.cryptic.hints import HINT_TITLES
+
+    htmls = hint_htmls(clue=str(clue or ''), answer=str(answer or ''), markup=str(markup or ''),
+                       formula=str(formula or ''))
+    if htmls is None:
+        return ''
+    return ''.join(
+        '<section class="cx-hint-preview"><h4 class="cx-hint-preview__title">{} {}</h4>{}</section>'.format(
+            '💡' * level, escape(title), html,
+        )
+        for level, (title, html) in enumerate(zip(HINT_TITLES, htmls), start=1)
+    )
 
 
 _ANSWER_RE = re.compile(r'[А-ЯЁ]+(?:[ -][А-ЯЁ]+)*')

@@ -677,18 +677,35 @@ def simple_daily_share(game, task, ai, tg_number, share_host):
 def cryptic_hints(task, ai):
     """Подсказки криптика до решения: последняя взятая и следующая.
 
-    ``shown`` — текст последней взятой (вторая повторяет первую целиком),
-    ``next`` — Hint для кнопки 💡 / 💡💡 или None.
+    Тексты рисуются из разбора в ``task.tags`` при показе, а не берутся из
+    ``Hint.text``: так они не отстают от вёрстки разбора. ``Hint`` нужны для
+    штрафа и порядка. ``html`` — последняя взятая (вторая содержит первую
+    целиком), ``next`` — Hint для кнопки 💡 / 💡💡 или None.
     """
+    from django.utils.safestring import mark_safe
+
+    from games.puzzles.cryptic.explain import hint_htmls
+    from games.puzzles.cryptic.hints import HINT_BUTTONS, HINT_TITLES
+
     hints = sorted(task.get_hints(), key=lambda h: h.key_sort())
     if not hints:
         return None
+    tags = getattr(task, 'tags', None) or {}
+    htmls = hint_htmls(
+        clue=str(tags.get('cryptic_clue') or ''), answer=getattr(task, 'answer', '') or '',
+        markup=str(tags.get('cryptic_markup') or ''), formula=str(tags.get('cryptic_formula') or ''),
+    )
+    if htmls is None:
+        return None
     taken = set(ai.get_hint_numbers()) if ai is not None else set()
-    shown = [h for h in hints if h.number in taken]
+    level = min(len([h for h in hints if h.number in taken]), len(htmls))
+    nxt = next((h for h in hints if h.number not in taken), None)
     return {
-        'shown': shown[-1] if shown else None,
-        'next': next((h for h in hints if h.number not in taken), None),
-        'level': len(shown),
+        'level': level,
+        'title': HINT_TITLES[level - 1] if level else '',
+        'html': mark_safe(htmls[level - 1]) if level else '',
+        'next': nxt,
+        'button': HINT_BUTTONS[min(level, len(HINT_BUTTONS) - 1)],
     }
 
 

@@ -104,3 +104,46 @@ class CrypticHintPlayTests(TestCase):
                 client.post('/send_hint_attempt/{}/'.format(self.task.pk), {'hint_number': number, 'game_id': 'cryptic'})
             client.post('/send_attempt/{}/'.format(self.task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
             self.assertContains(client.get('/cryptic/1/'), square)
+
+
+class CrypticHintEditorTests(TestCase):
+    def setUp(self):
+        _cryptic_game(start='2020-12-04T00:00:00+03:00')
+        self.console = console_for(CRYPTIC_GAME_ID)
+
+    def test_preview_shows_both_hints(self):
+        from games.daily.catalog.cryptic import cryptic_editor_preview
+
+        html = cryptic_editor_preview(clue=CLUE, answer='ЖЕМЧУЖИНА', markup=MARKUP, formula=FORMULA)['html']
+        self.assertEqual(html.count('cx-hint-preview__title'), 2)
+        self.assertIn('Подсказка: где определение', html)
+        broken = cryptic_editor_preview(clue=CLUE, answer='ЖЕМЧУЖИНА', markup=MARKUP, formula='обр(X)')
+        self.assertNotIn('cx-hint-preview', broken['html'])
+
+    def test_hint_text_follows_the_breakdown_not_the_stored_row(self):
+        item = self.console.create(at_number=1, fields={
+            'clue': CLUE, 'answer': 'ЖЕМЧУЖИНА', 'markup': MARKUP, 'formula': FORMULA,
+        })
+        task = Task.objects.get(task_group_id=item['task_group_id'])
+        Hint.objects.filter(task=task).update(text='<p>устарело</p>')
+        client = Client()
+        client.force_login(_user('cryptic_fresh'))
+        client.post('/send_hint_attempt/{}/'.format(task.pk), {'hint_number': '1', 'game_id': 'cryptic'})
+        page = client.get('/cryptic/1/')
+        self.assertNotContains(page, 'устарело')
+        self.assertContains(page, 'cx-explain--hint', count=1)
+        self.assertContains(page, 'Подсказка: где определение')
+
+    def test_console_summary_counts_hints_of_solvers(self):
+        item = self.console.create(at_number=1, fields={
+            'clue': CLUE, 'answer': 'ЖЕМЧУЖИНА', 'markup': MARKUP, 'formula': FORMULA,
+        })
+        task = Task.objects.get(task_group_id=item['task_group_id'])
+        for name, numbers in (('a', ()), ('b', ('1',)), ('c', ('1', '2'))):
+            client = Client()
+            client.force_login(_user('cryptic_sum_' + name))
+            for number in numbers:
+                client.post('/send_hint_attempt/{}/'.format(task.pk), {'hint_number': number, 'game_id': 'cryptic'})
+            client.post('/send_attempt/{}/'.format(task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
+        row = next(r for r in self.console.rows() if r.link_id == item['link_id'])
+        self.assertIn('Решили 3, с 💡 2, с 💡💡 1', row.summary)

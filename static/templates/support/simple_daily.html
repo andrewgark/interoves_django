@@ -283,7 +283,7 @@
         if (seq !== previewSeq) return;
         field('sd-preview').innerHTML = data.html || '';
         window.CrypticPreviewCheck.render(
-          field('sd-preview-check'), data, 'Разбор не заполнен: после решения покажем только ответ.'
+          field('sd-preview-check'), data, 'Разбор не заполнен: подсказок 💡 не будет, а после решения покажем только ответ.'
         );
       }).catch(function () {});
     }, now ? 0 : 350);
