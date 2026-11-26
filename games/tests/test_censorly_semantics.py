@@ -3713,6 +3713,34 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
 
+    def test_article_abbreviations_open_from_the_full_word(self):
+        from games.puzzles.censorly.lexical.deciders.index import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        for full, short in (
+            ('триллион', 'трлн'), ('доллар', 'долл'), ('гектар', 'га'),
+            ('рубль', 'руб'), ('экземпляр', 'экз'), ('издание', 'изд'),
+            ('сутки', 'сут'), ('штука', 'шт'), ('месяц', 'мес'),
+            ('область', 'обл'), ('улица', 'ул'), ('посёлок', 'пос'),
+            ('профессор', 'проф'),
+        ):
+            self.assertEqual(explain(full, short), 'alias', f'{full}/{short}')
+            self.assertEqual(explain(short, full), 'alias', f'{short}/{full}')
+        self.assertFalse(opens('доллар', 'руб'))
+
+        tokens = tokenize_text('Площадь 54 000 га, бюджет 45 тыс. руб. и 2 трлн долл.')
+        self.assertEqual(matching_lemmas(tokens, 'гектаров'), {'га'})
+        self.assertEqual(matching_lemmas(tokens, 'рубль'), {'руб'})
+        self.assertEqual(matching_lemmas(tokens, 'триллион'), {'трлн'})
+
+    def test_lowercase_only_abbreviations_skip_capitalised_names(self):
+        from games.puzzles.censorly.lexical.deciders.index import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Дочь Сон Га Ён. Пустыня Руб-эль-Хали. Картины Эдгара де Га.')
+        self.assertEqual(matching_lemmas(tokens, 'гектар'), set())
+        self.assertEqual(matching_lemmas(tokens, 'рубль'), set())
+
     def test_article_matcher_uses_explicit_proper_pairs(self):
         from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 

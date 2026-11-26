@@ -86,6 +86,9 @@ class AliasLayer(Layer):
     that is an all-capital token (XVII, «книга V»); a lowercase x is a
     variable. A typed single letter (x, v, i, l) is a letter, so «x» does not
     open 10; xii and xx still stand for numbers.
+
+    A row noted ``lowercase`` opens its short form in the article only when
+    written in lowercase: «га» is a hectare, «Га» is a name (Сон Га Ён, де Га).
     """
 
     name = 'alias'
@@ -101,6 +104,15 @@ class AliasLayer(Layer):
             ('', frozenset((str(value), fold(roman(value))))) for value in range(1, 100)
         )
         return written + numerals
+
+    @cached_property
+    def _lowercase_only(self) -> frozenset[str]:
+        """Short spellings that are this abbreviation only when lowercase."""
+        return frozenset(
+            fold(word)
+            for row in reviewed.ALIASES.data if (row.get('note') or '').strip() == 'lowercase'
+            for word in row['short'].split()
+        )
 
     @cached_property
     def _first_numeral(self) -> int:
@@ -126,7 +138,11 @@ class AliasLayer(Layer):
     def _members(self, word) -> dict[int, set[str]]:
         """Group id → the members this word stands for."""
         found: dict[int, set[str]] = {}
-        for group_id in self._by_spelling.get(word.fold, ()):
+        spelled = not (
+            not word.is_guess and word.fold in self._lowercase_only
+            and not word.surface.islower()
+        )
+        for group_id in self._by_spelling.get(word.fold, ()) if spelled else ():
             if (
                 group_id >= self._first_numeral and not word.fold.isdigit()
                 and not self._reads_as_roman(word)
