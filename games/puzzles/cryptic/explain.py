@@ -865,9 +865,18 @@ def _segment(cls: str, color: int, inner: str, label: str, ids: str = '') -> str
     ).format(cls, _color_cls(color), _ids_attr(ids), inner, escape(label))
 
 
-def _render_surface(res: Explanation) -> str:
-    counter = {'fod': 0}
+# Уровни подсказок до решения: 1 — только черта и определение, 2 — вся
+# разметка подсказки без шагов, где собирается ответ.
+HINT_SPLIT = 1
+HINT_SURFACE = 2
+
+
+def _render_surface(res: Explanation, hint_level: int = 0) -> str:
+    """Подсказка с размеченными частями. ``hint_level`` — уровень подсказки
+    (без связей с шагами разбора: их на карточке ещё нет)."""
+    counter = {'fod': 0, 'def': 0}
     pieces: list[str] = []
+    linked = not hint_level
 
     def plain(text: str) -> str:
         return '<span class="cx-plain">{}</span>'.format(escape(text))
@@ -878,14 +887,25 @@ def _render_surface(res: Explanation) -> str:
         if node.kind == 'split':
             return '<span class="cx-split" role="separator"></span>'
         if node.kind == 'ind':
-            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор', node.ids)
+            if hint_level == HINT_SPLIT:
+                return plain(node.text)
+            ids = node.ids if linked else ''
+            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор', ids)
         if node.kind == 'fod':
             color = res.fod_colors.get(counter['fod'], 0)
-            ids = ' '.join(str(i) for i in sorted(res.fod_ids.get(counter['fod'], ())))
+            ids = ' '.join(str(i) for i in sorted(res.fod_ids.get(counter['fod'], ()))) if linked else ''
             counter['fod'] += 1
+            if hint_level == HINT_SPLIT:
+                return plain(node.text)
             return _segment('cx-seg--fod', color, escape(node.text), 'буквы', ids)
         if node.kind == 'def':
-            return _segment('cx-seg--def', 0, _glue(node.children, render), 'определение', 'def' if res.steps else '')
+            counter['def'] += 1
+            inner = _glue(node.children, render)
+            # Первая подсказка у двойного определения выдаёт только одно из двух.
+            if hint_level == HINT_SPLIT and res.double_definition and counter['def'] > 1:
+                return inner
+            ids = 'def' if res.steps and linked else ''
+            return _segment('cx-seg--def', 0, inner, 'определение', ids)
         return _glue(node.children, render)
 
     pieces.append(render(res.surface))
@@ -992,9 +1012,37 @@ def render_html(res: Explanation) -> str:
     return '<div class="cx-explain">{}</div>'.format(html)
 
 
+def editor_preview(*, clue: str, answer: str, markup: str, formula: str) -> dict:
+    """Живое превью разбора для редакторов и авторов: HTML, ошибки, предупреждения."""
+    clue, markup, formula = (str(v or '').strip() for v in (clue, markup, formula))
+    if not markup and not formula:
+        return {'html': '', 'errors': [], 'warnings': [], 'empty': True}
+    res = analyze(clue=clue, answer=str(answer or ''), markup=markup, formula=formula)
+    if not formula:
+        res.errors.append('Заполните формулу')
+    return {'html': render_html(res), 'errors': res.errors, 'warnings': res.warnings, 'answer': res.answer}
+
+
 def explanation_html(*, clue: str, answer: str, markup: str, formula: str) -> str:
     """HTML для игрока: только сошедшийся разбор."""
     if not str(markup or '').strip():
         return ''
     res = analyze(clue=clue, answer=answer, markup=markup, formula=formula)
     return render_html(res) if res.ok else ''
+
+
+def hint_htmls(*, clue: str, answer: str, markup: str, formula: str) -> tuple[str, str] | None:
+    """HTML двух подсказок до решения или None, если разбора нет или он не сходится.
+
+    Первая — деление на две части и определение (у двойного определения —
+    первое из двух), вторая — вся разметка подсказки без шагов и ответа.
+    """
+    if not str(markup or '').strip():
+        return None
+    res = analyze(clue=clue, answer=answer, markup=markup, formula=formula)
+    if not res.ok or res.surface is None:
+        return None
+    return tuple(
+        '<div class="cx-explain cx-explain--hint">{}</div>'.format(_render_surface(res, level))
+        for level in (HINT_SPLIT, HINT_SURFACE)
+    )

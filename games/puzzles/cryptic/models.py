@@ -61,6 +61,13 @@ class CrypticOffer(models.Model):
             return 'На доработке'
         return dict(self.STATUS_VARIANTS).get(self.status, self.status)
 
+    @property
+    def shown_enumeration(self) -> str:
+        """Маска в скобках после подсказки: своя или посчитанная по ответу."""
+        from games.daily.catalog.cryptic import enumeration_for
+
+        return self.enumeration or enumeration_for(self.answer)
+
     def can_author_edit(self) -> bool:
         return self.status == self.STATUS_DRAFT
 

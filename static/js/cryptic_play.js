@@ -2,10 +2,16 @@
 // из подсказки («(6)» → ◼◼◼◼◼◼, «(3-4)» → ◼◼◼-◼◼◼◼, «(5, 4)» → ◼◼◼◼◼ ◼◼◼◼),
 // ширина по длине ответа, моноширинные буквы ложатся в слоты, лишние не
 // вводятся, дефис и пробел маска ставит сама (RaddleMaskedInput + IMask).
+// Ответ всегда русский (games/daily/catalog/cryptic.py), поэтому маска
+// пускает только кириллицу. Заполненная маска сразу отправляет ответ.
 // Сервер сравнивает ответ без пробелов и знаков, так что литералы маски в
 // значении поля не мешают. Карточка перерисовывается после каждого ответа,
 // поэтому разметка применяется заново при изменениях DOM.
 (function () {
+  var SCRIPT = 'cyrillic';
+  // Последний проверенный ответ каждой формы: автопроверка не шлёт его снова,
+  // когда страница возвращает в поле прошлый неверный ответ.
+  var lastChecked = {};
   // «5, 4» → «##### ####», «3-4» → «###-####». Пустая строка — маска непонятна.
   function formatFor(enumeration) {
     var parts = String(enumeration || '').replace(/\s+/g, '').split(/([,-])/);
@@ -41,6 +47,26 @@
     return mask;
   }
 
+  function formKey(form) {
+    return form.getAttribute('data-task-id') || form.id || 'cryptic';
+  }
+
+  function maskedInputOf(form) {
+    return form && form.querySelector ? form.querySelector('input[data-cryptic-masked="1"]') : null;
+  }
+
+  function lettersOf(input) {
+    return window.RaddleMaskedInput.extractLetters(input.value, SCRIPT);
+  }
+
+  function autoCheck(input, letters) {
+    var form = input.form;
+    if (!form || input.readOnly || input.disabled || form.dataset.submitting === '1') return;
+    if (lastChecked[formKey(form)] === letters) return;
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+    else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  }
+
   function applyMask(input, format) {
     var line = document.createElement('span');
     line.className = 'new-raddle-line cryptic-answer-line';
@@ -58,16 +84,15 @@
     // Класс new-raddle-input не ставим: на него завязаны сессия клавиатуры и
     // Tab-навигация Лесенки. Вид поля задают стили .cryptic-answer-line.
     input.setAttribute('data-raddle-format', format);
-    // Ответ может оказаться и латиницей, и с цифрами: маска пускает любые буквы.
-    input.setAttribute('data-raddle-script', 'mixed_digits');
+    input.setAttribute('data-raddle-script', SCRIPT);
     input.placeholder = format.replace(/#/g, '◼');
-    window.RaddleMaskedInput.bindInput(input, {});
+    window.RaddleMaskedInput.bindInput(input, { onComplete: autoCheck });
 
     // Код страницы может вернуть в поле прошлый неверный ответ уже после
     // привязки маски; подтягиваем маску к значению поля.
     input.addEventListener('focus', function () {
       var M = window.RaddleMaskedInput;
-      var letters = M.extractLetters(input.value, 'mixed_digits');
+      var letters = lettersOf(input);
       if (letters !== M.getLetters(input)) M.setLetters(input, letters);
     });
   }
@@ -99,9 +124,19 @@
 
   function start() {
     apply(document);
+    // Любой ответ (автопроверка, Enter, кнопка) запоминается до отправки.
+    document.addEventListener('submit', function (e) {
+      var input = maskedInputOf(e.target);
+      if (input && window.RaddleMaskedInput) lastChecked[formKey(e.target)] = lettersOf(input);
+    }, true);
     if (typeof MutationObserver === 'function') {
-      new MutationObserver(function () { apply(document); })
-        .observe(document.body, { childList: true, subtree: true });
+      // Одна разметка на пачку изменений DOM, но до отрисовки: микрозадача.
+      var queued = false;
+      new MutationObserver(function () {
+        if (queued) return;
+        queued = true;
+        Promise.resolve().then(function () { queued = false; apply(document); });
+      }).observe(document.body, { childList: true, subtree: true });
     }
   }
 

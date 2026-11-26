@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -18,16 +17,14 @@ from django.utils import timezone
 
 from games.club.offers.profiles import profile_display_name, profile_ready_for_offers
 from games.console.games.simple_daily import AUTHOR_FIELD, SimpleDailyError
-from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, enumeration_for, enumeration_is_valid
+from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, answer_error
 from games.models import CrypticOffer
 from games.notifications.catalog import notifies_author
-from games.puzzles.cryptic.explain import ExplainError, analyze, explanation_html, render_html
+from games.puzzles.cryptic.explain import ExplainError, analyze, editor_preview, explanation_html
 
 logger = logging.getLogger('application')
 
 CLUE_MAX = 600
-# The answer is shown as-is after solving: no markup, only words.
-_ANSWER_RE = re.compile(r'[0-9A-ZА-ЯЁ]+(?:[ -][0-9A-ZА-ЯЁ]+)*')
 # Offers waiting for editors from one player: past this, sending waits.
 MAX_PENDING_PER_USER = 10
 ANSWER_MAX = 120
@@ -86,7 +83,7 @@ def serialize_offer(offer: CrypticOffer) -> OfferRow:
         clue=offer.clue,
         answer=offer.answer,
         enumeration=offer.enumeration,
-        shown_enumeration=offer.enumeration or enumeration_for(offer.answer),
+        shown_enumeration=offer.shown_enumeration,
         markup=offer.markup,
         formula=offer.formula,
         comment=offer.comment,
@@ -181,10 +178,10 @@ def check_offer(offer: CrypticOffer) -> None:
         raise CrypticOfferError('Напишите подсказку')
     if not offer.answer:
         raise CrypticOfferError('Напишите ответ')
-    if not _ANSWER_RE.fullmatch(offer.answer):
-        raise CrypticOfferError('В ответе могут быть только буквы, цифры, пробелы и дефисы')
-    if offer.enumeration and not enumeration_is_valid(offer.enumeration):
-        raise CrypticOfferError('Длина — числа через запятую или дефис, например 6 или 3-4 или 5, 4')
+    # The answer is shown as-is after solving: no markup, only Russian words.
+    error = answer_error(offer.answer, offer.enumeration)
+    if error:
+        raise CrypticOfferError(error)
     if not offer.markup or not offer.formula:
         raise CrypticOfferError('Добавьте разбор: разметку и формулу')
     res = analyze(clue=offer.clue, answer=offer.answer, markup=offer.markup, formula=offer.formula)
@@ -194,13 +191,10 @@ def check_offer(offer: CrypticOffer) -> None:
 
 def preview(*, clue='', answer='', markup='', formula='') -> dict[str, Any]:
     """Как в консоли: HTML разбора, ошибки и предупреждения."""
-    markup, formula = _clean(markup, EXPLAIN_MAX), _clean(formula, EXPLAIN_MAX)
-    if not markup and not formula:
-        return {'html': '', 'errors': [], 'warnings': [], 'empty': True}
-    res = analyze(clue=_clean(clue, CLUE_MAX), answer=_clean(answer, ANSWER_MAX), markup=markup, formula=formula)
-    if not formula:
-        res.errors.append('Заполните формулу')
-    return {'html': render_html(res), 'errors': res.errors, 'warnings': res.warnings, 'answer': res.answer}
+    return editor_preview(
+        clue=_clean(clue, CLUE_MAX), answer=_clean(answer, ANSWER_MAX),
+        markup=_clean(markup, EXPLAIN_MAX), formula=_clean(formula, EXPLAIN_MAX),
+    )
 
 
 @transaction.atomic
@@ -288,13 +282,30 @@ def request_revision(offer: CrypticOffer, *, admin_note: str = '', reviewer: Use
     return offer
 
 
+def _draft_checker(offer: CrypticOffer):
+    """The day's checker: a draft accepts exactly what the accepted day will."""
+    from games.puzzles.core.check_runtime import EqualsWithPossibleSpacesChecker
+
+    return EqualsWithPossibleSpacesChecker(offer.answer)
+
+
+def draft_client_spec(offer: CrypticOffer) -> dict[str, Any]:
+    """Spec for the draft page to check answers itself (static/js/offline_verify.js)."""
+    from games.puzzles.core.client_spec import hash_set_spec
+
+    checker = _draft_checker(offer)
+    # Per offer, like spec_salt per task: equal answers of two offers hash apart.
+    salt = 'cryptic-offer:{}'.format(offer.pk)
+    return hash_set_spec(salt, checker.bool_check.normalize_ops, dict.fromkeys(checker.data, 'Ok'))
+
+
 def check_draft_answer(offer: CrypticOffer, text: str) -> dict[str, Any]:
     """Проверка на странице черновика: без попыток и без очков."""
     from games.puzzles.cryptic.explain import letters
 
     if not letters(text):
         return {'ok': False, 'empty': True}
-    if letters(text) != letters(offer.answer):
+    if not _draft_checker(offer).bool_check(text):
         return {'ok': False}
     explanation = ''
     if offer.markup and offer.formula:

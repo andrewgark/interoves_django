@@ -350,6 +350,11 @@ class CrypticTests(TestCase):
         self.assertIn('(2-3)', task.text)
         with self.assertRaises(SimpleDailyError):
             console.update(item['link_id'], fields={'enumeration': 'пять'})
+        # The answer field takes exactly the mask's letters, all Russian.
+        with self.assertRaisesMessage(SimpleDailyError, 'В маске (2-2) букв 4, а в ответе 5'):
+            console.update(item['link_id'], fields={'enumeration': '2-2'})
+        with self.assertRaisesMessage(SimpleDailyError, 'только русские буквы'):
+            console.update(item['link_id'], fields={'answer': 'Ssora'})
 
         client = Client()
         client.force_login(_user('cryptic_player'))

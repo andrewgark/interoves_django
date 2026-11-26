@@ -55,8 +55,11 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
 </p>
 
+{% if client_spec %}{{ client_spec|json_script:"cryptic-draft-spec" }}{% endif %}
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_normalize.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_verify.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/cryptic_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
 (function () {
@@ -81,28 +84,51 @@
   var msg = form.querySelector('.new-attempt-msg');
   var input = form.querySelector('input[name="text"]');
   var csrf = document.querySelector('input[name=csrfmiddlewaretoken]');
+  var specNode = document.getElementById('cryptic-draft-spec');
+  var spec = null;
+  try { spec = specNode ? JSON.parse(specNode.textContent) : null; } catch (e) {}
+
+  // Verdict without the network when the page can tell: 'Ok', 'Wrong' or null.
+  function localVerdict(text) {
+    if (!spec || !window.OfflineVerify) return Promise.resolve(null);
+    return window.OfflineVerify.verify(spec, text).catch(function () { return null; });
+  }
+  function showWrong() {
+    msg.textContent = 'Неверно, попробуйте ещё';
+    input.select();
+  }
+  function showSolved(data) {
+    form.hidden = true;
+    document.getElementById('cryptic-draft-answer').textContent = data.answer;
+    document.getElementById('cryptic-draft-solved').hidden = false;
+    if (data.explanation_html) {
+      document.getElementById('cryptic-draft-explanation-body').innerHTML = data.explanation_html;
+      document.getElementById('cryptic-draft-explanation').hidden = false;
+    }
+  }
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var body = new FormData();
-    body.append('text', input.value);
-    fetch(form.action, {
-      method: 'POST', body: body, credentials: 'same-origin',
-      headers: { 'X-CSRFToken': csrf ? csrf.value : '' }
-    }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.empty) return;
-      if (!data.ok) {
-        msg.textContent = 'Неверно, попробуйте ещё';
-        input.select();
-        return;
-      }
-      form.hidden = true;
-      document.getElementById('cryptic-draft-answer').textContent = data.answer;
-      document.getElementById('cryptic-draft-solved').hidden = false;
-      if (data.explanation_html) {
-        document.getElementById('cryptic-draft-explanation-body').innerHTML = data.explanation_html;
-        document.getElementById('cryptic-draft-explanation').hidden = false;
-      }
-    }).catch(function () { msg.textContent = 'Не получилось проверить, попробуйте ещё раз'; });
+    var text = input.value;
+    if (!text.trim()) return;
+    msg.textContent = '';
+    localVerdict(text).then(function (verdict) {
+      // A wrong answer needs no server; a right one fetches the breakdown.
+      if (verdict === 'Wrong') { showWrong(); return; }
+      var body = new FormData();
+      body.append('text', text);
+      return fetch(form.action, {
+        method: 'POST', body: body, credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrf ? csrf.value : '' }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.empty) return;
+        if (data.ok) showSolved(data);
+        else showWrong();
+      }).catch(function () {
+        msg.textContent = verdict === 'Ok'
+          ? 'Верно! Разбор покажем, когда появится связь.'
+          : 'Не получилось проверить, попробуйте ещё раз';
+      });
+    });
   });
 })();
 </script>

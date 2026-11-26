@@ -74,6 +74,21 @@ class CrypticOfferFlowTests(TestCase):
         self.assertIn('cx-steps', solved['explanation_html'])
         self.assertFalse(Task.objects.filter(answer__iexact='клоп').exists())
 
+    def test_draft_page_checks_answers_itself_with_the_days_rules(self):
+        from games.puzzles.core.client_spec import verify
+
+        offer = self._draft(answer='из-за угла', markup='', formula='')
+        page = self.client.get(offer.play_url())
+        self.assertContains(page, 'id="cryptic-draft-spec"')
+        self.assertContains(page, '(2-2, 4)')
+        self.assertNotContains(page, 'УГЛА')
+        spec = page.context['client_spec']
+        self.assertEqual(verify(spec, 'Из-за угла'), 'Ok')
+        self.assertEqual(verify(spec, 'ИЗЗА УГЛА'), 'Ok')
+        self.assertEqual(verify(spec, 'ИЗ-ЗА УГЛЯ'), 'Wrong')
+        check = reverse('ui_cryptic_offer_check', args=[offer.share_hash])
+        self.assertTrue(self.client.post(check, {'text': 'ИЗЗА УГЛА'}).json()['ok'])
+
     def test_preview_endpoint(self):
         data = _json(self.client, 'ui_create_cryptic_preview', FIELDS).json()
         self.assertEqual((data['errors'], data['answer']), ([], 'КЛОП'))
@@ -176,8 +191,16 @@ class CrypticOfferFlowTests(TestCase):
         offer = self._draft(
             answer='<b>КЛОП</b>', markup='*Разбитый* (полк) — | {кровопийца в постели}',
         )
-        with self.assertRaisesMessage(CrypticOfferError, 'только буквы, цифры, пробелы и дефисы'):
+        with self.assertRaisesMessage(CrypticOfferError, 'только русские буквы, пробелы и дефисы'):
             send_offer(offer)
+
+    def test_answer_is_russian_and_fits_its_mask(self):
+        for answer in ('CLOP', 'КЛОП2'):
+            with self.assertRaisesMessage(CrypticOfferError, 'только русские буквы'):
+                send_offer(self._draft(answer=answer))
+        with self.assertRaisesMessage(CrypticOfferError, 'В маске (2, 3) букв 5, а в ответе 4'):
+            send_offer(self._draft(enumeration='2, 3'))
+        send_offer(self._draft(enumeration='2-2'))
 
     def test_a_player_waits_after_ten_pending_offers(self):
         for _ in range(10):

@@ -12,9 +12,10 @@ from games.console.games.simple_daily import (
     TaskContent,
 )
 from games.console.http.constants import ADVENT_CONSOLE_GROUP, CRYPTIC_CONSOLE_GROUP
-from games.daily.catalog.cryptic import enumeration_for, enumeration_is_valid
+from games.daily.catalog.cryptic import answer_error, enumeration_for
 from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
-from games.puzzles.cryptic.explain import ExplainError, analyze, render_html, validate as validate_explanation
+from games.puzzles.cryptic.explain import ExplainError, editor_preview, validate as validate_explanation
+from games.puzzles.cryptic.hints import CRYPTIC_POINTS, sync_cryptic_hints
 
 # Authors recorded on every new day: advent tasks are Ира Броварь's (prod
 # user 16), cryptics are the site author's (Андрей Гаркавый, user 1).
@@ -111,9 +112,10 @@ def _cryptic_to_task(fields: dict[str, str]) -> TaskContent:
         raise SimpleDailyError('Нужна подсказка')
     if not answer:
         raise SimpleDailyError('Нужен ответ')
+    error = answer_error(answer, fields.get('enumeration'))
+    if error:
+        raise SimpleDailyError(error)
     enumeration = str(fields.get('enumeration') or '').strip() or enumeration_for(answer)
-    if not enumeration_is_valid(enumeration):
-        raise SimpleDailyError('Маска ответа — числа через запятую или дефис, например 6 или 3-4 или 5, 4')
     markup = str(fields.get('markup') or '').strip()
     formula = str(fields.get('formula') or '').strip()
     try:
@@ -153,19 +155,7 @@ def _cryptic_from_task(task) -> dict[str, str]:
 
 
 def _cryptic_preview(fields: dict[str, str]) -> dict:
-    markup = str(fields.get('markup') or '').strip()
-    formula = str(fields.get('formula') or '').strip()
-    if not markup and not formula:
-        return {'html': '', 'errors': [], 'empty': True}
-    res = analyze(
-        clue=str(fields.get('clue') or '').strip(),
-        answer=str(fields.get('answer') or ''),
-        markup=markup,
-        formula=formula,
-    )
-    if not formula:
-        res.errors.append('Заполните формулу')
-    return {'html': render_html(res), 'errors': res.errors, 'warnings': res.warnings, 'answer': res.answer}
+    return editor_preview(**{key: fields.get(key) for key in ('clue', 'answer', 'markup', 'formula')})
 
 
 def _cryptic_summary(task) -> str:
@@ -208,7 +198,11 @@ CRYPTIC_SECTION = SimpleDailySection(
         ),
         DayField(
             'formula', 'Разбор: формула', mono=True, placeholder='анаг[Пьяный](МУЖЧИНА ЖЕ)',
-            hint='Разбор покажем после решения. Пустой разбор можно, заполненный должен сходиться.',
+            hint=(
+                'Разбор покажем после решения, а до решения — две подсказки по −1 баллу из {}: '
+                'черта с определением, затем вся разметка. Пустой разбор можно (тогда без подсказок), '
+                'заполненный должен сходиться.'
+            ).format(CRYPTIC_POINTS),
         ),
         DayField('explanation', 'Комментарий под разбором (HTML)', kind='textarea'),
     ),
@@ -220,6 +214,8 @@ CRYPTIC_SECTION = SimpleDailySection(
     help_template='site/_cryptic_explain_help.html',
     help_label='Как записывать разбор',
     offers_template='support/_cryptic_offers.html',
+    day_points=CRYPTIC_POINTS,
+    after_save=sync_cryptic_hints,
 )
 
 SECTIONS: dict[str, SimpleDailySection] = {
