@@ -14536,6 +14536,20 @@ html.new-ui-dark {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+.cx-cut {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--cx-c);
+  text-decoration-thickness: 2px;
+}
+/* наведение: шаг ↔ его индикатор и буквы в подсказке (js/cryptic_explain_links.js) */
+.cx-explain .cx-seg,
+.cx-explain .cx-step > * { transition: opacity 0.12s ease; }
+.cx-explain.cx-linking .cx-seg:not(.cx-on),
+.cx-explain.cx-linking .cx-step:not(.cx-on) > * { opacity: 0.35; }
+.cx-explain.cx-linking .cx-step.cx-on .cx-step__name {
+  background: color-mix(in srgb, var(--cx-c) 22%, transparent);
+}
 .cx-note { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9rem; }
 
 @container (max-width: 30rem) {

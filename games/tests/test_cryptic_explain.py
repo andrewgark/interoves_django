@@ -112,6 +112,59 @@ class LanguageTests(SimpleTestCase):
                                   markup=GOOD[1][2], formula=GOOD[1][3])
         self.assertIn('БЕ<span class="cx-hit">ЛА Д</span>НЯ', hidden)
 
+    def test_picked_letters_are_marked(self):
+        def marked(markup, answer, formula):
+            clue = ' '.join(markup.translate(str.maketrans('', '', '*(){}|')).split())
+            html = explanation_html(clue=clue, answer=answer, markup=markup, formula=formula)
+            self.assertTrue(html, formula)
+            return html
+
+        # первые буквы — каждая отдельно, даже у соседних слов
+        self.assertIn('<span class="cx-hit">М</span>ИРА <span class="cx-hit">И</span> <span class="cx-hit">Р</span>АЯ',
+                      marked('*Начала* (мира и рая) | {мир}', 'МИР', 'нач[Начала](МИРА И РАЯ)'))
+        self.assertIn('СА<span class="cx-hit">М</span> Л<span class="cx-hit">И</span> ТИ<span class="cx-hit">Р</span>',
+                      marked('*Концы* (сам ли тир) | {мир}', 'МИР', 'кон[Концы](САМ ЛИ ТИР)'))
+        self.assertIn('С<span class="cx-hit">УМ</span>А', marked('*Сердце* (сума) | {ум}', 'УМ', 'сер[Сердце](СУМА)'))
+        self.assertIn('А<span class="cx-hit">М</span>И<span class="cx-hit">И</span>Р<span class="cx-hit">Б</span>',
+                      marked('*Чётные* (амиирб) | {миб}', 'МИБ', 'чёт[Чётные](АМИИРБ)'))
+        # «без …» зачёркивает выброшенное, вставка выделяет вставленное в результате
+        homyak = marked(GOOD[3][2], GOOD[3][1], GOOD[3][3])
+        self.assertIn('ХО<span class="cx-cut">Д</span>ОК', homyak)
+        self.assertIn('ХО<span class="cx-hit">МЯЧ</span>ОК', homyak)
+        self.assertIn('<span class="cx-cut">Д</span>УМА',
+                      marked('*Безначальная* (дума) | {ума}', 'УМА', 'без_нач[Безначальная](ДУМА)'))
+        self.assertIn('<span class="cx-cut">ОК</span>НО', marked('(Окно) (ок) | {но}', 'НО', 'ОКНО − ОК'))
+        swap = marked('*Поменяв* (кот) | {рот}', 'РОТ', 'замена[Поменяв](КОТ, К→Р)')
+        self.assertIn('<span class="cx-cut">К</span>ОТ', swap)
+        self.assertIn('<span class="cx-hit">Р</span>ОТ', swap)
+        # первые буквы склейки: слова берутся из обеих частей
+        self.assertIn('<span class="cx-hit">М</span>ИРА + <span class="cx-hit">И</span> <span class="cx-hit">Р</span>АЯ',
+                      marked('*Начала* (мира) (и рая) | {мир}', 'МИР', 'нач[Начала](МИРА + И РАЯ)'))
+
+    def test_edge_letters_and_middle(self):
+        res = analyze(clue='Хвосты сам тир амир', answer='АМИР', markup='*Хвосты* (сам тир) | {амир}',
+                      formula='кон2[Хвосты](САМ ТИР)')
+        self.assertEqual(res.errors, [])
+        self.assertEqual((res.steps[0].name, res.steps[0].hit), ('последние 2 буквы', (1, 2, 4, 5)))
+        self.assertEqual(_errors('сер[Сердце](СУМА)', clue='Сердце сума ум', answer='УМ',
+                                 markup='*Сердце* (сума) | {ум}'), [])
+        # у чётной длины подходит и одна средняя буква
+        res = analyze(clue='Сердце сума у', answer='У', markup='*Сердце* (сума) | {у}', formula='сер[Сердце](СУМА)')
+        self.assertEqual((res.errors, res.steps[0].hit), ([], (1,)))
+        res = analyze(clue='Бессердечная сума сма', answer='СМА', markup='*Бессердечная* (сума) | {сма}',
+                      formula='без_сер[Бессердечная](СУМА)')
+        self.assertEqual((res.errors, res.steps[0].cut), ([], (1,)))
+
+    def test_hover_links_steps_to_clue(self):
+        html = explanation_html(clue=GOOD[3][0], answer=GOOD[3][1], markup=GOOD[3][2], formula=GOOD[3][3])
+        self.assertTrue(html.startswith('<div class="cx-explain">'))
+        # без_сер (id 2): индикатор, блок и шаг; вставка (id 1) — последний шаг, связан с определением
+        self.assertEqual(html.count('data-cx-ids="2"'), 3)
+        self.assertIn('<li class="cx-step cx-c1" data-cx-ids="1 def">', html)
+        self.assertIn('cx-seg--def" data-cx-ids="def"', html)
+        bare = explanation_html(clue='Окно ок но', answer='НО', markup='(Окно) (ок) | {но}', formula='ОКНО − ОК')
+        self.assertEqual(bare.count('data-cx-ids="3'), 3)  # оба блока и шаг «убрать»
+
     def test_markup_is_escaped(self):
         html = explanation_html(
             clue='<b>x</b> мужчина же сокровище', answer='ЖЕМЧУЖИНА',

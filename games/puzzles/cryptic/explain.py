@@ -49,6 +49,7 @@ OPS: dict[str, Op] = {
     'кон': Op('последние буквы'),
     'чёт': Op('чётные буквы'),
     'нечёт': Op('нечётные буквы'),
+    'сер': Op('середина'),
     'без_нач': Op('без первой'),
     'без_кон': Op('без последней'),
     'без_сер': Op('без середины'),
@@ -113,6 +114,7 @@ class SNode:
     children: list['SNode'] = field(default_factory=list)
     color: int = 0
     op_name: str = ''
+    ids: str = ''  # шаги разбора, с которыми связан кусок (для подсветки при наведении)
 
     def plain(self) -> str:
         if self.kind == 'split':
@@ -239,6 +241,7 @@ class FNode:
     args: list['FNode'] = field(default_factory=list)
     swap: tuple[str, str] = ('', '')
     result: str = ''
+    count: int = 1  # нач2 / кон2: сколько букв с краю каждого слова
 
 
 class _FormulaParser:
@@ -306,9 +309,15 @@ class _FormulaParser:
         name = self.tokens[self.p][1].lower()
         name = _OP_ALIASES.get(name, name)
         nxt = self.tokens[self.p + 1][0] if self.p + 1 < len(self.tokens) else ''
+        count = 1
+        edge = re.fullmatch(r'(нач|кон)(\d{1,2})', name)
+        if edge and nxt in ('(', '['):
+            name, count = edge.group(1), int(edge.group(2))
+            if count < 1:
+                raise ExplainError('У «{}» число букв — от 1'.format(name))
         if name in OPS and nxt in ('(', '['):
             self.p += 1
-            node = self._new('op', op=name)
+            node = self._new('op', op=name, count=count)
             if self.peek('['):
                 self.p += 1
                 parts = []
@@ -445,6 +454,17 @@ def _remove(node: FNode) -> list[_Variant]:
     return out
 
 
+def _middle_options(n: int) -> list[range]:
+    """Середина слова из n букв: у нечётного одна буква; у чётного обе средние
+    или одна из них (так тоже пишут; какая — решает ответ или «=»)."""
+    m = n // 2
+    if n % 2:
+        return [range(m, m + 1)]
+    if not n:
+        return [range(0)]
+    return [range(m - 1, m + 1), range(m - 1, m), range(m, m + 1)]
+
+
 def _evaluate_raw(node: FNode) -> list[_Variant]:
     if node.kind == 'op' and node.op == 'склеить':
         return _concat(node.args)
@@ -473,9 +493,9 @@ def _evaluate_raw(node: FNode) -> list[_Variant]:
         if op == 'обр':
             out.append(_fix(text[::-1], picks, node.id))
         elif op == 'нач':
-            out.append(_fix(''.join(w[:1] for w in words), picks, node.id))
+            out.append(_fix(''.join(w[:node.count] for w in words), picks, node.id))
         elif op == 'кон':
-            out.append(_fix(''.join(w[-1:] for w in words), picks, node.id))
+            out.append(_fix(''.join(w[-node.count:] for w in words), picks, node.id))
         elif op == 'чёт':
             out.append(_fix(text[1::2], picks, node.id))
         elif op == 'нечёт':
@@ -484,9 +504,12 @@ def _evaluate_raw(node: FNode) -> list[_Variant]:
             out.append(_fix(text[1:], picks, node.id))
         elif op == 'без_кон':
             out.append(_fix(text[:-1], picks, node.id))
+        elif op == 'сер':
+            for mid in _middle_options(len(text)):
+                out.append(_fix(''.join(text[i] for i in mid), picks, node.id))
         elif op == 'без_сер':
-            n, m = len(text), len(text) // 2
-            out.append(_fix(text[:m] + text[m + 1:] if n % 2 else text[:m - 1] + text[m + 1:], picks, node.id))
+            for mid in _middle_options(len(text)):
+                out.append(_fix(''.join(ch for i, ch in enumerate(text) if i not in mid), picks, node.id))
         elif op == 'замена':
             src, dst = node.swap
             at = text.find(src)
@@ -515,7 +538,23 @@ class Step:
     output: str
     color: int = 0
     joiner: str = ''  # '+', '−' или 'в' (вставка: что «в» куда)
-    hit: str = ''  # для «спрятано»: найденный кусок
+    # Номера букв (без пробелов): что из первого входа пошло в результат (hit),
+    # что из него выброшено (cut) и что в результате появилось новое (out_hit).
+    hit: tuple[int, ...] = ()
+    cut: tuple[int, ...] = ()
+    out_hit: tuple[int, ...] = ()
+    node_id: int = 0
+    final: bool = False
+
+
+def _op_name(node: FNode) -> str:
+    if node.op == 'замена':
+        return 'замена {}→{}'.format(*node.swap)
+    if node.op in ('нач', 'кон') and node.count > 1:
+        n = node.count
+        noun = 'буквы' if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else 'букв'
+        return '{} {} {}'.format('первые' if node.op == 'нач' else 'последние', n, noun)
+    return OPS[node.op].name
 
 
 def _shown(node: FNode, picks: dict) -> str:
@@ -526,32 +565,111 @@ def _shown(node: FNode, picks: dict) -> str:
     return picks.get(node.id) or node.result or '?'
 
 
+def _shown_in(node: FNode, picks: dict) -> str:
+    """Вход шага. У склейки без своего шага видны части: «МИРА + И РАЯ»."""
+    if node.kind == 'cat':
+        return ' + '.join(_shown_in(arg, picks) for arg in node.args)
+    return _shown(node, picks)
+
+
+def _arg_words(node: FNode, picks: dict) -> list[str]:
+    """Слова входа шага, как их видит вычисление (для первых/последних букв)."""
+    if node.kind == 'lit' and not node.result:
+        return [letters(w) for w in node.words]
+    if node.kind == 'cat' or (node.kind == 'op' and node.op == 'склеить' and not node.result):
+        return [w for arg in node.args for w in _arg_words(arg, picks)]
+    return [letters(_shown(node, picks))]
+
+
+def _span(at: int, length: int) -> tuple[int, ...]:
+    return tuple(range(at, at + length)) if at >= 0 else ()
+
+
+_NO_MARKS = ((), (), ())
+
+
+def _marks(node: FNode, picks: dict) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+    """(hit, cut, out_hit) шага — см. ``Step``."""
+    result = letters(picks.get(node.id, ''))
+    if node.kind == 'minus' or node.op == 'убрать':
+        x, y = (letters(_shown(arg, picks)) for arg in node.args)
+        return (), _span(x.find(y) if y else -1, len(y)), ()
+    op = node.op
+    if op == 'вокруг':
+        outer, inner = (letters(_shown(arg, picks)) for arg in node.args)
+        for k in range(1, len(outer)):
+            if outer[:k] + inner + outer[k:] == result:
+                return (), (), _span(k, len(inner))
+        return _NO_MARKS
+    if op == 'замена':
+        text = letters(_shown(node.args[0], picks))
+        src, dst = node.swap
+        at = text.find(src) if src else -1
+        while at >= 0:
+            if text[:at] + dst + text[at + len(src):] == result:
+                return (), _span(at, len(src)), _span(at, len(dst))
+            at = text.find(src, at + 1)
+        return _NO_MARKS
+    words = _arg_words(node.args[0], picks)
+    text = ''.join(words)
+    n = len(text)
+    if op == 'скрыт':
+        return _span(text.find(result) if result else -1, len(result)), (), ()
+    if op in ('нач', 'кон'):
+        hit, pos = [], 0
+        for w in words:
+            take = min(node.count, len(w))
+            hit.extend(range(pos, pos + take) if op == 'нач' else range(pos + len(w) - take, pos + len(w)))
+            pos += len(w)
+        return tuple(hit), (), ()
+    if op == 'чёт':
+        return tuple(range(1, n, 2)), (), ()
+    if op == 'нечёт':
+        return tuple(range(0, n, 2)), (), ()
+    if op == 'без_нач':
+        return (), _span(0, min(n, 1)), ()
+    if op == 'без_кон':
+        return (), _span(n - 1, min(n, 1)), ()
+    if op in ('сер', 'без_сер'):
+        for mid in _middle_options(n):
+            if op == 'сер' and ''.join(text[i] for i in mid) == result:
+                return tuple(mid), (), ()
+            if op == 'без_сер' and ''.join(ch for i, ch in enumerate(text) if i not in mid) == result:
+                return (), tuple(mid), ()
+    return _NO_MARKS
+
+
 def _steps(node: FNode, picks: dict, colors: dict, answer: str, out: list, top: bool) -> None:
     """``answer`` — ответ для показа (с пробелами и Ё): им подписан последний шаг."""
     if node.kind == 'lit':
         if node.result:
-            out.append(Step((shown_upper(' '.join(node.words)),), 'значит', answer if top else node.result))
+            out.append(Step(
+                (shown_upper(' '.join(node.words)),), 'значит', answer if top else node.result,
+                node_id=node.id, final=top,
+            ))
         return
     if node.kind == 'cat':
         for arg in node.args:
             _steps(arg, picks, colors, answer, out, False)
         if top:
-            out.append(Step(tuple(_shown(a, picks) for a in node.args), 'склеить', answer, joiner='+'))
+            out.append(Step(
+                tuple(_shown_in(a, picks) for a in node.args), 'склеить', answer, joiner='+',
+                node_id=node.id, final=True,
+            ))
         return
     if node.kind == 'minus':
         for arg in node.args:
             _steps(arg, picks, colors, answer, out, False)
+        _hit, cut, _out = _marks(node, picks)
         out.append(Step(
-            tuple(_shown(a, picks) for a in node.args), 'убрать',
-            answer if top else picks.get(node.id, '?'), joiner='−',
+            tuple(_shown_in(a, picks) for a in node.args), 'убрать',
+            answer if top else picks.get(node.id, '?'), joiner='−', cut=cut,
+            node_id=node.id, final=top,
         ))
         return
     for arg in node.args:
         _steps(arg, picks, colors, answer, out, False)
-    name = OPS[node.op].name
-    if node.op == 'замена':
-        name = 'замена {}→{}'.format(*node.swap)
-    inputs = tuple(_shown(a, picks) for a in node.args)
+    inputs = tuple(_shown_in(a, picks) for a in node.args)
     joiner = ''
     if node.op == 'склеить':
         joiner = '+'
@@ -562,10 +680,11 @@ def _steps(node: FNode, picks: dict, colors: dict, answer: str, out: list, top: 
         joiner = 'в'
     elif node.op == 'скрыт':
         inputs = (shown_upper(' '.join(node.args[0].words)) if node.args[0].kind == 'lit' else inputs[0],)
+    hit, cut, out_hit = _marks(node, picks)
     out.append(Step(
-        inputs, name, answer if top else _shown(node, picks),
-        color=colors.get(node.id, 0), joiner=joiner,
-        hit=picks.get(node.id, '') if node.op == 'скрыт' else '',
+        inputs, _op_name(node), answer if top else _shown(node, picks),
+        color=colors.get(node.id, 0), joiner=joiner, hit=hit, cut=cut, out_hit=out_hit,
+        node_id=node.id, final=top,
     ))
 
 
@@ -578,6 +697,7 @@ class Explanation:
     surface: Optional[SNode] = None
     steps: list[Step] = field(default_factory=list)
     fod_colors: dict[int, int] = field(default_factory=dict)
+    fod_ids: dict[int, set] = field(default_factory=dict)
     double_definition: bool = False
     answer: str = ''
     # Не мешают сохранить, но скорее всего это недосмотр автора.
@@ -632,13 +752,13 @@ def _analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanatio
             res.errors.append('У двойного определения не бывает индикаторов')
         return res
 
-    lit_words: list[tuple[str, Optional[FNode]]] = []
+    lit_words: list[tuple[str, Optional[FNode], FNode]] = []
     bound: list[FNode] = []
     colors: dict[int, int] = {}
 
     def scan(node: FNode, parent: Optional[FNode]):
         if node.kind == 'lit':
-            lit_words.extend((letters(w), parent) for w in node.words)
+            lit_words.extend((letters(w), parent, node) for w in node.words)
             return
         if node.kind == 'op':
             if node.indicator:
@@ -649,18 +769,25 @@ def _analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanatio
             for arg in node.args:
                 scan(arg, node)
             return
+        # Слова прямо под «X − Y» или верхним «A + B» относятся к их шагу.
+        owner = node if node.kind == 'minus' or parent is None else parent
         for arg in node.args:
-            scan(arg, parent)
+            scan(arg, owner)
 
     scan(tree, None)
 
     pool = [(w, index) for index, fod in enumerate(fods) for w in _words(fod.text)]
-    for word, parent in lit_words:
+    for word, parent, lit in lit_words:
         at = next((i for i, (w, _b) in enumerate(pool) if w == word), None)
         if at is None:
             res.errors.append('В формуле «{}», а в блоках (…) такого слова нет{}'.format(word, _latin_hint(word)))
             continue
         block = pool.pop(at)[1]
+        linked = res.fod_ids.setdefault(block, set())
+        if parent is not None:
+            linked.add(parent.id)
+        if lit.result:
+            linked.add(lit.id)
         if block not in res.fod_colors and parent is not None and parent.id in colors:
             res.fod_colors[block] = colors[parent.id]
     for word, _block in pool:
@@ -677,7 +804,8 @@ def _analyze(*, clue: str, answer: str, markup: str, formula: str) -> Explanatio
             continue
         free.remove(target)
         target.color = colors[node.id]
-        target.op_name = OPS[node.op].name
+        target.op_name = _op_name(node)
+        target.ids = str(node.id)
     for node in free:
         res.errors.append(
             'Индикатор «{}» не привязан к операции: напишите op[{}](…)'.format(node.text, node.text)
@@ -726,11 +854,15 @@ def _color_cls(color: int) -> str:
     return ' cx-c{}'.format(color) if color else ''
 
 
-def _segment(cls: str, color: int, inner: str, label: str) -> str:
+def _ids_attr(ids: str) -> str:
+    return ' data-cx-ids="{}"'.format(escape(ids)) if ids else ''
+
+
+def _segment(cls: str, color: int, inner: str, label: str, ids: str = '') -> str:
     return (
-        '<span class="cx-seg {}{}"><span class="cx-seg__text">{}</span>'
+        '<span class="cx-seg {}{}"{}><span class="cx-seg__text">{}</span>'
         '<span class="cx-seg__label">{}</span></span>'
-    ).format(cls, _color_cls(color), inner, escape(label))
+    ).format(cls, _color_cls(color), _ids_attr(ids), inner, escape(label))
 
 
 def _render_surface(res: Explanation) -> str:
@@ -746,13 +878,14 @@ def _render_surface(res: Explanation) -> str:
         if node.kind == 'split':
             return '<span class="cx-split" role="separator"></span>'
         if node.kind == 'ind':
-            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор')
+            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор', node.ids)
         if node.kind == 'fod':
             color = res.fod_colors.get(counter['fod'], 0)
+            ids = ' '.join(str(i) for i in sorted(res.fod_ids.get(counter['fod'], ())))
             counter['fod'] += 1
-            return _segment('cx-seg--fod', color, escape(node.text), 'буквы')
+            return _segment('cx-seg--fod', color, escape(node.text), 'буквы', ids)
         if node.kind == 'def':
-            return _segment('cx-seg--def', 0, _glue(node.children, render), 'определение')
+            return _segment('cx-seg--def', 0, _glue(node.children, render), 'определение', 'def' if res.steps else '')
         return _glue(node.children, render)
 
     pieces.append(render(res.surface))
@@ -784,17 +917,36 @@ def _glue(children: list[SNode], render) -> str:
     return ''.join(out)
 
 
-def _mark_hit(text: str, hit: str) -> str:
+def _mark(text: str, hit: tuple[int, ...] = (), cut: tuple[int, ...] = ()) -> str:
+    """Выделяет буквы с номерами ``hit`` и зачёркивает ``cut``. Если буквы идут
+    подряд (спрятанное слово), пробел внутри куска выделяется вместе с ними;
+    первые буквы слов — каждая отдельно."""
     chars = list(shown_upper(text))
-    positions = [i for i, ch in enumerate(chars) if letters(ch)]
-    only = ''.join(up(chars[i]) for i in positions)
-    at = only.find(up(hit))
-    if at < 0 or not hit:
-        return escape(text)
-    start, end = positions[at], positions[at + len(hit) - 1] + 1
-    return '{}<span class="cx-hit">{}</span>{}'.format(
-        escape(''.join(chars[:start])), escape(''.join(chars[start:end])), escape(''.join(chars[end:])),
-    )
+    groups = {'cx-hit': set(hit), 'cx-cut': set(cut)}
+    solid = {cls: bool(ix) and max(ix) - min(ix) + 1 == len(ix) for cls, ix in groups.items()}
+    index, marks = -1, []
+    for ch in chars:
+        if letters(ch):
+            index += 1
+            marks.append(next((cls for cls, ix in groups.items() if index in ix), ''))
+        else:
+            marks.append(None)
+    for i, m in enumerate(marks):
+        if m is None:
+            before = next((x for x in reversed(marks[:i]) if x is not None), '')
+            after = next((x for x in marks[i + 1:] if x is not None), '')
+            marks[i] = before if before and before == after and solid[before] else ''
+    html, run, run_cls = [], [], ''
+    for ch, m in zip(chars + [''], marks + ['']):
+        if m and m == run_cls:
+            run.append(ch)
+            continue
+        if run:
+            html.append('<span class="{}">{}</span>'.format(run_cls, escape(''.join(run))))
+        run, run_cls = ([ch], m) if m else ([], '')
+        if not m:
+            html.append(escape(ch))
+    return ''.join(html)
 
 
 def _word(text: str, extra: str = '') -> str:
@@ -804,19 +956,23 @@ def _word(text: str, extra: str = '') -> str:
 def _render_steps(steps: list[Step]) -> str:
     rows = []
     for step in steps:
-        if step.hit:
-            inputs = _word(_mark_hit(step.inputs[0], step.hit))
-        elif step.joiner:
-            sep = '<span class="cx-join">{}</span>'.format(escape(step.joiner))
-            inputs = sep.join(_word(escape(s)) for s in step.inputs)
+        words = [
+            _word(_mark(s, step.hit, step.cut) if i == 0 and (step.hit or step.cut) else escape(s))
+            for i, s in enumerate(step.inputs)
+        ]
+        if step.joiner:
+            inputs = '<span class="cx-join">{}</span>'.format(escape(step.joiner)).join(words)
         else:
-            inputs = ' '.join(_word(escape(s)) for s in step.inputs)
+            inputs = ' '.join(words)
+        output = _mark(step.output, step.out_hit) if step.out_hit else escape(step.output)
+        ids = '{}{}'.format(step.node_id or '', ' def' if step.final else '').strip()
         rows.append(
-            '<li class="cx-step{}"><span class="cx-step__in">{}</span>'
+            '<li class="cx-step{}"{}><span class="cx-step__in">{}</span>'
             '<span class="cx-step__op"><span class="cx-step__name">{}</span>'
             '<i class="ph ph-arrow-right" aria-hidden="true"></i></span>'
             '<span class="cx-step__out">{}</span></li>'.format(
-                _color_cls(step.color), inputs, escape(step.name), _word(escape(step.output), ' cx-word--out'),
+                _color_cls(step.color), _ids_attr(ids), inputs, escape(step.name),
+                _word(output, ' cx-word--out'),
             )
         )
     return '<ol class="cx-steps">{}</ol>'.format(''.join(rows))
@@ -833,7 +989,7 @@ def render_html(res: Explanation) -> str:
         html += '<p class="cx-note">Двойное определение: обе части по-своему определяют {}.</p>'.format(
             escape(res.answer),
         )
-    return html
+    return '<div class="cx-explain">{}</div>'.format(html)
 
 
 def explanation_html(*, clue: str, answer: str, markup: str, formula: str) -> str:
