@@ -37,7 +37,7 @@
       <p class="new-login-hint new-login-hint--flush">{{ task_ui.unsupported_label }}</p>
     {% endif %}
 
-    {% with player_hints=task.get_player_hints %}{% if player_hints %}
+    {% with player_hints=task.get_player_hints %}{% if player_hints and game.id != 'cryptic' %}
       <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
         <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
           {% for hint in player_hints %}

@@ -66,20 +66,41 @@ class CrypticHintPlayTests(TestCase):
         client = Client()
         client.force_login(_user('cryptic_hinter'))
         page = client.get('/cryptic/1/')
-        self.assertContains(page, 'черта и определение')
+        # Кнопка 💡 рядом с «Проверить», общей панели подсказок нет.
+        self.assertContains(page, 'cryptic-hint-btn')
+        self.assertContains(page, 'Где определение')
+        self.assertNotContains(page, 'data-hints-toggle')
         self.assertNotContains(page, 'cx-explain--hint')
         too_early = client.post('/send_hint_attempt/{}/'.format(self.task.pk),
                                 {'hint_number': '2', 'game_id': 'cryptic'}).json()
         self.assertEqual(too_early['status'], 'not_all_required_hints_taken')
-        for number in ('1', '2'):
-            res = client.post('/send_hint_attempt/{}/'.format(self.task.pk),
-                              {'hint_number': number, 'game_id': 'cryptic'}).json()
-            self.assertEqual(res['status'], 'ok')
+        res = client.post('/send_hint_attempt/{}/'.format(self.task.pk),
+                          {'hint_number': '1', 'game_id': 'cryptic'}).json()
+        self.assertEqual(res['status'], 'ok')
         page = client.get('/cryptic/1/')
-        self.assertContains(page, 'cx-explain--hint', count=2)
+        self.assertContains(page, 'cx-explain--hint', count=1)
+        self.assertContains(page, 'Увидеть разбор')
+        client.post('/send_hint_attempt/{}/'.format(self.task.pk), {'hint_number': '2', 'game_id': 'cryptic'})
+        page = client.get('/cryptic/1/')
+        # Вторая подсказка заменяет первую, а не встаёт под ней; кнопок больше нет.
+        self.assertContains(page, 'cx-explain--hint', count=1)
+        self.assertContains(page, 'cx-seg--fod')
+        self.assertNotContains(page, 'cryptic-hint-btn')
         client.post('/send_attempt/{}/'.format(self.task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
         game = GameTaskGroup.objects.get(pk=self.item['link_id']).game
         info = Attempt.manager.get_attempts_info(
             team=None, user=page.wsgi_request.user, task=self.task, mode='general', game=game,
         )
         self.assertEqual(info.get_result_points(), 1)
+        page = client.get('/cryptic/1/')
+        self.assertNotContains(page, 'cx-explain--hint')
+        self.assertContains(page, '🟥')
+
+    def test_share_square_counts_hints(self):
+        for name, numbers, square in (('clean', (), '🟩'), ('one', ('1',), '🟨')):
+            client = Client()
+            client.force_login(_user('cryptic_' + name))
+            for number in numbers:
+                client.post('/send_hint_attempt/{}/'.format(self.task.pk), {'hint_number': number, 'game_id': 'cryptic'})
+            client.post('/send_attempt/{}/'.format(self.task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
+            self.assertContains(client.get('/cryptic/1/'), square)

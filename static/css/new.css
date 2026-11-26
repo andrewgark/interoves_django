@@ -14469,6 +14469,13 @@ html.new-ui-dark {
   background: var(--surface);
 }
 .cx-wrap { container-type: inline-size; }
+/* 💡 / 💡💡 криптика рядом с «Проверить»: высотой с кнопку. */
+.new-attempt-row .cryptic-hint-btn {
+  align-self: stretch;
+  padding: 0 0.55rem;
+  font-size: 1.15rem;
+}
+.new-attempt-row .cryptic-hint-btn.new-raddle-assist-btn--answer .ph + .ph { margin-left: -0.45em; }
 .cx-box__title {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;

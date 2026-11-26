@@ -3480,9 +3480,32 @@
     if (!form || !inNewUi) return;
     e.preventDefault();
     confirmHintForm(form, function () {
+      rememberHintDraft(form);
       postForm(form);
     }, e.submitter);
   }, true);
+
+  // A hint redraws the card while the answer field has lost focus to the hint
+  // button and the confirm dialog: keep the unsent answer for the new card.
+  var hintDrafts = {};
+  function rememberHintDraft(form) {
+    var tid = form.getAttribute('data-task-id') || '';
+    var card = tid ? document.getElementById('new-task-' + tid) : null;
+    var attemptForm = card ? card.querySelector('form.new-attempt-form') : null;
+    var field = attemptForm ? attemptForm.querySelector(ORDINARY_TEXT_FIELD) : null;
+    if (!field || !field.value) return;
+    hintDrafts[tid] = {
+      formKey: ordinaryAttemptFormKey(attemptForm),
+      value: String(field.value),
+      start: null,
+      end: null,
+    };
+  }
+  function takeHintDraft(tid) {
+    var saved = hintDrafts[tid] || null;
+    delete hintDrafts[tid];
+    return saved;
+  }
 
   // Замены: guesses are shared with teammates through /send_replacements_ui/.
   function postReplacementsUi(taskId, changes) {
@@ -4954,7 +4977,7 @@
       // rather than restoring the originally submitted value after a WS update.
       captureEditedOrdinaryAnswer(tid);
       activeRaddleInputs[tid] = captureActiveRaddleInput(tid);
-      activeOrdinaryInputs[tid] = captureActiveOrdinaryInput(tid);
+      activeOrdinaryInputs[tid] = captureActiveOrdinaryInput(tid) || takeHintDraft(tid);
       var current = document.getElementById('prop-attempts-' + tid);
       if (!current) return;
       var highlighted = current.querySelector('.new-attempts__row--just-submitted');

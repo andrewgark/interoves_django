@@ -659,11 +659,36 @@ def simple_daily_share(game, task, ai, tg_number, share_host):
         elapsed = ''
     if elapsed in ('0:00', '00:00'):
         elapsed = ''
+    # Как квадратик слова в Лесенке: 🟩 без подсказок, 🟨 с одной, 🟥 с разбором.
+    squares = ''
+    if task is not None and task.get_hints():
+        taken = len(ai.get_hint_numbers())
+        squares = '🟩' if not taken else ('🟨' if taken == 1 else '🟥')
     return {
         'emoji': meta.get('icon') or '',
         'title': '{} №{}'.format(game.outside_name or game.name or meta.get('title') or '', tg_number),
+        'squares': squares,
         'elapsed': elapsed,
         'link': '{}/{}/{}'.format(share_host or 'interoves.com', game_id, tg_number),
+    }
+
+
+@register.simple_tag
+def cryptic_hints(task, ai):
+    """Подсказки криптика до решения: последняя взятая и следующая.
+
+    ``shown`` — текст последней взятой (вторая повторяет первую целиком),
+    ``next`` — Hint для кнопки 💡 / 💡💡 или None.
+    """
+    hints = sorted(task.get_hints(), key=lambda h: h.key_sort())
+    if not hints:
+        return None
+    taken = set(ai.get_hint_numbers()) if ai is not None else set()
+    shown = [h for h in hints if h.number in taken]
+    return {
+        'shown': shown[-1] if shown else None,
+        'next': next((h for h in hints if h.number not in taken), None),
+        'level': len(shown),
     }
 
 

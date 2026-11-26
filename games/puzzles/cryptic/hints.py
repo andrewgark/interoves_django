@@ -13,7 +13,7 @@ from games.puzzles.cryptic.explain import hint_htmls
 
 CRYPTIC_POINTS = 3
 HINT_PENALTY = 1
-HINT_DESCS = ('черта и определение', 'весь разбор, без ответа')
+HINT_DESCS = ('где определение', 'увидеть разбор')
 
 
 def sync_cryptic_hints(task) -> None:

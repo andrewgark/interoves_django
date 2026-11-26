@@ -14,6 +14,7 @@
   <p class="new-taskcard__byline">Автор: {{ task.tags.author }}</p>
 {% endif %}{% endif %}
 
+{% if game.id == 'cryptic' and not ai.is_solved %}{% cryptic_hints task ai as cryptic_hint %}{% endif %}
 {% if ai.is_solved %}
   <div class="new-taskcard__answer">
     <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
@@ -39,7 +40,27 @@
     <div class="new-attempt-row">
       {{ task.get_attempt_form.text }}
       <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+      {% if cryptic_hint and cryptic_hint.next %}<button type="submit" form="cryptic-hint-{{ task.id }}" class="new-raddle-assist-btn{% if cryptic_hint.level %} new-raddle-assist-btn--answer{% endif %} cryptic-hint-btn" data-tooltip="{% if cryptic_hint.level %}Увидеть разбор{% else %}Где определение{% endif %} (−{{ cryptic_hint.next.points_penalty|minimize_digits }})" aria-label="{% if cryptic_hint.level %}Увидеть разбор{% else %}Где определение{% endif %}"><i class="ph ph-lightbulb" aria-hidden="true"></i>{% if cryptic_hint.level %}<i class="ph ph-lightbulb" aria-hidden="true"></i>{% endif %}</button>{% endif %}
     </div>
     <div class="new-attempt-msg" aria-live="polite"></div>
   </form>
+  {% if cryptic_hint and cryptic_hint.next %}
+  {# Подсказка криптика: как 💡 / 💡💡 в Лесенке, кнопка стоит рядом с «Проверить». #}
+  <form id="cryptic-hint-{{ task.id }}" class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="game_id" value="{{ game.id }}">
+    {% if offer_share_hash %}<input type="hidden" name="offer_share" value="{{ offer_share_hash }}">{% endif %}
+    <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
+    <input type="hidden" name="hint_number" value="{{ cryptic_hint.next.number }}">
+    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+    <input type="hidden" name="__ui_hint_penalty" value="{{ cryptic_hint.next.points_penalty }}">
+    <input type="hidden" name="__ui_hint_points_word" value="{{ cryptic_hint.next.points_penalty|ru_points_word }}">
+  </form>
+  {% endif %}
+  {% if cryptic_hint.shown %}
+    <section class="cx-box cryptic-hint-box" aria-label="Подсказка">
+      <h3 class="cx-box__title">{% if cryptic_hint.level > 1 %}Разбор{% else %}Где определение{% endif %}</h3>
+      {% autoescape off %}{{ cryptic_hint.shown.text }}{% endautoescape %}
+    </section>
+  {% endif %}
 {% endif %}
