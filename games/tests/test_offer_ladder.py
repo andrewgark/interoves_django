@@ -622,7 +622,7 @@ class LadderOfferFlowTests(TestCase):
         future = Client().get(offer.play_url())
         self.assertNotContains(future, 'daily_solve_timer.js')
 
-    def test_author_can_open_and_play_a_parked_offer(self):
+    def test_anyone_can_open_and_play_a_parked_offer_by_its_share_link(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
         send_offer(offer)
@@ -642,15 +642,18 @@ class LadderOfferFlowTests(TestCase):
 
         stranger = Client()
         stranger.force_login(self.other)
-        self.assertEqual(stranger.get(offer.play_url()).status_code, 404)
-        self.assertEqual(Client().get(offer.play_url()).status_code, 404)
+        self.assertEqual(stranger.get(offer.play_url()).status_code, 200)
+        self.assertEqual(Client().get(offer.play_url()).status_code, 200)
+        # The parked number itself stays hidden.
+        self.assertEqual(stranger.get('/ladder/{}/'.format(link.number)).status_code, 404)
 
         ui_url = '/send_raddle_ui/{}/'.format(task.pk)
         payload = {'game_id': LADDER_GAME_ID, 'drafts': json.dumps({'1': 'БЕ'})}
         self.assertEqual(
             stranger.post(ui_url, dict(payload, offer_share=offer.share_hash)).json()['status'],
-            'not_published',
+            'ok',
         )
+        self.assertEqual(stranger.post(ui_url, payload).json()['status'], 'not_published')
         self.assertEqual(
             author.post(ui_url, dict(payload, offer_share=offer.share_hash)).json()['status'],
             'ok',

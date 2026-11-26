@@ -371,6 +371,50 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(allowed.status_code, 200)
         self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
 
+    def test_parked_salad_stays_open_by_its_share_link(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer,
+            theme='Типы музыкальных коллективов',
+            grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        send_offer(offer)
+        accept_offer(offer)
+        offer.refresh_from_db()
+        link = offer.accepted_link
+        link.is_deferred = True
+        link.save(update_fields=['is_deferred'])
+
+        anon_page = Client().get(offer.play_url())
+        self.assertEqual(anon_page.status_code, 200)
+        self.assertEqual(Client().get('/salad/{}/'.format(link.number)).status_code, 404)
+
+        client = Client()
+        client.force_login(self.other)
+        html = client.get(offer.play_url()).content.decode('utf-8')
+        task_id = re.search(r'data-task-id="(\d+)"', html).group(1)
+        context = re.search(r'name="gameplay_context" value="([^"]+)"', html).group(1)
+        payload = {
+            'gameplay_context': context,
+            'variable': task_id,
+            'game_id': 'salad',
+            'action': 'solve',
+            'path': json.dumps([0, 1, 2, 3]),
+            'correct_only': '1',
+        }
+        blocked = client.post(
+            '/send_attempt/{}/'.format(task_id), payload,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(blocked.json()['status'], 'not_published')
+        allowed = client.post(
+            '/send_attempt/{}/'.format(task_id),
+            dict(payload, offer_share=offer.share_hash),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
+
     def test_schedule_created_salad_has_hash_page_and_staff_number(self):
         from games.console.games.salad import create_word_salad
 

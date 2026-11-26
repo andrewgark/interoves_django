@@ -400,13 +400,7 @@ def _load_visible_task(request, number, *, json_mode=True):
     if offer is not None:
         if not can_access_offer_hash(offer, request.user):
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-        if offer.accepted_link_id and offer.accepted_link.is_deferred:
-            is_author = (
-                getattr(request.user, 'is_authenticated', False)
-                and offer.user_id == request.user.id
-            )
-            if not is_author and not getattr(request.user, 'is_staff', False):
-                return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        # A queued (deferred) offer stays open by its share hash, as before it was queued.
         task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
         if task is None:
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)

@@ -40,6 +40,11 @@ def _offer_share_matches_task(request, task):
     from games.sections.placement_share import share_matches_task
     if share_matches_task(task, token):
         return True
+    return _custom_offer_share_matches_task(token, task)
+
+
+def _custom_offer_share_matches_task(token, task):
+    """True when ``token`` is the share hash of a player's custom offer for this task."""
     from games.club.offers.alphabetty import get_offer_by_share_hash as alphabetty_offer_by_share_hash
     from games.club.offers.ladder import get_offer_by_share_hash as ladder_offer_by_share_hash
     from games.club.offers.salad import get_offer_by_share_hash as salad_offer_by_share_hash
@@ -99,8 +104,13 @@ def unpublished_scheduled_task_response(request, game, task):
         game=game, task_group_id=task.task_group_id,
     ).only('number', 'is_deferred', 'share_hash').first()
     if link is not None and link.is_deferred:
-        # A parked slot stays off the public schedule. Its author can still
-        # open the share link and keep testing the puzzle.
+        # A parked slot stays off the public schedule, but a custom offer
+        # stays playable from its share link, as it was before it was queued.
+        token = (
+            request.POST.get('offer_share') or request.GET.get('offer_share') or ''
+        ).strip().lower()
+        if token and _custom_offer_share_matches_task(token, task):
+            return None
         if user_owns_offer_for_link(request.user, link):
             return None
         return {'status': 'not_published', 'error': 'not_published'}

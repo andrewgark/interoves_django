@@ -442,18 +442,16 @@ def task_group_page(
             if fallback:
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
-    # A parked slot is not a public daily. Staff preview it, and the player
-    # who submitted the offer can still open its share link.
-    owns_deferred_offer = (
-        request.user.is_authenticated
-        and draft_offer is not None
-        and getattr(draft_offer, 'accepted_link_id', None)
-        and draft_offer.user_id == request.user.id
+    # A parked slot is not a public daily: its number stays hidden. A custom
+    # offer was public by its share hash before it was queued and stays so.
+    opened_by_offer_share = (
+        (ladder_offer is not None or salad_offer is not None)
+        and bool(getattr(draft_offer, 'accepted_link_id', None))
     )
     if (
         getattr(placement, 'is_deferred', False)
         and not may_open_unpublished_number(request.user)
-        and not owns_deferred_offer
+        and not opened_by_offer_share
     ):
         raise Http404()
     task_group = placement.task_group
