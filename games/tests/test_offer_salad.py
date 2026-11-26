@@ -267,6 +267,8 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertIn('Полностью сбросить решение', html)
         self.assertNotIn('/replay/', html)
         self.assertNotIn('сохранилось между окнами', html)
+        # A draft is timed by its share hash, like a published Салатик.
+        self.assertIn('/salad/{}/timing/'.format(offer.share_hash), html)
 
         anon_html = Client().get(offer.play_url()).content.decode('utf-8')
         self.assertIn('Полностью сбросить решение', anon_html)

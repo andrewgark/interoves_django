@@ -685,6 +685,24 @@ def task_group_page(
 
     from games.site.views.daily.timing import daily_timing_page_context
 
+    # A player-made draft is timed by its share hash before (and without) a
+    # schedule slot, so its share card and results table show a real time.
+    # Accepted offers keep the schedule rules: timed only once published.
+    timed_offer = (
+        draft_offer if (
+            draft_offer is not None
+            and ladder_tutorial_task is None
+            and not draft_offer.accepted_link_id
+        ) else None
+    )
+    if timed_offer is not None:
+        from games.site.views.daily.timing import offer_timing_placement
+        timing_placement = offer_timing_placement(timed_offer)
+    elif isinstance(placement, GameTaskGroup):
+        timing_placement = placement
+    else:
+        timing_placement = None
+
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -808,12 +826,16 @@ def task_group_page(
         **daily_timing_page_context(
             request,
             game,
-            placement if isinstance(placement, GameTaskGroup) else None,
+            timing_placement,
             team=team,
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,
-            is_offer=draft_offer is not None and not published_offer_release,
+            is_offer=(
+                draft_offer is not None
+                and not published_offer_release
+                and timed_offer is None
+            ),
             replay_slot=replay_slot,
             # The author already has the official daily credit; do not start
             # a solving timer merely because they opened their own release.
@@ -826,6 +848,8 @@ def task_group_page(
                 if published_offer_release or (
                     share_placement is not None and draft_offer is None
                 )
+                else '{}timing/'.format(section_play_path(game.id, timed_offer.share_hash))
+                if timed_offer is not None
                 else None
             ),
         ),

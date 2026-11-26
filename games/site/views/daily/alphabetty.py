@@ -75,7 +75,7 @@ from games.site.views.daily.common import (
     with_meta_bar,
 )
 from games.site.views.daily.hub import can_access_daily_game
-from games.site.views.daily.timing import daily_timing_page_context
+from games.site.views.daily.timing import daily_timing_page_context, offer_timing_placement
 from games.task_group.titles import daily_edition_title, task_display_name
 
 
@@ -186,6 +186,8 @@ def alphabetty_play_page(request, number):
     from games.sections.placement_share import may_open_unpublished_number
 
     offer = load_meta.get('offer') if load_meta else None
+    # A draft offer is timed by its share hash (see unaccepted_offer_for_timing).
+    timed_offer = offer if offer is not None and not offer.accepted_link_id else None
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     link = load_meta.get('accepted_link') if load_meta else None
@@ -338,12 +340,12 @@ def alphabetty_play_page(request, number):
         **daily_timing_page_context(
             request,
             game,
-            link,
+            offer_timing_placement(timed_offer) if timed_offer is not None else link,
             user=user,
             anon_key=anon_key,
             play_mode='personal',
             is_offer=(
-                offer is not None
+                (offer is not None and timed_offer is None)
                 or (
                     offer is None
                     and not is_random
@@ -356,7 +358,8 @@ def alphabetty_play_page(request, number):
             official_completed=official_completed,
             timing_url=(
                 f'/alphabetty/{play_number}/timing/'
-                if offer is None and load_meta.get('is_share_link')
+                if timed_offer is not None
+                or (offer is None and load_meta.get('is_share_link'))
                 else None
             ),
         ),

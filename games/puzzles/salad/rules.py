@@ -261,7 +261,8 @@ def result_squares_for_state(words, state):
 
 def _elapsed_label_for_ui(attempts):
     from games.daily.timing import elapsed_label_for_complete_attempts
-    return elapsed_label_for_complete_attempts(attempts)
+    from games.results.share import share_elapsed_label
+    return share_elapsed_label(elapsed_label_for_complete_attempts(attempts))
 
 
 def salad_hub_result_for_actor(

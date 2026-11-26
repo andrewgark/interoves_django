@@ -1125,7 +1125,7 @@ class DailyTimingDomainTests(TestCase):
             0,
         )
 
-    def test_daily_zero_sentinel_stays_unknown(self):
+    def test_daily_zero_sentinel_uses_server_time_like_the_results_table(self):
         DailySolveTiming.objects.create(
             user=self.user,
             game=self.game,
@@ -1141,26 +1141,41 @@ class DailyTimingDomainTests(TestCase):
             SimpleNamespace(time=t0),
             SimpleNamespace(time=t0 + timedelta(seconds=40)),
         ]
-        self.assertIsNone(
+        self.assertEqual(
             canonical_elapsed_seconds(
                 game=self.game, task_group=self.tg, user=self.user, attempts=attempts,
             ),
+            40,
+        )
+        # A same-second solve has nothing to measure: still unknown.
+        self.assertIsNone(
+            canonical_elapsed_seconds(
+                game=self.game, task_group=self.tg, user=self.user,
+                attempts=[SimpleNamespace(time=t0)],
+            ),
         )
 
-    def test_team_actor_without_authoritative_row_has_no_guessed_duration(self):
+    def test_team_actor_without_authoritative_row_uses_server_time(self):
+        # The same first-to-last attempt span the results table shows.
         t0 = _dt()
         attempts = [
             SimpleNamespace(time=t0),
             SimpleNamespace(time=t0 + timedelta(seconds=90)),
         ]
         team = Team.objects.create(name='legacy-team', project_id='sections')
-        self.assertIsNone(
+        self.assertEqual(
             canonical_elapsed_seconds(
                 game=self.game,
                 task_group=self.tg,
                 user=self.user,
                 team=team,
                 attempts=attempts,
+            ),
+            90,
+        )
+        self.assertIsNone(
+            canonical_elapsed_seconds(
+                game=self.game, task_group=self.tg, team=team, attempts=[],
             ),
         )
 

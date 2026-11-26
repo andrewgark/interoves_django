@@ -175,7 +175,7 @@ def build_share_lines(
     *,
     number: int | str,
     attempts: int,
-    elapsed_seconds: int,
+    elapsed_seconds: int | None,
     hints: int = 0,
     host: str = 'interoves.com',
     play_path: str | None = None,
@@ -193,10 +193,9 @@ def build_share_lines(
     hints_line = format_hints_label(hints)
     if hints_line:
         lines.append(hints_line)
-    lines.extend([
-        f'⏱️ {format_elapsed(elapsed_seconds)}',
-        format_share_link(host, path),
-    ])
+    if elapsed_seconds is not None:
+        lines.append(f'⏱️ {format_elapsed(elapsed_seconds)}')
+    lines.append(format_share_link(host, path))
     return lines
 
 
@@ -226,7 +225,7 @@ def attach_solve_meta(
         play_path=play_path,
     )
     payload['elapsed_seconds'] = elapsed
-    payload['elapsed_label'] = format_elapsed(elapsed)
+    payload['elapsed_label'] = format_elapsed(elapsed) if elapsed is not None else ''
     if actor.get('replay_slot') is not None:
         # Replay results are private and must never produce a public share card.
         return payload
@@ -302,7 +301,7 @@ def hub_progress_for_actor(
         daily_row = daily_rows.get(task.task_group_id)
         if daily_row is None:
             continue
-        timing[task.id] = canonical_elapsed_seconds(
+        seconds = canonical_elapsed_seconds(
             game=game,
             task_group=task.task_group,
             user=user,
@@ -310,6 +309,11 @@ def hub_progress_for_actor(
             attempts=None,
             timing_row=daily_row,
         )
+        if seconds is None:
+            # Server-time fallback, as the results table counts it.
+            span = timing.get(task.id) or 0
+            seconds = span if span > 0 else None
+        timing[task.id] = seconds
     for number, task in numbers_and_tasks:
         state = states.get(task.id) or default_state()
         won = bool(state.get('won'))
@@ -320,7 +324,8 @@ def hub_progress_for_actor(
         elapsed = timing.get(task.id, 0) if won else None
         meta = None
         if won:
-            meta = f'🔄 {attempts} {ru_attempt_word(attempts)}  ⏱️ {format_elapsed(elapsed or 0)}'
+            elapsed_label = format_elapsed(elapsed) if elapsed is not None else '—'
+            meta = f'🔄 {attempts} {ru_attempt_word(attempts)}  ⏱️ {elapsed_label}'
             hints_line = format_hints_label(hints)
             if hints_line:
                 meta += f'  {hints_line}'

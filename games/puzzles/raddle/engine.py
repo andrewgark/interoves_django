@@ -1235,7 +1235,8 @@ def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=Fa
 
 def _elapsed_label_for_ui(attempts):
     from games.daily.timing import elapsed_label_for_complete_attempts
-    return elapsed_label_for_complete_attempts(attempts)
+    from games.results.share import share_elapsed_label
+    return share_elapsed_label(elapsed_label_for_complete_attempts(attempts))
 
 
 def raddle_hub_result_for_actor(

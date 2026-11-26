@@ -2483,11 +2483,11 @@
   function finishRaddleOutboxScope(taskId) {
     var outcome = raddleFlushOutcome[taskId];
     delete raddleFlushOutcome[taskId];
-    if (!outcome) return null;
+    if (!outcome) return settleAssembledRaddleResult(taskId);
     if (outcome.offline) reportRaddleOffline('queue_synced', { task_id: taskId, count: outcome.offline });
     // The server disagreed with what the page played: its state wins.
     if (outcome.diverged) return refreshRaddleCardFromServer(taskId);
-    if (!outcome.html) return null;
+    if (!outcome.html) return settleAssembledRaddleResult(taskId);
     var taskRoot = raddleTaskRootById(taskId);
     // The local card matches the server; take the server's only when it adds
     // what the pack cannot know (the result with its time), or when the page
@@ -2497,7 +2497,31 @@
       map[taskId] = outcome.html;
       applyNewUiTaskHtml(map);
     }
-    return null;
+    return settleAssembledRaddleResult(taskId);
+  }
+
+  // The pack's result card has no solving time: only the server knows it.
+  // When the queue is empty yet the page still shows that local card (the
+  // finishing move was answered elsewhere: another tab, an earlier flush, a
+  // reload), fetch the server's card once.
+  var raddleResultSettling = Object.create(null);
+  function settleAssembledRaddleResult(taskId) {
+    var taskRoot = raddleTaskRootById(taskId);
+    if (!taskRoot || !taskRoot.hasAttribute('data-offline-assembled')) return null;
+    if (!taskRoot.querySelector('[data-raddle-result]')) return null;
+    if (!taskRoot.getAttribute('data-offline-pack-url')) return null;
+    if (raddleOutbox && raddleOutbox.size(taskId)) return null;
+    if (raddleResultSettling[taskId]) return null;
+    raddleResultSettling[taskId] = true;
+    var done = function () { delete raddleResultSettling[taskId]; };
+    return refreshRaddleCardFromServer(taskId).then(done, done);
+  }
+
+  function settleAllAssembledRaddleResults() {
+    document.querySelectorAll('.new-raddle-task[data-offline-assembled]').forEach(function (taskRoot) {
+      var taskId = taskRoot.getAttribute('data-task-id');
+      if (taskId) settleAssembledRaddleResult(taskId);
+    });
   }
 
   // After the queue is sent, the server's card replaces the local one.
@@ -2531,7 +2555,10 @@
     raddleOutbox.entries().forEach(function (entry) {
       if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
     });
-    if (!scopes.length) return;
+    if (!scopes.length) {
+      settleAllAssembledRaddleResults();
+      return;
+    }
     var oldest = Math.min.apply(null, raddleOutbox.entries().map(function (entry) { return entry.at || Date.now(); }));
     if (Date.now() - oldest > 24 * 3600 * 1000) {
       reportRaddleOffline('queue_stale', {

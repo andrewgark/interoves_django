@@ -243,6 +243,31 @@ class LadderOfferFlowTests(TestCase):
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
+    def test_draft_share_link_runs_the_solve_timer(self):
+        from uuid import uuid4
+
+        from games.models import DailySolveTiming
+
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ДОМ', 'СОМ'], hints=['д→с'], author='Анна')
+        player = Client()
+        player.force_login(self.other)
+        timing_url = '/ladder/{}/timing/'.format(offer.share_hash)
+        page = player.get(offer.play_url())
+        self.assertContains(page, timing_url)
+
+        response = player.post(
+            timing_url,
+            data=json.dumps({
+                'action': 'start', 'session_id': str(uuid4()), 'event_id': 'e1', 'seq': 1,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(DailySolveTiming.objects.filter(
+            user=self.other, game=self.game, task_group=offer.task_group,
+        ).exists())
+
     def test_numeric_share_hash_opens_the_play_page(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ДОМ', 'СОМ'], hints=['д→с'], author='Анна')

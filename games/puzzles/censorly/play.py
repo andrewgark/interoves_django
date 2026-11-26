@@ -443,7 +443,7 @@ def build_share_lines(
     *,
     number: int | str,
     attempts: int,
-    elapsed_seconds: int,
+    elapsed_seconds: int | None,
     hints: int = 0,
     host: str = 'interoves.com',
     play_path: str | None = None,
@@ -454,10 +454,9 @@ def build_share_lines(
     lines = [title, f'🔄 {attempts} {ru_attempt_word(attempts)}']
     if hints:
         lines.append(f'💡 {hints} {ru_hint_word(hints)}')
-    lines.extend([
-        f'⏱️ {format_elapsed(elapsed_seconds)}',
-        format_share_link(host, path),
-    ])
+    if elapsed_seconds is not None:
+        lines.append(f'⏱️ {format_elapsed(elapsed_seconds)}')
+    lines.append(format_share_link(host, path))
     return lines
 
 
@@ -499,7 +498,7 @@ def attach_solve_meta(
         return payload
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor)
     payload['elapsed_seconds'] = elapsed
-    payload['elapsed_label'] = format_elapsed(elapsed)
+    payload['elapsed_label'] = format_elapsed(elapsed) if elapsed is not None else ''
     if actor.get('replay_slot') is not None:
         # Replay results are private and must never produce a public share card.
         return payload

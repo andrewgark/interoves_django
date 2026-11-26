@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from uuid import UUID
 
 from django.db import OperationalError
@@ -170,6 +171,8 @@ def _load_daily_target(
             share_link = resolve_accessible_daily_placement(
                 game, raw_number, user=request.user,
             )
+            if share_link is None:
+                share_link = _offer_timing_link(game, raw_number)
     is_numbered = bool(
         random_link is None
         and share_link is None
@@ -219,6 +222,54 @@ def _load_daily_target(
         if team is None and not game.is_playable:
             return None, None, None, None, None, _json_error('not_playable', 404)
     return game, link.task_group, team, user, anon_key, None
+
+
+# Player-made daily games whose drafts are played by share hash.
+_OFFER_MODULES = {
+    'ladder': 'games.club.offers.ladder',
+    'salad': 'games.club.offers.salad',
+    'alphabetty': 'games.club.offers.alphabetty',
+}
+
+
+def unaccepted_offer_for_timing(game_id, share_hash):
+    """The draft offer timed by its share hash, or None.
+
+    A draft has no schedule placement, yet its solve is timed like the daily
+    game so the share card and the results table show a real time. An
+    accepted offer is timed through its schedule placement instead (only once
+    it is published), so its solve never lands early in the official table.
+    """
+    module_name = _OFFER_MODULES.get(str(game_id or ''))
+    if module_name is None:
+        return None
+    from importlib import import_module
+
+    offers = import_module(module_name)
+    offer = offers.get_offer_by_share_hash(share_hash)
+    if (
+        offer is None
+        or offer.accepted_link_id
+        or not offer.task_group_id
+        or not offers.can_access_offer_hash(offer, None)
+    ):
+        return None
+    return offer
+
+
+def offer_timing_placement(offer):
+    """What the timer needs of a placement, for a draft offer."""
+    return SimpleNamespace(
+        pk=None,
+        number=offer.share_hash,
+        task_group=offer.task_group,
+        task_group_id=offer.task_group_id,
+    )
+
+
+def _offer_timing_link(game, share_hash):
+    offer = unaccepted_offer_for_timing(game.id, share_hash)
+    return offer_timing_placement(offer) if offer is not None else None
 
 
 def _random_game_timing_link(game, share_hash):

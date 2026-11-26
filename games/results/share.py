@@ -33,6 +33,17 @@ def format_elapsed_compact(seconds: int | None) -> str:
     return '{}:{:02d}'.format(minutes, secs)
 
 
+UNKNOWN_ELAPSED_LABEL = '—'
+
+
+def share_elapsed_label(label: str | None) -> str:
+    """A share card leaves out a solving time nobody measured.
+
+    Lists keep «—» in their column; on a card a «⏱️ —» line reads as broken.
+    """
+    return '' if not label or label == UNKNOWN_ELAPSED_LABEL else label
+
+
 def format_elapsed_line(seconds: int | None) -> str:
     return '⏱️ {}'.format(format_elapsed(seconds))
 

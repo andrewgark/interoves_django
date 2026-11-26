@@ -695,6 +695,19 @@ def _team_open_interval_ms(row: DailySolveTiming, now) -> int:
     )
 
 
+def server_time_fallback_seconds(*, game, attempts=None, team=None) -> int | None:
+    """First-to-last attempt span: the one fallback for cards, tables, stats."""
+    seconds = elapsed_seconds_from_attempts(attempts)
+    if seconds > 0:
+        return seconds
+    if team is not None:
+        return None
+    from games.daily.page.section import is_daily_timing_game
+    if is_daily_timing_game(getattr(game, 'id', None)):
+        return None
+    return seconds
+
+
 def canonical_elapsed_seconds(
     *,
     game,
@@ -706,7 +719,13 @@ def canonical_elapsed_seconds(
     replay_slot=None,
     timing_row=_UNSET,
 ) -> int | None:
-    """Canonical active seconds, or legacy display fallback outside timing scope."""
+    """Canonical active seconds, else the server-time fallback.
+
+    Without a measured active time (no timer row, or a completion whose timer
+    never ran) the solve lasts from the first to the last attempt, as the
+    results table and the statistics count it. ``None`` means unknown: an
+    empty span in a daily game, or a team without attempts to measure.
+    """
     if timing_row is _UNSET:
         tg = task_group
         if tg is None and attempts:
@@ -719,14 +738,7 @@ def canonical_elapsed_seconds(
     else:
         row = timing_row
     if row is None or int(row.timing_version or 0) < TIMING_VERSION_ACTIVE:
-        if team is not None:
-            return None
-        legacy_seconds = elapsed_seconds_from_attempts(attempts)
-        if legacy_seconds <= 0:
-            from games.daily.page.section import is_daily_timing_game
-            if is_daily_timing_game(getattr(game, 'id', None)):
-                return None
-        return legacy_seconds
+        return server_time_fallback_seconds(game=game, attempts=attempts, team=team)
     if row.status == STATUS_COMPLETED:
         accumulated_ms = int(
             row.frozen_ms if row.frozen_ms is not None else row.accumulated_ms or 0
@@ -735,14 +747,8 @@ def canonical_elapsed_seconds(
         accumulated_ms = int(snapshot(row).get('accumulated_ms') or 0)
     if accumulated_ms <= 0:
         # A completion with no started timer stores an active row of zero
-        # milliseconds. Daily games keep that as unknown. Other games still
-        # show the span between attempts, including a same-second solve.
-        from games.daily.page.section import is_daily_timing_game
-        if is_daily_timing_game(getattr(game, 'id', None)):
-            return None
-        if team is not None:
-            return None
-        return elapsed_seconds_from_attempts(attempts)
+        # milliseconds: fall back to the server time between attempts.
+        return server_time_fallback_seconds(game=game, attempts=attempts, team=team)
     return max(1, accumulated_ms // 1000)
 
 

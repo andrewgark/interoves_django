@@ -708,7 +708,8 @@ class AlphabettyPlayApiTests(TestCase):
         response = self.client.get('/alphabetty/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '🔄 1 попытка')
-        self.assertContains(response, '⏱️ 0с')
+        # Solved in one attempt without a running timer: the time is unknown.
+        self.assertContains(response, '⏱️ —')
 
     def test_create_page_shows_offer_flow(self):
         user = User.objects.create_user('ab_creator', 'ab@example.com', 'x')
@@ -807,6 +808,20 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'Алфавитка #{offer.share_hash}')
         self.assertContains(response, f'/alphabetty/{offer.share_hash}/guess/')
+        # A draft is timed by its share hash, like a published Алфавитка.
+        timing_url = f'/alphabetty/{offer.share_hash}/timing/'
+        self.assertContains(response, timing_url)
+        from uuid import uuid4
+
+        from games.models import DailySolveTiming
+        attach_anon_cookie(anon, str(uuid4()))
+        start = anon.post(
+            timing_url,
+            data=json.dumps({'action': 'start', 'session_id': str(uuid4()), 'event_id': 'e1', 'seq': 1}),
+            content_type='application/json',
+        )
+        self.assertEqual(start.status_code, 200, start.content)
+        self.assertTrue(DailySolveTiming.objects.filter(task_group_id=offer.task_group_id).exists())
 
     def test_hash_like_dislike_works(self):
         user = User.objects.create_user('ab_like_owner', 'ab_like@example.com', 'x')

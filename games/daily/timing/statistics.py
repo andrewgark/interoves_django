@@ -735,9 +735,10 @@ def _completed_time_map(game, task_group, actors):
         from games.results.share import elapsed_seconds_from_attempts
 
         attempts_by_actor = defaultdict(list)
+        # The same attempts as the results table (leaderboard fallback).
         attempts = Attempt.manager.filter(
             game=game, task__task_group=task_group, skip=False,
-            status__in=('Ok', 'Partial'), replay_slot__isnull=True,
+            replay_slot__isnull=True,
         ).filter(_actor_q(missing_timing_keys)).only(
             'team_id', 'user_id', 'anon_key', 'time',
         ).order_by('time', 'id')
