@@ -158,3 +158,47 @@ class CrypticOfferFlowTests(TestCase):
         send_offer(offer)
         self.assertEqual(_json(stranger, 'support:cryptic_offer_accept', {}, offer.pk).status_code, 403)
         self.assertFalse(GameTaskGroup.objects.filter(share_hash=offer.share_hash).exists())
+
+    def test_player_markup_never_reaches_the_page_as_html(self):
+        _cryptic_game(start='2099-12-04T00:00:00+03:00')
+        offer = self._draft(
+            clue='<img src=x onerror=alert`1`> ловушка', answer='орган',
+            markup='{<img src=x onerror=alert`1`>} | {ловушка}', formula='ОРГАН',
+        )
+        send_offer(offer)
+        accept_offer(offer)
+        offer.refresh_from_db()
+        task = Task.objects.get(task_group_id=offer.accepted_link.task_group_id)
+        self.assertNotIn('<img', task.text)
+        self.assertIn('&lt;img', task.text)
+
+    def test_answer_is_words_only(self):
+        offer = self._draft(
+            answer='<b>КЛОП</b>', markup='*Разбитый* (полк) — | {кровопийца в постели}',
+        )
+        with self.assertRaisesMessage(CrypticOfferError, 'только буквы, цифры, пробелы и дефисы'):
+            send_offer(offer)
+
+    def test_a_player_waits_after_ten_pending_offers(self):
+        for _ in range(10):
+            send_offer(self._draft())
+        with self.assertRaisesMessage(CrypticOfferError, 'Дождитесь ответа'):
+            send_offer(self._draft())
+
+    def test_author_hears_about_the_decision(self):
+        from games.notifications.models import Notification
+
+        _cryptic_game(start='2099-12-04T00:00:00+03:00')
+        offer = self._draft()
+        send_offer(offer)
+        request_revision(offer, admin_note='Поправьте определение')
+        self._fix_formula(offer)
+        send_offer(offer)
+        accept_offer(offer)
+        kinds = list(Notification.objects.filter(user=self.author).values_list('kind', flat=True))
+        self.assertIn('offer.returned', kinds)
+        self.assertIn('offer.accepted', kinds)
+        page = self.client.get('/notifications/')
+        # The «returned» one is stale once the offer is accepted, so the page drops it.
+        self.assertContains(page, 'Ваш криптик приняли')
+

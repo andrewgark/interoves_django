@@ -73,12 +73,12 @@ def user_owns_offer_for_link(user, link) -> bool:
         return False
     if not getattr(user, 'is_authenticated', False):
         return False
-    from games.models import AlphabettyOffer, LadderOffer, WordSaladOffer
+    from games.models import AlphabettyOffer, CrypticOffer, LadderOffer, WordSaladOffer
 
     user_id = user.pk
     return any(
         model.objects.filter(accepted_link_id=link.pk, user_id=user_id).exists()
-        for model in (LadderOffer, WordSaladOffer, AlphabettyOffer)
+        for model in (LadderOffer, WordSaladOffer, AlphabettyOffer, CrypticOffer)
     )
 
 

@@ -123,7 +123,7 @@ def _cryptic_to_task(fields: dict[str, str]) -> TaskContent:
     text = (
         '<p class="cryptic-clue">{clue} '
         '<span class="cryptic-clue__len" data-cryptic-enum="{enum}">({enum})</span></p>'
-    ).format(clue=clue, enum=escape(enumeration))
+    ).format(clue=escape(clue), enum=escape(enumeration))
     return TaskContent(
         text=text,
         checker_data=answer,

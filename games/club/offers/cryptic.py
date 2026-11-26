@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -25,6 +26,10 @@ from games.puzzles.cryptic.explain import ExplainError, analyze, explanation_htm
 logger = logging.getLogger('application')
 
 CLUE_MAX = 600
+# The answer is shown as-is after solving: no markup, only words.
+_ANSWER_RE = re.compile(r'[0-9A-ZА-ЯЁ]+(?:[ -][0-9A-ZА-ЯЁ]+)*')
+# Offers waiting for editors from one player: past this, sending waits.
+MAX_PENDING_PER_USER = 10
 ANSWER_MAX = 120
 EXPLAIN_MAX = 1200
 COMMENT_MAX = 4000
@@ -176,6 +181,8 @@ def check_offer(offer: CrypticOffer) -> None:
         raise CrypticOfferError('Напишите подсказку')
     if not offer.answer:
         raise CrypticOfferError('Напишите ответ')
+    if not _ANSWER_RE.fullmatch(offer.answer):
+        raise CrypticOfferError('В ответе могут быть только буквы, цифры, пробелы и дефисы')
     if offer.enumeration and not enumeration_is_valid(offer.enumeration):
         raise CrypticOfferError('Длина — числа через запятую или дефис, например 6 или 3-4 или 5, 4')
     if not offer.markup or not offer.formula:
@@ -202,6 +209,11 @@ def send_offer(offer: CrypticOffer) -> CrypticOffer:
     if offer.status != CrypticOffer.STATUS_DRAFT:
         raise CrypticOfferError('Отправить можно только черновик')
     check_offer(offer)
+    pending = CrypticOffer.objects.filter(user_id=offer.user_id, status=CrypticOffer.STATUS_SENT).count()
+    if pending >= MAX_PENDING_PER_USER:
+        raise CrypticOfferError(
+            'У редакторов уже {} ваших криптиков. Дождитесь ответа по ним'.format(pending)
+        )
     offer.status = CrypticOffer.STATUS_SENT
     offer.sent_at = timezone.now()
     offer.admin_note = ''
