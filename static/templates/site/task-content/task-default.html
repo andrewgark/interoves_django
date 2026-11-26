@@ -40,7 +40,7 @@
     <div class="new-attempt-row">
       {{ task.get_attempt_form.text }}
       <button type="submit" class="new-btn new-btn--mini">Проверить</button>
-      {% if cryptic_hint and cryptic_hint.next %}<button type="submit" form="cryptic-hint-{{ task.id }}" class="new-raddle-assist-btn{% if cryptic_hint.level %} new-raddle-assist-btn--answer{% endif %} cryptic-hint-btn" data-tooltip="{% if cryptic_hint.level %}Увидеть разбор{% else %}Где определение{% endif %} (−{{ cryptic_hint.next.points_penalty|minimize_digits }})" aria-label="{% if cryptic_hint.level %}Увидеть разбор{% else %}Где определение{% endif %}"><i class="ph ph-lightbulb" aria-hidden="true"></i>{% if cryptic_hint.level %}<i class="ph ph-lightbulb" aria-hidden="true"></i>{% endif %}</button>{% endif %}
+      {% if cryptic_hint and cryptic_hint.next %}<button type="submit" form="cryptic-hint-{{ task.id }}" class="new-raddle-assist-btn{% if cryptic_hint.level %} new-raddle-assist-btn--answer{% endif %} cryptic-hint-btn" data-tooltip="{% if cryptic_hint.level %}Увидеть разбор{% else %}Узнать, где определение{% endif %} (−{{ cryptic_hint.next.points_penalty|minimize_digits }})" aria-label="{% if cryptic_hint.level %}Увидеть разбор{% else %}Узнать, где определение{% endif %}"><i class="ph ph-lightbulb" aria-hidden="true"></i>{% if cryptic_hint.level %}<i class="ph ph-lightbulb" aria-hidden="true"></i>{% endif %}</button>{% endif %}
     </div>
     <div class="new-attempt-msg" aria-live="polite"></div>
   </form>

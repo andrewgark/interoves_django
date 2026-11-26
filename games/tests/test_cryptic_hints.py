@@ -68,7 +68,7 @@ class CrypticHintPlayTests(TestCase):
         page = client.get('/cryptic/1/')
         # Кнопка 💡 рядом с «Проверить», общей панели подсказок нет.
         self.assertContains(page, 'cryptic-hint-btn')
-        self.assertContains(page, 'Где определение')
+        self.assertContains(page, 'Узнать, где определение')
         self.assertNotContains(page, 'data-hints-toggle')
         self.assertNotContains(page, 'cx-explain--hint')
         too_early = client.post('/send_hint_attempt/{}/'.format(self.task.pk),
