@@ -865,18 +865,9 @@ def _segment(cls: str, color: int, inner: str, label: str, ids: str = '') -> str
     ).format(cls, _color_cls(color), _ids_attr(ids), inner, escape(label))
 
 
-# Уровни подсказок до решения: 1 — только черта и определение, 2 — вся
-# разметка подсказки без шагов, где собирается ответ.
-HINT_SPLIT = 1
-HINT_SURFACE = 2
-
-
-def _render_surface(res: Explanation, hint_level: int = 0) -> str:
-    """Подсказка с размеченными частями. ``hint_level`` — уровень подсказки
-    (без связей с шагами разбора: их на карточке ещё нет)."""
-    counter = {'fod': 0, 'def': 0}
+def _render_surface(res: Explanation) -> str:
+    counter = {'fod': 0}
     pieces: list[str] = []
-    linked = not hint_level
 
     def plain(text: str) -> str:
         return '<span class="cx-plain">{}</span>'.format(escape(text))
@@ -887,25 +878,14 @@ def _render_surface(res: Explanation, hint_level: int = 0) -> str:
         if node.kind == 'split':
             return '<span class="cx-split" role="separator"></span>'
         if node.kind == 'ind':
-            if hint_level == HINT_SPLIT:
-                return plain(node.text)
-            ids = node.ids if linked else ''
-            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор', ids)
+            return _segment('cx-seg--ind', node.color, escape(node.text), node.op_name or 'индикатор', node.ids)
         if node.kind == 'fod':
             color = res.fod_colors.get(counter['fod'], 0)
-            ids = ' '.join(str(i) for i in sorted(res.fod_ids.get(counter['fod'], ()))) if linked else ''
+            ids = ' '.join(str(i) for i in sorted(res.fod_ids.get(counter['fod'], ())))
             counter['fod'] += 1
-            if hint_level == HINT_SPLIT:
-                return plain(node.text)
             return _segment('cx-seg--fod', color, escape(node.text), 'буквы', ids)
         if node.kind == 'def':
-            counter['def'] += 1
-            inner = _glue(node.children, render)
-            # Первая подсказка у двойного определения выдаёт только одно из двух.
-            if hint_level == HINT_SPLIT and res.double_definition and counter['def'] > 1:
-                return inner
-            ids = 'def' if res.steps and linked else ''
-            return _segment('cx-seg--def', 0, inner, 'определение', ids)
+            return _segment('cx-seg--def', 0, _glue(node.children, render), 'определение', 'def' if res.steps else '')
         return _glue(node.children, render)
 
     pieces.append(render(res.surface))
@@ -1029,20 +1009,3 @@ def explanation_html(*, clue: str, answer: str, markup: str, formula: str) -> st
         return ''
     res = analyze(clue=clue, answer=answer, markup=markup, formula=formula)
     return render_html(res) if res.ok else ''
-
-
-def hint_htmls(*, clue: str, answer: str, markup: str, formula: str) -> tuple[str, str] | None:
-    """HTML двух подсказок до решения или None, если разбора нет или он не сходится.
-
-    Первая — деление на две части и определение (у двойного определения —
-    первое из двух), вторая — вся разметка подсказки без шагов и ответа.
-    """
-    if not str(markup or '').strip():
-        return None
-    res = analyze(clue=clue, answer=answer, markup=markup, formula=formula)
-    if not res.ok or res.surface is None:
-        return None
-    return tuple(
-        '<div class="cx-explain cx-explain--hint">{}</div>'.format(_render_surface(res, level))
-        for level in (HINT_SPLIT, HINT_SURFACE)
-    )
