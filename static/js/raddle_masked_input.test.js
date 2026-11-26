@@ -249,6 +249,43 @@ function testRefreshKeepsVisibleValue() {
   assert.strictEqual(input.value, 'МОСКВ');
 }
 
+function key(code, k, mods) {
+  return Object.assign({ code: code, key: k }, mods || {});
+}
+
+function testLayoutLetterMapsEnglishKeysOnlyForCyrillicFields() {
+  assert.strictEqual(M.layoutLetter(key('KeyG', 'g'), 'cyrillic'), 'п');
+  assert.strictEqual(M.layoutLetter(key('KeyF', 'F'), 'cyrillic'), 'а');
+  assert.strictEqual(M.layoutLetter(key('Comma', ','), 'cyrillic'), 'б');
+  assert.strictEqual(M.layoutLetter(key('Period', '.'), 'cyrillic_digits'), 'ю');
+  assert.strictEqual(M.layoutLetter(key('BracketLeft', '['), 'cyrillic'), 'х');
+  // Already a Russian letter, or a field that takes Latin: typed as is.
+  assert.strictEqual(M.layoutLetter(key('KeyG', 'п'), 'cyrillic'), '');
+  assert.strictEqual(M.layoutLetter(key('KeyG', 'g'), 'latin'), '');
+  assert.strictEqual(M.layoutLetter(key('KeyG', 'g'), 'mixed'), '');
+  // Shortcuts, digits and soft keyboards are left alone.
+  assert.strictEqual(M.layoutLetter(key('KeyC', 'c', { ctrlKey: true }), 'cyrillic'), '');
+  assert.strictEqual(M.layoutLetter(key('KeyV', 'v', { metaKey: true }), 'cyrillic'), '');
+  assert.strictEqual(M.layoutLetter(key('Digit1', '1'), 'cyrillic'), '');
+  assert.strictEqual(M.layoutLetter(key('', 'Unidentified'), 'cyrillic'), '');
+  assert.strictEqual(M.layoutLetter(key('Slash', ','), 'cyrillic'), '');
+}
+
+function testRejectReason() {
+  var opts = { format: '##-##', script: 'cyrillic', filled: 1, hasSelection: false };
+  assert.strictEqual(M.rejectReason('а', opts), '');
+  assert.strictEqual(M.rejectReason('-', opts), '');
+  assert.strictEqual(M.rejectReason('g', opts), 'script');
+  assert.strictEqual(M.rejectReason('1', opts), 'script');
+  assert.strictEqual(M.rejectReason(' ', opts), 'script');
+  var full = Object.assign({}, opts, { filled: 4 });
+  assert.strictEqual(M.rejectReason('а', full), 'full');
+  assert.strictEqual(M.rejectReason('а', Object.assign({}, full, { hasSelection: true })), '');
+  assert.strictEqual(M.rejectReason('g', Object.assign({}, opts, { script: 'latin' })), '');
+}
+
+testLayoutLetterMapsEnglishKeysOnlyForCyrillicFields();
+testRejectReason();
 testSlotCount();
 testExtractRussianLetters();
 testExtractLatinLetters();

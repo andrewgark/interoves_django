@@ -14381,34 +14381,47 @@ html.new-ui-dark .new-pay-hub__inline-icon {
   white-space: nowrap;
 }
 
-/* Без IMask (скрипт не загрузился) — обычное поле с маской в placeholder. */
-.cryptic-answer-input {
+/* Поле ответа по маске (static/js/answer_mask.js; маску отдаёт сервер в
+   data-answer-format). Без IMask — обычное поле с маской в placeholder. */
+.answer-mask-input {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-variant-numeric: tabular-nums;
 }
 
-.cryptic-answer-input::placeholder {
+.answer-mask-input::placeholder {
   letter-spacing: 0.12em;
   opacity: 0.45;
 }
 
-/* Поле-маска как в Лесенке (.new-raddle-line / .new-raddle-mask): ширина по
-   числу клеток маски, моноширинные буквы встают в серые квадратики.
+/* С IMask — как строка Лесенки (.new-raddle-line / .new-raddle-mask): ширина
+   по числу клеток маски, моноширинные буквы встают в серые квадратики.
    raddle_masked_input.js мерит шрифт и пишет в строку --raddle-glyph-advance
-   и --raddle-char-gap. Контейнера с cqi здесь нет, поэтому шрифт считаем от
-   ширины окна: клетка маски ≈ 1em, ещё ~13rem уходят на поля страницы и
-   карточки и на кнопку «Проверить». Длинный ответ переносит кнопку вниз. */
-.new-raddle-line.cryptic-answer-line {
+   и --raddle-char-gap; клетка ≈ 1em. Шрифт — от ширины строки ответа:
+   рядом с кнопками («Проверить», 💡 — их ширину с промежутками answer_mask.js
+   пишет в --answer-mask-aside) поле стоит, пока клетка не меньше 15px;
+   иначе answer_mask.js ставит --mask-stacked: поле на всю строку, кнопки
+   вместе под ним. 1rem — поля и рамка самого поля. */
+.new-attempt-row--masked {
+  container-type: inline-size;
+  container-name: answer-row;
+}
+
+.new-raddle-line.answer-mask-line {
   flex: 0 1 auto;
   font-size: clamp(
     0.8rem,
-    calc((min(100vw, 46rem) - 13rem) / var(--raddle-format-len, 5)),
+    calc((100cqi - var(--answer-mask-aside, 7.5rem) - 1rem) / var(--raddle-format-len, 5)),
     1.35rem
   );
 }
 
-.new-attempt-row .cryptic-answer-line input.cryptic-answer-input {
+.new-attempt-row--mask-stacked .new-raddle-line.answer-mask-line {
+  flex: 1 0 100%;
+  font-size: clamp(0.8rem, calc((100cqi - 1rem) / var(--raddle-format-len, 5)), 1.35rem);
+}
+
+.new-attempt-row .answer-mask-line input.answer-mask-input {
   flex: 0 1 auto;
   width: calc(
     var(--raddle-format-len, 5) * var(--raddle-glyph-advance, 1em)
@@ -14433,15 +14446,30 @@ html.new-ui-dark .new-pay-hub__inline-icon {
   caret-color: var(--text);
 }
 
-.cryptic-answer-line .cryptic-answer-input::placeholder {
+.answer-mask-line .answer-mask-input::placeholder {
   color: transparent;
   letter-spacing: 0.02em;
   font-size: 1em;
 }
 
-.cryptic-answer-input:not(:placeholder-shown) + .new-raddle-mask,
-.cryptic-answer-input.new-raddle-input--filled + .new-raddle-mask {
+.answer-mask-input:not(:placeholder-shown) + .new-raddle-mask,
+.answer-mask-input.new-raddle-input--filled + .new-raddle-mask {
   display: none;
+}
+
+/* Символ не принят маской (raddle_masked_input.js): Лесенка и поля по маске. */
+.masked-input--reject {
+  animation: masked-input-reject 0.3s ease;
+  border-color: var(--danger) !important;
+}
+
+@keyframes masked-input-reject {
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .masked-input--reject { animation: none; }
 }
 
 /* Разбор криптика (games/puzzles/cryptic/explain.py). Цвет — операция:

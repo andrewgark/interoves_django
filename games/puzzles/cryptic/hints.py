@@ -14,6 +14,9 @@ from games.puzzles.cryptic.explain import hint_htmls
 CRYPTIC_POINTS = 3
 HINT_PENALTY = 1
 HINT_DESCS = ('где определение', 'увидеть разбор')
+# Кнопка 💡 / 💡💡 и заголовок окна с подсказкой (страница криптика игрока).
+HINT_BUTTONS = ('Узнать, где определение', 'Увидеть разбор')
+HINT_TITLES = ('Где определение', 'Разбор')
 
 
 def sync_cryptic_hints(task) -> None:

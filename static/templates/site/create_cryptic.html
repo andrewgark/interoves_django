@@ -5,6 +5,7 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
   <script src="{% static 'js/offer_draft_autosave.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script src="{% static 'js/cryptic_preview_check.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}
 {% block content %}
 {% csrf_token %}
@@ -233,22 +234,10 @@
       var seq = ++previewSeq;
       postJson(endpoints.preview, readEditorPayload()).then(function (data) {
         if (seq !== previewSeq) return;
-        var check = el('offer-preview-check');
         el('offer-preview').innerHTML = data.html || '';
-        if (data.empty) {
-          check.className = 'cx-check';
-          check.textContent = 'Разбор не заполнен. Без него Криптик не получится предложить.';
-        } else if (data.errors && data.errors.length) {
-          check.className = 'cx-check cx-check--err';
-          check.innerHTML = '<i class="ph ph-warning-circle" aria-hidden="true"></i> Разбор не сходится:<ul>' +
-            data.errors.map(function (m) { return '<li>' + escapeHtml(m) + '</li>'; }).join('') + '</ul>';
-        } else {
-          check.className = 'cx-check cx-check--ok';
-          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '') +
-            (data.warnings && data.warnings.length
-              ? '<ul class="cx-check__warn">' + data.warnings.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>'
-              : '');
-        }
+        window.CrypticPreviewCheck.render(
+          el('offer-preview-check'), data, 'Разбор не заполнен. Без него Криптик не получится предложить.'
+        );
       }).catch(function () {});
     }, now ? 0 : 350);
   }

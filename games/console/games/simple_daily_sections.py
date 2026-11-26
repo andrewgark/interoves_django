@@ -12,9 +12,15 @@ from games.console.games.simple_daily import (
     TaskContent,
 )
 from games.console.http.constants import ADVENT_CONSOLE_GROUP, CRYPTIC_CONSOLE_GROUP
-from games.daily.catalog.cryptic import answer_error, enumeration_for
+from games.daily.catalog.cryptic import (
+    PREVIEW_FIELDS,
+    answer_error,
+    cryptic_editor_preview,
+    enumeration_for,
+    task_enumeration,
+)
 from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
-from games.puzzles.cryptic.explain import ExplainError, editor_preview, validate as validate_explanation
+from games.puzzles.cryptic.explain import ExplainError, validate as validate_explanation
 from games.puzzles.cryptic.hints import CRYPTIC_POINTS, sync_cryptic_hints
 
 # Authors recorded on every new day: advent tasks are Ира Броварь's (prod
@@ -155,14 +161,12 @@ def _cryptic_from_task(task) -> dict[str, str]:
 
 
 def _cryptic_preview(fields: dict[str, str]) -> dict:
-    return editor_preview(**{key: fields.get(key) for key in ('clue', 'answer', 'markup', 'formula')})
+    return cryptic_editor_preview(**{key: fields.get(key) for key in PREVIEW_FIELDS})
 
 
 def _cryptic_summary(task) -> str:
-    tags = task.tags or {}
     answer = (task.answer or '').strip()
-    enumeration = tags.get('cryptic_enumeration') or enumeration_for(answer)
-    return 'Ответ: {} ({})'.format(answer, enumeration) if answer else ''
+    return 'Ответ: {} ({})'.format(answer, task_enumeration(task)) if answer else ''
 
 
 CRYPTIC_SECTION = SimpleDailySection(

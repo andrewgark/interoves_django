@@ -308,12 +308,12 @@
 })();
 </script>
 {% endif %}
-{% if game.id == 'cryptic' %}<script src="{% static 'js/cryptic_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>{% endif %}
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script src="{% static 'js/replacements_board.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/fetch_json.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/imask.min.js' %}"></script>
-<script src="{% static 'js/raddle_masked_input.js' %}"></script>
+<script src="{% static 'js/raddle_masked_input.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% if answer_masks_by_task_id %}<script src="{% static 'js/answer_mask.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>{% endif %}
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/client_event_id.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>

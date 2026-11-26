@@ -17,10 +17,10 @@ from django.utils import timezone
 
 from games.club.offers.profiles import profile_display_name, profile_ready_for_offers
 from games.console.games.simple_daily import AUTHOR_FIELD, SimpleDailyError
-from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, answer_error
+from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, answer_error, cryptic_editor_preview
 from games.models import CrypticOffer
 from games.notifications.catalog import notifies_author
-from games.puzzles.cryptic.explain import ExplainError, analyze, editor_preview, explanation_html
+from games.puzzles.cryptic.explain import ExplainError, explanation_html, validate as validate_explanation
 
 logger = logging.getLogger('application')
 
@@ -182,17 +182,20 @@ def check_offer(offer: CrypticOffer) -> None:
     error = answer_error(offer.answer, offer.enumeration)
     if error:
         raise CrypticOfferError(error)
+    # Unlike a console day, a player's cryptic needs a breakdown; the rest is
+    # the console's own check.
     if not offer.markup or not offer.formula:
         raise CrypticOfferError('Добавьте разбор: разметку и формулу')
-    res = analyze(clue=offer.clue, answer=offer.answer, markup=offer.markup, formula=offer.formula)
-    if res.errors:
-        raise CrypticOfferError('Разбор не сходится: ' + '; '.join(res.errors))
+    try:
+        validate_explanation(clue=offer.clue, answer=offer.answer, markup=offer.markup, formula=offer.formula)
+    except ExplainError as exc:
+        raise CrypticOfferError(str(exc)) from exc
 
 
-def preview(*, clue='', answer='', markup='', formula='') -> dict[str, Any]:
-    """Как в консоли: HTML разбора, ошибки и предупреждения."""
-    return editor_preview(
-        clue=_clean(clue, CLUE_MAX), answer=_clean(answer, ANSWER_MAX),
+def preview(*, clue='', answer='', enumeration='', markup='', formula='') -> dict[str, Any]:
+    """Как в консоли: HTML разбора, ошибки, предупреждения и годность ответа с маской."""
+    return cryptic_editor_preview(
+        clue=_clean(clue, CLUE_MAX), answer=_clean(answer, ANSWER_MAX), enumeration=_clean(enumeration, 64),
         markup=_clean(markup, EXPLAIN_MAX), formula=_clean(formula, EXPLAIN_MAX),
     )
 
@@ -297,6 +300,20 @@ def draft_client_spec(offer: CrypticOffer) -> dict[str, Any]:
     # Per offer, like spec_salt per task: equal answers of two offers hash apart.
     salt = 'cryptic-offer:{}'.format(offer.pk)
     return hash_set_spec(salt, checker.bool_check.normalize_ops, dict.fromkeys(checker.data, 'Ok'))
+
+
+def draft_hints(offer: CrypticOffer) -> list[dict[str, Any]]:
+    """The day's two hints (games/puzzles/cryptic/hints.py), free on the draft page."""
+    from games.puzzles.cryptic.explain import hint_htmls
+    from games.puzzles.cryptic.hints import HINT_BUTTONS, HINT_TITLES
+
+    htmls = hint_htmls(clue=offer.clue, answer=offer.answer, markup=offer.markup, formula=offer.formula)
+    if htmls is None:
+        return []
+    return [
+        {'number': number, 'button': button, 'title': title, 'html': html}
+        for number, (button, title, html) in enumerate(zip(HINT_BUTTONS, HINT_TITLES, htmls), start=1)
+    ]
 
 
 def check_draft_answer(offer: CrypticOffer, text: str) -> dict[str, Any]:

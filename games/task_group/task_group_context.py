@@ -108,6 +108,7 @@ def build_task_group_task_context_dicts(
         game, tasks, attempts_info_by_task_id, team=team, user=user, anon_key=anon_key, mode=mode,
     )
     return {
+        'answer_masks_by_task_id': collect_answer_masks(game, tasks, attempts_info_by_task_id),
         'client_specs_by_task_id': {task_id: check['spec_json'] for task_id, check in client_checks.items()},
         'offline_answer_task_ids': {task_id for task_id, check in client_checks.items() if check['offline_attempts']},
         'attempts_info_by_task_id': attempts_info_by_task_id,
@@ -132,6 +133,35 @@ def build_task_group_task_context_dicts(
 
 # Task types answered through the ordinary text form (task-default.html).
 ORDINARY_ANSWER_TASK_TYPES = ('default',)
+
+
+def _answer_mask_providers():
+    """Games whose ordinary answer field is a letter mask: game id → ``task → mask``."""
+    from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, answer_mask as cryptic_answer_mask
+
+    return {CRYPTIC_GAME_ID: cryptic_answer_mask}
+
+
+def collect_answer_masks(game, tasks, attempts_info_by_task_id):
+    """``{'format', 'script'}`` per unsolved ordinary task with a letter mask.
+
+    task-default.html puts them on the answer form; static/js/answer_mask.js
+    turns its field into Ladder-style cells (raddle_masked_input.js).
+    """
+    provider = _answer_mask_providers().get(getattr(game, 'id', None))
+    if provider is None:
+        return {}
+    masks = {}
+    for task in tasks:
+        if task.task_type not in ORDINARY_ANSWER_TASK_TYPES:
+            continue
+        info = attempts_info_by_task_id.get(task.id)
+        if info is not None and info.is_solved():
+            continue
+        mask = provider(task)
+        if mask:
+            masks[task.id] = mask
+    return masks
 
 
 def collect_client_checks(game, tasks, attempts_info_by_task_id, *, team, user, anon_key, mode):

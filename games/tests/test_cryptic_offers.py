@@ -81,6 +81,9 @@ class CrypticOfferFlowTests(TestCase):
         page = self.client.get(offer.play_url())
         self.assertContains(page, 'id="cryptic-draft-spec"')
         self.assertContains(page, '(2-2, 4)')
+        self.assertContains(page, 'data-answer-format="##-## ####" data-answer-script="cyrillic"')
+        # Without a breakdown there are no hints.
+        self.assertNotContains(page, 'data-draft-hint')
         self.assertNotContains(page, 'УГЛА')
         spec = page.context['client_spec']
         self.assertEqual(verify(spec, 'Из-за угла'), 'Ok')
@@ -88,6 +91,24 @@ class CrypticOfferFlowTests(TestCase):
         self.assertEqual(verify(spec, 'ИЗ-ЗА УГЛЯ'), 'Wrong')
         check = reverse('ui_cryptic_offer_check', args=[offer.share_hash])
         self.assertTrue(self.client.post(check, {'text': 'ИЗЗА УГЛА'}).json()['ok'])
+
+    def test_draft_page_shows_the_days_hints_for_free(self):
+        from games.puzzles.cryptic.hints import HINT_BUTTONS, HINT_TITLES
+
+        page = self.client.get(self._draft().play_url())
+        self.assertContains(page, 'data-draft-hint-open')
+        self.assertContains(page, '<template data-draft-hint="1"')
+        self.assertContains(page, '<template data-draft-hint="2"')
+        for text in HINT_BUTTONS + HINT_TITLES:
+            self.assertContains(page, text)
+        self.assertContains(page, 'здесь они бесплатные')
+        self.assertNotContains(page, 'КЛОП')
+
+    def test_preview_tells_a_mask_that_does_not_fit(self):
+        data = _json(self.client, 'ui_create_cryptic_preview', {**FIELDS, 'enumeration': '2, 3'}).json()
+        self.assertEqual(data['answer_error'], 'В маске (2, 3) букв 5, а в ответе 4')
+        self.assertEqual(data['errors'], [])
+        self.assertIsNone(_json(self.client, 'ui_create_cryptic_preview', FIELDS).json()['answer_error'])
 
     def test_preview_endpoint(self):
         data = _json(self.client, 'ui_create_cryptic_preview', FIELDS).json()

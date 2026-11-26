@@ -3,6 +3,11 @@
  * Шаблон: # — слот буквы, остальные символы — фиксированные литералы (дефис, пробел…).
  * data-raddle-script задаёт допустимые буквы: cyrillic, latin, mixed и их
  * варианты с _digits. Пунктуация приходит из маски отдельно.
+ * Общий модуль маски: им же пользуются поля ответа обычных заданий с
+ * data-answer-format (static/js/answer_mask.js, Криптики).
+ * Набранное в английской раскладке там, где ждут кириллицу, переводится по
+ * физической клавише (ЙЦУКЕН); отвергнутый символ покачивает поле и шлёт
+ * событие masked-input:reject с причиной script / full.
  * Локальная проверка: node static/js/raddle_masked_input.test.js
  */
 (function (global) {
@@ -28,6 +33,17 @@
   var maskByInputFallback = null;
   var fontReadyByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
   var geometryByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+
+  // Physical key (KeyboardEvent.code) → letter of the Russian ЙЦУКЕН layout.
+  var RU_BY_CODE = {
+    KeyQ: 'й', KeyW: 'ц', KeyE: 'у', KeyR: 'к', KeyT: 'е', KeyY: 'н', KeyU: 'г',
+    KeyI: 'ш', KeyO: 'щ', KeyP: 'з', BracketLeft: 'х', BracketRight: 'ъ',
+    KeyA: 'ф', KeyS: 'ы', KeyD: 'в', KeyF: 'а', KeyG: 'п', KeyH: 'р', KeyJ: 'о',
+    KeyK: 'л', KeyL: 'д', Semicolon: 'ж', Quote: 'э',
+    KeyZ: 'я', KeyX: 'ч', KeyC: 'с', KeyV: 'м', KeyB: 'и', KeyN: 'т', KeyM: 'ь',
+    Comma: 'б', Period: 'ю', Backquote: 'ё',
+  };
+  var REJECT_CLASS = 'masked-input--reject';
 
   function slotCount(fmt) {
     var n = 0;
@@ -139,6 +155,82 @@
     if (script === 'mixed_digits') return MIXED_DIGIT_RE;
     if (isMixedScript(script)) return MIXED_LETTER_RE;
     return CYRILLIC_LETTER_RE;
+  }
+
+  function acceptsChar(ch, script) {
+    return letterReForScript(script).test(ch);
+  }
+
+  /**
+   * The Cyrillic letter a key press means when the keyboard is on the English
+   * layout and the field takes Cyrillic, else ''. Only real key presses: a
+   * paste or a soft keyboard (key 'Unidentified') is never remapped.
+   */
+  function layoutLetter(event, script) {
+    if (!event || event.ctrlKey || event.metaKey || event.altKey) return '';
+    var key = String(event.key || '');
+    if (key.length !== 1 || acceptsChar(key, script)) return '';
+    if (script !== 'cyrillic' && script !== 'cyrillic_digits') return '';
+    return RU_BY_CODE[event.code] || '';
+  }
+
+  /** Why typed text is dropped: 'script', 'full' or '' (taken). */
+  function rejectReason(text, opts) {
+    var fmt = opts.format || '';
+    var chars = String(text || '').split('');
+    var letters = chars.filter(function (ch) { return acceptsChar(ch, opts.script); });
+    var literalsOnly = chars.every(function (ch) {
+      return ch !== SLOT && fmt.indexOf(ch) !== -1;
+    });
+    if (!letters.length) return literalsOnly ? '' : 'script';
+    if (opts.filled >= slotCount(fmt) && !opts.hasSelection) return 'full';
+    return '';
+  }
+
+  function flashReject(input, reason) {
+    if (!input || !input.classList) return;
+    input.classList.remove(REJECT_CLASS);
+    // Restart the animation on a repeated reject.
+    void input.offsetWidth;
+    input.classList.add(REJECT_CLASS);
+    global.setTimeout(function () { input.classList.remove(REJECT_CLASS); }, 400);
+    if (typeof global.CustomEvent === 'function') {
+      input.dispatchEvent(new global.CustomEvent('masked-input:reject', {
+        bubbles: true, detail: { reason: reason },
+      }));
+    }
+  }
+
+  function bindKeyboardHelpers(input, fmt, script) {
+    input.addEventListener('keydown', function (e) {
+      if (input.readOnly || input.disabled) return;
+      var letter = layoutLetter(e, script);
+      if (!letter) return;
+      e.preventDefault();
+      var start = input.selectionStart;
+      var end = input.selectionEnd;
+      if (rejectReason(letter, {
+        format: fmt, script: script, filled: getLetters(input).length, hasSelection: start !== end,
+      })) {
+        flashReject(input, 'full');
+        return;
+      }
+      // IMask saved the selection on its own keydown (bound first) and reads
+      // the change from the input event, as for a typed letter.
+      input.setRangeText(letter, start, end, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    input.addEventListener('beforeinput', function (e) {
+      if (input.readOnly || input.disabled) return;
+      if (e.inputType !== 'insertText' || !e.data) return;
+      var reason = rejectReason(e.data, {
+        format: fmt,
+        script: script,
+        filled: getLetters(input).length,
+        hasSelection: input.selectionStart !== input.selectionEnd,
+      });
+      if (reason) flashReject(input, reason);
+    });
   }
 
   function buildMaskOptions(fmt, script) {
@@ -441,6 +533,7 @@
 
     var mask = IMask(input, buildMaskOptions(fmt, script));
     setMaskInstance(input, mask);
+    bindKeyboardHelpers(input, fmt, script);
 
     // Restoring the initial value is programmatic (for example after a live
     // task-card replacement). It must not look like a user completion: IMask
@@ -499,6 +592,8 @@
     extractMixedLetters: extractMixedLetters,
     extractLetters: extractLetters,
     lettersToDisplay: lettersToDisplay,
+    layoutLetter: layoutLetter,
+    rejectReason: rejectReason,
     buildMaskOptions: buildMaskOptions,
     getLetters: getLetters,
     setLetters: setLetters,

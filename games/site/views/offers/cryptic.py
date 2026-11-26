@@ -14,6 +14,7 @@ from games.club.offers.cryptic import (
     check_draft_answer,
     create_offer,
     draft_client_spec,
+    draft_hints,
     get_offer_by_share_hash,
     list_user_offers,
     preview,
@@ -22,7 +23,7 @@ from games.club.offers.cryptic import (
     update_offer_content,
 )
 from games.club.offers.profiles import profile_ready_for_offers, update_offer_profile_names
-from games.daily.catalog.cryptic import CRYPTIC_GAME_ID
+from games.daily.catalog.cryptic import CRYPTIC_GAME_ID, PREVIEW_FIELDS, mask_format
 from games.identity import has_profile
 from games.models import CrypticOffer
 from games.sections.paths import section_hub_path
@@ -127,7 +128,7 @@ def offer_cryptic_preview(request):
     if body is None:
         return _error('Некорректный JSON')
     return JsonResponse({'ok': True, **preview(**{
-        key: str(body.get(key) or '') for key in ('clue', 'answer', 'markup', 'formula')
+        key: str(body.get(key) or '') for key in PREVIEW_FIELDS
     })})
 
 
@@ -143,12 +144,15 @@ def draft_offer_page(request, offer):
     """Черновик: подсказка и проверка без попыток. В HTML только солёный хеш ответа."""
     is_author = request.user.is_authenticated and request.user.pk == offer.user_id
     ready = bool(offer.clue and offer.answer)
+    enumeration = offer.shown_enumeration
     return render(request, 'site/cryptic_offer_play.html', {
         'page_title': 'Криптик',
         'offer': offer,
         'is_author': is_author,
         'ready': ready,
-        'enumeration': offer.shown_enumeration,
+        'enumeration': enumeration,
+        'answer_format': mask_format(enumeration) if ready else '',
+        'hints': draft_hints(offer) if ready else [],
         # Salted hashes only, as on a day's card: the answer itself stays out.
         'client_spec': draft_client_spec(offer) if ready else None,
         'author_name': serialize_offer(offer).user_name,

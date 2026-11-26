@@ -360,13 +360,26 @@ class CrypticTests(TestCase):
         client.force_login(_user('cryptic_player'))
         page = client.get('/cryptic/1/')
         self.assertContains(page, 'Спор внутри центра Сколково')
-        self.assertContains(page, 'cryptic_play.js')
+        # The answer field is the mask from the clue's brackets, set at render.
+        self.assertContains(page, 'data-answer-format="##-###" data-answer-script="cyrillic"')
+        self.assertContains(page, 'answer_mask.js')
         self.assertNotContains(page, 'data-answer-open')
         response = client.post('/send_attempt/{}/'.format(task.pk), {'text': 'с с о р а', 'game_id': 'cryptic'})
         self.assertEqual(response.json().get('attempt_status'), 'Ok')
         page = client.get('/cryptic/1/')
         self.assertContains(page, 'Ваш результат')
         self.assertContains(page, '🔑 Криптики №1')
+        self.assertNotContains(page, 'data-answer-format')
+
+    def test_mask_format(self):
+        from games.daily.catalog.cryptic import mask_format
+
+        self.assertEqual(mask_format('6'), '######')
+        self.assertEqual(mask_format('3-4'), '###-####')
+        self.assertEqual(mask_format('5, 4'), '##### ####')
+        self.assertEqual(mask_format('2,2-3'), '## ##-###')
+        self.assertEqual(mask_format('пять'), '')
+        self.assertEqual(mask_format('500'), '')
 
 
 class PublicPagesTests(TestCase):

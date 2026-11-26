@@ -14,6 +14,11 @@ if command -v node >/dev/null 2>&1; then
   node --check static/js/alphabetty_page.js
   node --check static/js/replacements_board.js
   node static/js/replacements_board.test.js
+  # Masked answer fields (Ladder, Cryptics) and the page's own answer check.
+  node static/js/raddle_masked_input.test.js
+  node static/js/answer_mask.test.js
+  node static/js/offline_normalize.test.js
+  node static/js/offline_verify.test.js
 fi
 TEST_SETTINGS="${DJANGO_TEST_SETTINGS:-interoves_django.test_settings}"
 exec "$PYTHON" manage.py test --settings="$TEST_SETTINGS" --keepdb "$@"

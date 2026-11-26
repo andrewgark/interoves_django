@@ -5,6 +5,7 @@
 {% csrf_token %}
 {{ rows_json|json_script:"sd-bootstrap" }}
 <script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% if section.has_preview %}<script src="{% static 'js/cryptic_preview_check.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>{% endif %}
 
 <h1 class="support-page-title">{{ section.title }}</h1>
 <p class="support-lead">
@@ -280,23 +281,10 @@
       var seq = ++previewSeq;
       tabs.postJson(endpoints.preview, { fields: currentFields() }).then(function (data) {
         if (seq !== previewSeq) return;
-        var box = field('sd-preview');
-        var check = field('sd-preview-check');
-        box.innerHTML = data.html || '';
-        if (data.empty) {
-          check.className = 'cx-check';
-          check.textContent = 'Разбор не заполнен: после решения покажем только ответ.';
-        } else if (data.errors && data.errors.length) {
-          check.className = 'cx-check cx-check--err';
-          check.innerHTML = '<i class="ph ph-warning-circle" aria-hidden="true"></i> Разбор не сходится:<ul>' +
-            data.errors.map(function (e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') + '</ul>';
-        } else {
-          check.className = 'cx-check cx-check--ok';
-          check.innerHTML = '<i class="ph ph-check-circle" aria-hidden="true"></i> Формула даёт ' + escapeHtml(data.answer || '') +
-            (data.warnings && data.warnings.length
-              ? '<ul class="cx-check__warn">' + data.warnings.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>'
-              : '');
-        }
+        field('sd-preview').innerHTML = data.html || '';
+        window.CrypticPreviewCheck.render(
+          field('sd-preview-check'), data, 'Разбор не заполнен: после решения покажем только ответ.'
+        );
       }).catch(function () {});
     }, now ? 0 : 350);
   }
