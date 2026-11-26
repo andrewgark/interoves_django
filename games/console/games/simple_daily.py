@@ -103,6 +103,10 @@ class SimpleDailySection:
     help_label: str = ''
     # Блок предложений игроков над расписанием (шаблон консоли).
     offers_template: str = ''
+    # Баллы за день (Task и TaskGroup).
+    day_points: int = DAY_POINTS
+    # Что ещё собрать по сохранённому заданию (подсказки криптика).
+    after_save: Optional[Callable[[Task], None]] = None
 
     @property
     def has_preview(self) -> bool:
@@ -353,11 +357,11 @@ class SimpleDailyConsole:
         task_group = TaskGroup.objects.create(
             label='{}:{}'.format(self.section.game_id, at_number),
             checker=checker,
-            points=DAY_POINTS,
+            points=self.section.day_points,
             max_attempts=None,
         )
         self._sync_authors(task_group, author_text)
-        Task.objects.create(
+        task = Task.objects.create(
             task_group=task_group,
             number='1',
             task_type='default',
@@ -367,10 +371,12 @@ class SimpleDailyConsole:
             answer_comment=content.answer_comment or None,
             text=content.text,
             tags={**content.tags, **({AUTHOR_FIELD: author_text} if author_text else {})},
-            points=DAY_POINTS,
+            points=self.section.day_points,
             max_attempts=None,
             is_removed=False,
         )
+        if self.section.after_save is not None:
+            self.section.after_save(task)
         link = GameTaskGroup.objects.create(
             game=game,
             task_group=task_group,
@@ -400,7 +406,9 @@ class SimpleDailyConsole:
         checker_changed = (
             content.checker_data != (task.checker_data or '')
             or task.checker_id != self.section.checker_id
+            or task.points != self.section.day_points
         )
+        task.points = self.section.day_points
         task.text = content.text
         task.checker_data = content.checker_data
         task.checker_id = self.section.checker_id
@@ -413,6 +421,10 @@ class SimpleDailyConsole:
             tags.pop(AUTHOR_FIELD, None)
         task.tags = tags
         task.save()
+        if self.section.after_save is not None:
+            self.section.after_save(task)
+        if link.task_group_id and link.task_group.points != self.section.day_points:
+            TaskGroup.objects.filter(pk=link.task_group_id).update(points=self.section.day_points)
         if link.task_group_id:
             self._sync_authors(link.task_group, author_text)
         if checker_changed:

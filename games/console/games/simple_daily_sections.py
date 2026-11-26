@@ -15,6 +15,7 @@ from games.console.http.constants import ADVENT_CONSOLE_GROUP, CRYPTIC_CONSOLE_G
 from games.daily.catalog.cryptic import answer_error, enumeration_for
 from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
 from games.puzzles.cryptic.explain import ExplainError, editor_preview, validate as validate_explanation
+from games.puzzles.cryptic.hints import CRYPTIC_POINTS, sync_cryptic_hints
 
 # Authors recorded on every new day: advent tasks are Ира Броварь's (prod
 # user 16), cryptics are the site author's (Андрей Гаркавый, user 1).
@@ -197,7 +198,11 @@ CRYPTIC_SECTION = SimpleDailySection(
         ),
         DayField(
             'formula', 'Разбор: формула', mono=True, placeholder='анаг[Пьяный](МУЖЧИНА ЖЕ)',
-            hint='Разбор покажем после решения. Пустой разбор можно, заполненный должен сходиться.',
+            hint=(
+                'Разбор покажем после решения, а до решения — две подсказки по −1 баллу из {}: '
+                'черта с определением, затем вся разметка. Пустой разбор можно (тогда без подсказок), '
+                'заполненный должен сходиться.'
+            ).format(CRYPTIC_POINTS),
         ),
         DayField('explanation', 'Комментарий под разбором (HTML)', kind='textarea'),
     ),
@@ -209,6 +214,8 @@ CRYPTIC_SECTION = SimpleDailySection(
     help_template='site/_cryptic_explain_help.html',
     help_label='Как записывать разбор',
     offers_template='support/_cryptic_offers.html',
+    day_points=CRYPTIC_POINTS,
+    after_save=sync_cryptic_hints,
 )
 
 SECTIONS: dict[str, SimpleDailySection] = {
