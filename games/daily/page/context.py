@@ -1,5 +1,6 @@
 """Shared presentation metadata for daily-game play pages."""
 
+from games.daily.page.section import CRYPTIC_SCHEDULE
 from games.daily.registry import get_daily_game
 
 
@@ -19,12 +20,21 @@ def build_daily_page_context(game_id, *, fallback_label=None,
     }
 
 
+# Simple daily games outside the registry that still have post-solve statistics.
+STATISTICS_EXTRA_GAME_IDS = frozenset({CRYPTIC_SCHEDULE.game_id})
+
+
+def has_daily_statistics(game_id):
+    """Whether the game serves /daily-statistics/."""
+    if str(game_id or '') in STATISTICS_EXTRA_GAME_IDS:
+        return True
+    definition = get_daily_game(game_id)
+    return definition is not None and definition.capabilities.statistics
+
+
 def daily_statistics_url(game_id, number, *, enabled):
     """Build the statistics endpoint only when the game exposes it."""
-    if not enabled:
-        return ''
-    definition = get_daily_game(game_id)
-    if definition is None or not definition.capabilities.statistics:
+    if not enabled or not has_daily_statistics(game_id):
         return ''
     return '/daily-statistics/{}/{}/'.format(game_id, number)
 

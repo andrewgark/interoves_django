@@ -23,6 +23,7 @@ from games.daily.ladder.tutorial.ladder import (
 )
 from games.daily.page.context import (
     build_daily_lifecycle_context,
+    has_daily_statistics,
 )
 from games.daily.page.section import (
     MOSCOW,
@@ -34,7 +35,6 @@ from games.daily.page.section import (
     visible_links,
 )
 from games.daily.page.share.authorship import is_author_auto_completion_active
-from games.daily.registry import get_daily_game
 from games.daily.timing.transitions import (
     next_daily_content_transition_for_game,
 )
@@ -93,8 +93,7 @@ logger = logging.getLogger('games.views.new_ui')
 @never_cache
 def daily_statistics(request, game_id, number):
     """Spoiler-safe statistics endpoint: completed participants only."""
-    definition = get_daily_game(game_id)
-    if definition is None or not definition.capabilities.statistics:
+    if not has_daily_statistics(game_id):
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
     from games.daily.page.placement import (
@@ -170,6 +169,7 @@ def daily_statistics(request, game_id, number):
         RANKING_KEY,
         personal_attempt_count,
         personal_censorly_perfect,
+        personal_cryptic_perfect,
         personal_in_cohort,
         personal_statistics,
     )
@@ -196,6 +196,10 @@ def daily_statistics(request, game_id, number):
         )
         if in_cohort and payload.get('kind') == 'censorly':
             personal_perfect = personal_censorly_perfect(
+                game, placement.task_group, actor_key=actor_key, attempts=personal_attempts,
+            )
+        elif in_cohort and payload.get('kind') == 'cryptic':
+            personal_perfect = personal_cryptic_perfect(
                 game, placement.task_group, actor_key=actor_key, attempts=personal_attempts,
             )
     payload = {

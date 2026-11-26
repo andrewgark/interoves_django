@@ -277,7 +277,8 @@
     html += '<div class="new-daily-statistics__summary new-daily-statistics__summary--' + esc(data.kind || '') + '">' +
       metric('Решили', summary.solved || data.solved || 0) +
       timeMetric(data, summary);
-    if (data.kind === 'alphabet' || data.kind === 'censorly') html += attemptsMetric(data, summary);
+    if (data.kind === 'alphabet' || data.kind === 'censorly' || data.kind === 'cryptic') html += attemptsMetric(data, summary);
+    if (data.kind === 'cryptic') html += metric('С первой попытки', percent(summary.first_try_percent));
     html += metric('Без подсказок', percent(summary.without_hints_percent)) + '</div>';
     if (data.kind === 'salad') {
       html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как среднее значение порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
@@ -295,6 +296,11 @@
         ((data.above_words || []).length ? section('Слово сверху перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.above_words) + '</ul>') : '') +
         ((data.below_words || []).length ? section('Слово снизу перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.below_words) + '</ul>') : '') +
         '</div>';
+    } else if (data.kind === 'cryptic') {
+      html += '<div class="new-daily-statistics__body">' +
+        section('Распределение попыток', histogram(data.distribution)) +
+        ((data.guesses || []).length ? section('Популярные неверные ответы', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.guesses) + '</ul>') : '') +
+        '</div>';
     } else if (data.kind === 'censorly') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
@@ -305,7 +311,7 @@
     root.innerHTML = html;
     root.hidden = false;
     shareAchievements(root, data);
-    if (data.kind === 'alphabet' || data.kind === 'censorly') {
+    if (data.kind === 'alphabet' || data.kind === 'censorly' || data.kind === 'cryptic') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
   }

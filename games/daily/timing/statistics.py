@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 import uuid
 from collections import Counter, defaultdict
@@ -13,6 +14,7 @@ from django.core.cache import caches
 from django.db import connection, transaction
 from django.db.models import Func, Min, Q, TextField
 
+from games.daily.page.section import CRYPTIC_SCHEDULE
 from games.daily.registry import DAILY_GAME_REGISTRY
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.puzzles.alphabetty.core import normalize_word
@@ -30,6 +32,7 @@ from games.puzzles.salad.rules import (
 )
 
 CACHE_VERSION = 25
+CRYPTIC_GAME_ID = CRYPTIC_SCHEDULE.game_id
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -291,6 +294,14 @@ def _personal_comparison(value, median_value, others):
 
 def personal_attempt_count(game, task_group, *, actor_key):
     """Count official guesses even for players excluded from public results."""
+    if game.id == CRYPTIC_GAME_ID:
+        task = Task.objects.filter(task_group=task_group).order_by('id').first()
+        if task is None:
+            return None
+        rows, solved = _cryptic_guesses(
+            _attempt_rows(task, game, [actor_key], CRYPTIC_STATUSES).only('id', 'status'),
+        )
+        return len(rows) if solved else None
     task = Task.objects.filter(
         task_group=task_group, task_type__in=('alphabetty', 'censorly'),
     ).order_by('id').first()
@@ -1156,11 +1167,109 @@ def _censorly(task, game, actors):
     }
 
 
+CRYPTIC_STATUSES = ('Ok', 'Partial', 'Wrong')
+# A cryptic takes a few tries at most; the tail above this is one bar.
+CRYPTIC_HISTOGRAM_TAIL = 10
+
+
+def cryptic_answer_key(text):
+    """Letters only, as the answer is checked: «Лесная  тропа» → «ЛЕСНАЯТРОПА»."""
+    return re.sub(r'[^0-9A-ZА-ЯЁ]', '', str(text or '').upper())
+
+
+def _cryptic_shown(text):
+    return ' '.join(str(text or '').upper().split())
+
+
+def _cryptic_guesses(rows):
+    """Attempts through the first solve, the solving one included, and whether it solved."""
+    taken = []
+    for row in rows:
+        taken.append(row)
+        if row.status == 'Ok':
+            return taken, True
+    return taken, False
+
+
+def _cryptic_hint_takers(task, game, actors):
+    """Actor keys that took at least one of the task's hints."""
+    from games.models import HintAttempt
+
+    if not actors:
+        return set()
+    rows = HintAttempt.objects.filter(
+        hint__task=task, is_real_request=True, replay_slot__isnull=True,
+    )
+    if len(actors) <= _ACTOR_OR_LIMIT:
+        rows = rows.filter(_actor_q(actors))
+    wanted = set(actors)
+    return {
+        _actor_key(row)
+        for row in rows.only('team_id', 'user_id', 'anon_key')
+        if _keeps_actor(row, wanted)
+    }
+
+
+def _cryptic(task, game, actors):
+    """Криптик: попытки до решения, подсказки и популярные неверные ответы."""
+    attempts = _attempts_for(task, game, actors, statuses=CRYPTIC_STATUSES)
+    hint_takers = _cryptic_hint_takers(task, game, actors)
+    answer = cryptic_answer_key(task.answer)
+    attempt_counts = []
+    actor_attempts = {}
+    perfect = []
+    wrong_players = defaultdict(set)
+    wrong_forms = defaultdict(Counter)
+    for actor in actors:
+        rows, solved = _cryptic_guesses(attempts.get(actor, []))
+        if not solved:
+            continue
+        n = len(rows)
+        attempt_counts.append(n)
+        actor_attempts[actor] = n
+        if n == 1 and actor not in hint_takers:
+            perfect.append(actor)
+        for row in rows:
+            key = cryptic_answer_key(row.text)
+            if key and key != answer and row.status != 'Ok':
+                wrong_players[key].add(actor)
+                wrong_forms[key][_cryptic_shown(row.text)] += 1
+    total = len(actors)
+    solve_times = _completed_time_map(game, task.task_group, actors)
+    guesses = [
+        {**item, 'word': wrong_forms[item['word']].most_common(1)[0][0]}
+        for item in _popular_word_rows(wrong_players, limit=POPULAR_LIMIT)
+    ]
+    return {
+        'kind': 'cryptic',
+        'solved': total,
+        'summary': {
+            'solved': total,
+            'median_attempts': _median(attempt_counts),
+            'median_time_seconds': _median(list(solve_times.values())),
+            'first_try_percent': _pct(sum(1 for n in attempt_counts if n == 1), total),
+            'without_hints_percent': _pct(total - len(hint_takers), total),
+        },
+        'distribution': build_attempt_histogram(attempt_counts, tail_from=CRYPTIC_HISTOGRAM_TAIL),
+        RANKING_KEY: {'times': solve_times, 'attempts': actor_attempts, 'perfect': perfect},
+        'guesses': guesses,
+    }
+
+
+def personal_cryptic_perfect(game, task_group, *, actor_key, attempts):
+    """Same «perfect» rule as ``_cryptic``: one attempt and no hints."""
+    if attempts != 1:
+        return False
+    task = Task.objects.filter(task_group=task_group).order_by('id').first()
+    return task is not None and actor_key not in _cryptic_hint_takers(task, game, [actor_key])
+
+
 DAILY_STATISTICS_ADAPTERS.update({
     'salad': DailyStatisticsAdapter('salad', _salad),
     'ladder': DailyStatisticsAdapter('ladder', _ladder),
     'alphabet': DailyStatisticsAdapter('alphabet', _alphabet),
     'censorly': DailyStatisticsAdapter('censorly', _censorly),
+    'cryptic': DailyStatisticsAdapter('cryptic', _cryptic),
 })
 
 
@@ -1346,6 +1455,12 @@ def _build_daily_statistics_payload(game, task_group, *, published_at=None):
         for definition in DAILY_GAME_REGISTRY.all()
         if definition.capabilities.statistics and definition.statistics_adapter_key
     )
+    if game.id == CRYPTIC_GAME_ID:
+        # A simple daily game outside the registry: one ordinary task a day.
+        task = Task.objects.filter(task_group=task_group).order_by('id').first()
+        if task is None:
+            return {'kind': None, 'solved': len(actors), 'summary': {'solved': len(actors)}}
+        return DAILY_STATISTICS_ADAPTERS['cryptic'].build(task, game, actors)
     task = Task.objects.filter(
         task_group=task_group,
         task_type__in=supported_task_types,
