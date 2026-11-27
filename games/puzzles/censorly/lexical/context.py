@@ -69,6 +69,7 @@ NEM_GERMAN = _ctx('nem_german', 'нем', lemmas=('немец',), expands_guess=
 DR_ANCIENT = _ctx('dr_ancient', 'др', lemmas=('древний',), expands_guess=True)
 TOM_VOLUME = _ctx('tom_volume', 'том', readings=frozenset({'том'}))
 N_ERA = _ctx('n_era', 'н', lemmas=('наш',))
+E_ERA = _ctx('e_era', 'э', lemmas=('эра',))
 PO_SOFTWARE = _ctx('po_software', 'по', lemmas='self')
 LI_NAME = _ctx('li_name', 'ли', lemmas='self')
 YEAR_ABBR = _ctx('year_abbr', 'г', lemmas=('год',))
@@ -114,7 +115,7 @@ LANGUAGE_LABELS = _language_labels()
 _REGISTRY: dict[str, TokenContext] = {
     item.marker: item
     for item in (
-        NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, DR_ANCIENT, TOM_VOLUME, N_ERA,
+        NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, DR_ANCIENT, TOM_VOLUME, N_ERA, E_ERA,
         PO_SOFTWARE, LI_NAME, YEAR_ABBR, CITY_ABBR, PAGE_ABBR, STREET_ABBR,
         CENTURY_ABBR, TELE_PREFIX, CM_UNIT, SEE_REF, *TIME_UNITS.values(), *LETTER_UNITS.values(),
         *LANGUAGE_LABELS.values(),

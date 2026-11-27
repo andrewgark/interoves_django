@@ -13,6 +13,7 @@ from games.puzzles.censorly.lexical.context import (
     CITY_ABBR,
     CM_UNIT,
     DR_ANCIENT,
+    E_ERA,
     LANGUAGE_LABELS,
     LETTER_UNITS,
     LI_NAME,
@@ -878,7 +879,8 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             _set_context(tok, _CLOSED_STOP_HOMOGRAPHS[surface])
             continue
 
-        # «н. э.» has an established contextual reading (“нашей эры”).
+        # «н. э.» has an established contextual reading (“нашей эры”):
+        # «н.» opens from наш, «э.» from эра.
         if word == 'н' and has_period and after_period < len(tokens):
             e_index = _next_nonspace(tokens, after_period)
             if (
@@ -916,6 +918,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
 def _initial_dot(tokens: list[dict[str, Any]], index: int) -> int:
     """Index of the period after a capital single letter at ``index``, else -1."""
     tok = tokens[index]
+                    _set_context(tokens[e_index], E_ERA)
     surface = tok.get('surface') or ''
     if (
         tok.get('kind') not in {'content', 'stop'} or tok.get('script')

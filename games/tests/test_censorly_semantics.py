@@ -1465,6 +1465,7 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.lexical.match import matching_lemmas
 
         payload = build_puzzle_payload(
+            E_ERA,
             wiki_title='Контекст чтения',
             body_text=(
                 'ПО и по. Нем. язык не похож на воду. О нем. '
@@ -1498,6 +1499,8 @@ class SemanticsTests(SimpleTestCase):
         article_tokens = payload['title_tokens'] + tokens
         self.assertIn(PO_SOFTWARE.marker, matching_lemmas(article_tokens, 'по'))
         self.assertNotIn(PO_SOFTWARE.marker, matching_lemmas(article_tokens, 'программное'))
+        self.assertEqual(by_surface['э'][0]['lemma'], E_ERA.marker)
+        self.assertFalse(by_surface['э'][0]['initially_open'])
         self.assertEqual(
             matching_lemmas(article_tokens, 'нем'),
             {NEM_GERMAN.marker},
@@ -1518,6 +1521,9 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
         from games.puzzles.censorly.lexical.context import PO_SOFTWARE
         from games.puzzles.censorly.text.tokenize import resolve_puzzle_payload
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эра'))
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эры'))
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'э'))
 
         old = build_puzzle_payload(wiki_title='ПО', body_text='ПО')
         old['splitter_version'] = CENSORLY_SPLITTER_VERSION - 1
