@@ -5034,9 +5034,13 @@
           saladRoot.__keepWordSaladSelection();
         }
         html = staggerNewlySolvedRaddleRows(el, html);
+        // A lone card is rendered without its neighbours; keep the board's
+        // «starts a new item» mark (the wider gap above it).
+        var itemStart = el.classList.contains('new-taskcard--item-start');
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
         if (fresh) {
+          if (itemStart) fresh.classList.add('new-taskcard--item-start');
           if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampRoot(fresh);
           initReplacementsLinesStorage(fresh);
           if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);

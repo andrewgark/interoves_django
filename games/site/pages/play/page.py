@@ -64,6 +64,7 @@ from games.site.pages import (
     SECTION_RULES_GAME_IDS,
     _age_gate_context,
     _anon_key_from_request,
+    _borrowed_section_rules_html,
     _get_play_mode,
     _project_urls_context,
     _root_project_game_redirect,
@@ -497,6 +498,13 @@ def task_group_page(
             section_rules_type = None
             section_tutorial_html = None
             show_palindrome_rules = False
+    # A salad in a Десяточка: the salad's rules behind «?», never opened unasked.
+    borrowed_section_rules = False
+    if not section_rules_type and not section_tutorial_html and not (
+        task_group.rules and (task_group.rules.html or '').strip()
+    ):
+        section_tutorial_html = _borrowed_section_rules_html(game, tasks)
+        borrowed_section_rules = bool(section_tutorial_html)
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, mode,
         placement=placement if isinstance(placement, GameTaskGroup) else None,
@@ -756,6 +764,7 @@ def task_group_page(
         'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
+        'rules_no_autoopen': borrowed_section_rules,
         **_archive_nav_context(
             request, game, prev_tg, next_tg,
             lambda number: _play_url_for_task_group(game, number),

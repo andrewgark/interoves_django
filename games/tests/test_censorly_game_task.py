@@ -103,6 +103,11 @@ class CensorlyGameTaskTests(TestCase):
         self.assertIn('id="censorly-root"', html)
         self.assertIn('data-play-mode="team"', html)
         self.assertIn(f'{self.base}guess/', html)
+        # The rules open through base.html, which needs the storage key, with
+        # the daily game's compact «?» trigger; no replay form here.
+        self.assertIn('id="rules-modal" data-storage-key="section_rules_seen_censorly"', html)
+        self.assertIn('new-rules-trigger--compact', html)
+        self.assertNotIn('data-replay-submit', html)
         bootstrap = response.context['bootstrap']
         self.assertEqual(bootstrap['max_attempts'], 3)
         self.assertFalse(bootstrap['won'])

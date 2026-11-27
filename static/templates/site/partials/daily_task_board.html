@@ -1,17 +1,24 @@
-<div class="new-taskgrid{% if task_group.view == 'table-3-n' %} new-taskgrid--3{% elif task_group.view == 'table-4-n' %} new-taskgrid--4{% endif %}{% if daily_timing_enabled %} new-daily-solve{% endif %}">
+{% load filters %}
+{# With the solve timer the cards sit in a board inside the stage, so that board is the grid: a grid's gap only reaches its own children. #}
 {% if daily_timing_enabled %}
+<div class="new-daily-solve">
 <div class="new-daily-solve__stage">
 {% include "site/partials/daily_solve_pause_overlay.html" %}
-<div data-daily-solve-board>
+<div class="new-taskgrid{% if task_group.view == 'table-3-n' %} new-taskgrid--3{% elif task_group.view == 'table-4-n' %} new-taskgrid--4{% endif %}" data-daily-solve-board>
+{% else %}
+<div class="new-taskgrid{% if task_group.view == 'table-3-n' %} new-taskgrid--3{% elif task_group.view == 'table-4-n' %} new-taskgrid--4{% endif %}">
 {% endif %}
+{# task_card.html marks the cards that open a new item (2. after 1.2). #}
+{% with item_start_ids=tasks|task_item_start_ids %}
 {% for task in tasks %}
   {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
   {% else %}
   {% include "site/partials/task_card.html" %}
   {% endif %}
 {% endfor %}
+{% endwith %}
+</div>
 {% if daily_timing_enabled %}
 </div>
 </div>
 {% endif %}
-</div>

@@ -54,6 +54,23 @@ def one_more(_1, _2):
 
 
 @register.filter
+def task_item_start_ids(tasks):
+    """Ids of the tasks that open a new item: 2 after 1.2, not 1.2 after 1.1.
+
+    The first task is left out. The task board puts a wider gap above these
+    than between the parts of one item."""
+    starts = set()
+    previous = None
+    for index, task in enumerate(tasks or ()):
+        number = str(getattr(task, 'number', '') or '')
+        item = number.split('.', 1)[0] if '.' in number else None
+        if index and (item is None or item != previous):
+            starts.add(task.id)
+        previous = item
+    return starts
+
+
+@register.filter
 def get_item(dictionary, key):
     if hasattr(dictionary, 'get'):
         return dictionary.get(key)

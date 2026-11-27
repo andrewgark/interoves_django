@@ -856,6 +856,28 @@ class WordSaladTests(TestCase):
         self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 2)
         self.assertEqual(context['task_group_pager_label'], 'Word Salad test')
 
+    def test_salad_group_of_an_ordinary_game_borrows_the_salad_rules(self):
+        rules, _ = HTMLPage.objects.update_or_create(
+            name='section_tutorial_word_salad', defaults={'html': '<p>Как играть в салатик</p>'},
+        )
+        Game.objects.update_or_create(
+            id='salad',
+            defaults={
+                'name': 'Салатик', 'author': 'test', 'author_extra': '',
+                'project_id': 'sections', 'is_ready': True, 'section_default_rules': rules,
+            },
+        )
+        request = RequestFactory().get(
+            '/games/{}/1/?anon=word-salad-rules-test'.format(self.game.pk),
+        )
+        request.user = AnonymousUser()
+        request.session = {'play_mode_sections': 'personal'}
+        with patch('games.site.pages.play.page.render', side_effect=lambda _request, _template, context: context):
+            context = task_group_page(request, self.game.pk, '1')
+        self.assertIn('Как играть в салатик', context['section_tutorial_html'])
+        # Behind «?» only: a tournament does not open them over the board.
+        self.assertTrue(context['rules_no_autoopen'])
+
     def test_dynamic_word_salad_card_keeps_replay_run_namespace(self):
         slot = ReplaySlot.objects.create(
             team=self.team,

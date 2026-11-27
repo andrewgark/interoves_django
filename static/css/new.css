@@ -6315,6 +6315,16 @@ a.new-daily-game-header__nav-button:not(.is-archive-locked):hover {
   margin-bottom: 0;
 }
 
+/* One column: the parts of one item (1.1, 1.2) sit close together, and a new
+   item (2. after 1.2) keeps the usual 0.75rem. Tables keep their even gap. */
+.new-taskgrid:not(.new-taskgrid--3):not(.new-taskgrid--4) {
+  row-gap: 0.3rem;
+}
+
+.new-taskgrid:not(.new-taskgrid--3):not(.new-taskgrid--4) > .new-taskcard--item-start {
+  margin-top: 0.45rem;
+}
+
 /* Мета-полоса карточки (как в пропорциях): номер, баллы, попытки, подсказки, ответ, лайки.
    Справа оставляем место под абсолютную кнопку багрепорта (.new-taskcard__bug-btn). */
 .new-taskcard__meta-bar.new-proportions-compact-bar {

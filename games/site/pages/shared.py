@@ -123,6 +123,32 @@ def _section_tutorial_html_for_game(game):
     return None
 
 
+# A group of an ordinary game made only of one section's puzzles (a salad in
+# a Десяточка) has no rules of its own; it borrows that section's «?».
+# Walls and replacements are Десяточка formats and stay without one.
+SECTION_GAME_ID_BY_TASK_TYPE = {
+    'word_salad': WORD_SALAD_GAME_ID,
+    'raddle': LADDER_GAME_ID,
+    'alphabetty': ALPHABETTY_GAME_ID,
+}
+
+
+def _borrowed_section_rules_html(game, tasks):
+    """The section's rules for a group of one section puzzle type, else None."""
+    if game.id in SECTION_RULES_GAME_IDS:
+        return None
+    task_types = {task.task_type for task in tasks}
+    if len(task_types) != 1:
+        return None
+    section_id = SECTION_GAME_ID_BY_TASK_TYPE.get(task_types.pop())
+    if section_id is None:
+        return None
+    section_game = Game.objects.filter(pk=section_id).select_related('section_default_rules').first()
+    if section_game is None:
+        return None
+    return _section_tutorial_html_for_game(section_game)
+
+
 def _project_base(project_id: str | None) -> str:
     return project_base(
         project_id,
@@ -327,6 +353,7 @@ __all__ = [
     'PALINDROMES_GAME_ID',
     'SECTION_RULES_GAME_IDS',
     '_section_tutorial_html_for_game',
+    '_borrowed_section_rules_html',
     '_project_base',
     '_redirect_with_current_query',
     '_canonical_project_game_path',
