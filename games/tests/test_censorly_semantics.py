@@ -1365,22 +1365,33 @@ class SemanticsTests(SimpleTestCase):
             'И есть хороший вратарь.',
             'Любимая еда есть на столе.',
             'Еда, и есть на столе.',
+            'Шляпок много, то есть около килограмма.',
+            'Есть сведения, что мухоморы ели сырыми.',
+            'Опыты были. Есть данные о действии.',
         )
         eating = (
             'Пора есть суп.',
             'Кашу есть ложкой.',
             'Кашу есть с молоком.',
+            'Есть мухоморы опасно.',
         )
         for phrase in existential:
             with self.subTest(phrase=phrase):
                 tokens = tokenize_text(phrase)
-                target = next(t for t in tokens if t.get('surface') == 'есть')
+                target = next(t for t in tokens if (t.get('surface') or '').lower() == 'есть')
                 self.assertEqual(target['lemma'], 'быть')
                 self.assertNotIn('есть', matching_lemmas(tokens, 'еда'))
+        # A copular «есть» must not drag the eating «ели» along with «был».
+        tokens = tokenize_text('Есть сведения, что мухоморы ели сырыми, то есть без варки.')
+        ate = next(t for t in tokens if t.get('surface') == 'ели')
+        self.assertEqual(ate['lemma'], 'есть')
+        self.assertNotIn('есть', matching_lemmas(tokens, 'был'))
+        self.assertIn('быть', matching_lemmas(tokens, 'был'))
+        self.assertIn('есть', matching_lemmas(tokens, 'поел'))
         for phrase in eating:
             with self.subTest(phrase=phrase):
                 tokens = tokenize_text(phrase)
-                target = next(t for t in tokens if t.get('surface') == 'есть')
+                target = next(t for t in tokens if (t.get('surface') or '').lower() == 'есть')
                 self.assertEqual(target['lemma'], 'есть')
                 self.assertNotIn('есть', matching_lemmas(tokens, 'еда'))
                 self.assertIn('есть', matching_lemmas(tokens, 'поесть'))

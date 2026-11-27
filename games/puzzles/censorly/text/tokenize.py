@@ -603,6 +603,29 @@ def _is_existential_est(tokens: list[dict[str, Any]], index: int) -> bool:
 
     nominal_pos = {'NOUN', 'NPRO', 'ADJF', 'ADJS', 'PRTF', 'PRTS'}
 
+    # «то есть» is the conjunction "that is", never the verb of eating.
+    if previous >= 0 and normalize_surface(tokens[previous].get('surface') or '') == 'то':
+        return True
+
+    # A clause-initial «Есть сведения, что…», «Есть данные о…»: the noun closes
+    # the clause or takes «что»/«о». «Есть мухоморы опасно» keeps eating.
+    clause_start = previous < 0 or (
+        tokens[previous].get('kind') == 'punct'
+        and tokens[previous].get('surface') in {'.', '!', '?', '…', ':', ';'}
+    )
+    if clause_start and right.get('kind') == 'content' and any(
+        parse.tag.POS == 'NOUN' and 'nomn' in parse.tag.grammemes
+        for parse in parses(right)
+    ):
+        after = _next_nonspace(tokens, following + 1)
+        if after >= len(tokens):
+            return True
+        closer = tokens[after]
+        if closer.get('kind') == 'punct' or normalize_surface(
+            closer.get('surface') or ''
+        ) in {'что', 'о', 'об', 'обо'}:
+            return True
+
     # A nominative predicate after «есть» is the clearest signal («есть
     # вратарь»). Ignore forms that can also be accusative unless the left side
     # supports a copula; «пора есть суп» has a predicate «пора» and an object.
