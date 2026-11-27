@@ -1451,9 +1451,24 @@ class SemanticsTests(SimpleTestCase):
             '',
         )
 
+    def test_flower_plural_beside_plant_parts_does_not_open_colour(self):
+        # Complaint 367 (Мухомор красный): «цветок» opened «цвета» through
+        # «без листьев, цветов и плодов» stored under the lemma цвет.
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+
+        tokens = tokenize_text('Шляпка красного цвета, без листьев, цветов и плодов.')
+        flower = next(t for t in tokens if t.get('surface') == 'цветов')
+        self.assertEqual(flower['lemma'], 'цветок')
+        self.assertEqual(matching_lemmas(tokens, 'цветок'), {'цветок'})
+        self.assertEqual(matching_lemmas(tokens, 'цвет'), {'цвет'})
+
+        colours = tokenize_text('Грибы бывают разных цветов.')
+        self.assertEqual(next(t for t in colours if t.get('surface') == 'цветов')['lemma'], 'цвет')
+
     def test_contextual_readings_are_stored_per_article_occurrence(self):
         from games.puzzles.censorly.lexical.context import (
             CITY_ABBR,
+            E_ERA,
             N_ERA,
             NEM_GERMAN,
             NEM_PRONOUN,
@@ -1465,7 +1480,6 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.lexical.match import matching_lemmas
 
         payload = build_puzzle_payload(
-            E_ERA,
             wiki_title='Контекст чтения',
             body_text=(
                 'ПО и по. Нем. язык не похож на воду. О нем. '
@@ -1488,6 +1502,8 @@ class SemanticsTests(SimpleTestCase):
         self.assertEqual(by_surface['нем'][0]['lemma'], NEM_PRONOUN.marker)
         self.assertEqual(by_surface['нем'][0]['context_reading'], NEM_PRONOUN.marker)
         self.assertEqual(by_surface['н'][0]['lemma'], N_ERA.marker)
+        self.assertEqual(by_surface['э'][0]['lemma'], E_ERA.marker)
+        self.assertFalse(by_surface['э'][0]['initially_open'])
         self.assertEqual(by_surface['г'][0]['lemma'], YEAR_ABBR.marker)
         self.assertEqual(by_surface['г'][1]['lemma'], CITY_ABBR.marker)
         self.assertEqual(by_surface['стр'][0]['lemma'], PAGE_ABBR.marker)
@@ -1499,8 +1515,6 @@ class SemanticsTests(SimpleTestCase):
         article_tokens = payload['title_tokens'] + tokens
         self.assertIn(PO_SOFTWARE.marker, matching_lemmas(article_tokens, 'по'))
         self.assertNotIn(PO_SOFTWARE.marker, matching_lemmas(article_tokens, 'программное'))
-        self.assertEqual(by_surface['э'][0]['lemma'], E_ERA.marker)
-        self.assertFalse(by_surface['э'][0]['initially_open'])
         self.assertEqual(
             matching_lemmas(article_tokens, 'нем'),
             {NEM_GERMAN.marker},
@@ -1510,6 +1524,9 @@ class SemanticsTests(SimpleTestCase):
         self.assertIn(NEM_PRONOUN.marker, matching_lemmas(article_tokens, 'него'))
         self.assertNotIn(NEM_GERMAN.marker, matching_lemmas(article_tokens, 'него'))
         self.assertIn(N_ERA.marker, matching_lemmas(article_tokens, 'наша'))
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эра'))
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эры'))
+        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'э'))
         self.assertIn(YEAR_ABBR.marker, matching_lemmas(article_tokens, 'год'))
         self.assertIn(CITY_ABBR.marker, matching_lemmas(article_tokens, 'город'))
         self.assertIn(PAGE_ABBR.marker, matching_lemmas(article_tokens, 'страница'))
@@ -1521,9 +1538,6 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
         from games.puzzles.censorly.lexical.context import PO_SOFTWARE
         from games.puzzles.censorly.text.tokenize import resolve_puzzle_payload
-        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эра'))
-        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'эры'))
-        self.assertIn(E_ERA.marker, matching_lemmas(article_tokens, 'э'))
 
         old = build_puzzle_payload(wiki_title='ПО', body_text='ПО')
         old['splitter_version'] = CENSORLY_SPLITTER_VERSION - 1

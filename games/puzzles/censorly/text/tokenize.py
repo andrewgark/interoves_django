@@ -515,6 +515,32 @@ def _previous_nonspace(tokens: list[dict[str, Any]], index: int) -> int:
     return index
 
 
+_FLOWER_PLURALS = frozenset({'цветов', 'цветам', 'цветами', 'цветах'})
+_PLANT_PART_LEMMAS = frozenset({
+    'лист', 'плод', 'семя', 'стебель', 'корень', 'бутон', 'лепесток',
+    'ягода', 'побег', 'почка', 'шишка', 'ветвь', 'ветка', 'соцветие', 'тычинка', 'пестик',
+})
+_COORDINATORS = frozenset({',', 'и', 'или', 'либо'})
+
+
+def _is_coordinated_with(tokens: list[dict[str, Any]], index: int, lemmas: frozenset) -> bool:
+    """Whether a neighbour joined by a comma or «и/или» has one of ``lemmas``."""
+    for step in (_previous_nonspace, lambda ts, i: _next_nonspace(ts, i + 1)):
+        position = step(tokens, index)
+        joined = False
+        while 0 <= position < len(tokens):
+            neighbour = tokens[position]
+            surface = normalize_surface(neighbour.get('surface') or '')
+            if neighbour.get('kind') in {'punct', 'stop'} and surface in _COORDINATORS:
+                joined = True
+                position = step(tokens, position)
+                continue
+            if joined and neighbour.get('kind') == 'content' and neighbour.get('lemma') in lemmas:
+                return True
+            break
+    return False
+
+
 # «в одном и том же», «при всём том»: words that may stand between a
 # preposition and the demonstrative «том».
 _DEMONSTRATIVE_MODIFIERS = _PRONOUN_MODIFIERS | {'и', 'всем'}
@@ -801,6 +827,16 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                 tok['initially_open'] = False
                 continue
 
+        # Oblique plural «цветов, цветам…» is a 50/50 tie of цвет (colour) and
+        # цветок (flower). Listed beside plant parts («без листьев, цветов и
+        # плодов») it is the flower; otherwise a flower guess would open every
+        # «цвета» of the article through the stored lemma.
+        if word in _FLOWER_PLURALS and _is_coordinated_with(tokens, index, _PLANT_PART_LEMMAS):
+            tok['lemma'] = 'цветок'
+            tok['context_reading'] = 'noun:цветок'
+            tok['initially_open'] = False
+            continue
+
         # «нем.» is the abbreviation for German only without ё and outside a
         # prepositional phrase. A preceding preposition wins over the period.
         if word == 'нем':
@@ -895,6 +931,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                     and tokens[e_dot].get('surface') == '.'
                 ):
                     _set_context(tok, N_ERA)
+                    _set_context(tokens[e_index], E_ERA)
                     continue
 
         if not has_period:
@@ -918,7 +955,6 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
 def _initial_dot(tokens: list[dict[str, Any]], index: int) -> int:
     """Index of the period after a capital single letter at ``index``, else -1."""
     tok = tokens[index]
-                    _set_context(tokens[e_index], E_ERA)
     surface = tok.get('surface') or ''
     if (
         tok.get('kind') not in {'content', 'stop'} or tok.get('script')

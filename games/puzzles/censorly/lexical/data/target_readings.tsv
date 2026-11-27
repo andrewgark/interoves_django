@@ -24,3 +24,7 @@ surface	article_lemma	allowed	mode	note
 есть	быть	быть	substitute	existential «есть» chosen by the tokenizer, not «eat»
 дальше	далекий	дальше	substitute	next, further on (complaint 91); the comparative of далёкий would tie it to «даль»
 дальше	далеко	дальше	substitute	
+цветов	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
+цветам	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
+цветами	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
+цветах	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
