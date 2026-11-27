@@ -13,9 +13,19 @@ def _task_card_public_identity(game, task_group, slot):
     accepted.  The normal slot lookup therefore used to fall back to ``0``
     while rendering the post-attempt partial.
     """
-    if slot is not None:
+    # A parked slot's number is not public: a queued offer keeps its share hash.
+    if slot is not None and not getattr(slot, 'is_deferred', False):
         return slot.number, slot.name
 
+    identity = _offer_public_identity(game, task_group)
+    if identity is not None:
+        return identity
+    if slot is not None:
+        return slot.number, slot.name
+    return 0, ''
+
+
+def _offer_public_identity(game, task_group):
     if game.id == 'ladder':
         from games.daily.ladder.tutorial.ladder import (
             LADDER_TUTORIAL_SEGMENT,
@@ -41,8 +51,7 @@ def _task_card_public_identity(game, task_group, slot):
         offer = AlphabettyOffer.objects.filter(task_group_id=task_group.pk).first()
         if offer is not None:
             return offer.share_hash, f'Алфавитка #{offer.share_hash}'
-
-    return 0, ''
+    return None
 
 
 def render_new_ui_task_card_html(
@@ -111,10 +120,16 @@ def new_ui_task_card_context(
     # when a card is replaced after an attempt or a hint.
     from games.daily.page.section import uses_daily_play_layout
     is_daily_single_task = uses_daily_play_layout(game.id)
+    parked = slot is not None and getattr(slot, 'is_deferred', False)
+    if parked and str(tg_number) != str(slot.number):
+        # A queued offer: the card names it as the page does, not by its number.
+        parked_title = '{}: {}'.format(game.outside_name or game.name, tg_name)
+        for ui in (ctx_dicts.get('task_ui_by_task_id') or {}).values():
+            ui['display_name'] = parked_title
     statistics_url = daily_statistics_url(
         game.id,
         slot.number if slot is not None else None,
-        enabled=is_daily_single_task and slot is not None,
+        enabled=is_daily_single_task and slot is not None and not parked,
     )
     difficulty = None
     if is_daily_single_task and slot is not None:

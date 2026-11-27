@@ -539,8 +539,18 @@ def task_group_page(
         published_at=pub_at if draft_offer is None else None,
         now=timezone.now(),
     )
+    # A parked offer's number is not public and may still change: name it as a
+    # custom puzzle, as its draft was named.
+    parked_offer_name = None
+    if ladder_tutorial_task is None and getattr(placement, 'is_deferred', False):
+        if salad_offer is not None:
+            parked_offer_name = (salad_offer.theme or '').strip() or 'Салатик'
+        elif ladder_offer is not None:
+            parked_offer_name = (ladder_offer.author or '').strip() or 'Лесенка'
     if ladder_tutorial_task is not None:
         page_title = placement.name
+    elif parked_offer_name is not None:
+        page_title = '{}: {}'.format(game.outside_name or game.name, parked_offer_name)
     elif draft_offer is not None:
         if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
@@ -556,7 +566,9 @@ def task_group_page(
         page_title = task_group_page_title(game, placement)
     else:
         page_title = task_group_page_title(game, placement)
-    if draft_offer is not None and not isinstance(placement, GameTaskGroup):
+    if draft_offer is not None and (
+        not isinstance(placement, GameTaskGroup) or parked_offer_name is not None
+    ):
         for ui in ctx_dicts['task_ui_by_task_id'].values():
             ui['display_name'] = page_title
 
@@ -767,8 +779,8 @@ def task_group_page(
         # Replay needs a schedule placement, which an unaccepted draft lacks.
         'replay_unavailable': draft_offer is not None and not draft_offer.accepted_link_id,
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
-        'tg_number': placement.number,
-        'tg_name': placement.name,
+        'tg_number': public_task_segment if parked_offer_name is not None else placement.number,
+        'tg_name': parked_offer_name if parked_offer_name is not None else placement.name,
         'share_host': share_host_from_request(request),
         'section_tagline': (
             section_tagline(game)

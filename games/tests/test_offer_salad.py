@@ -388,6 +388,9 @@ class WordSaladOfferFlowTests(TestCase):
 
         anon_page = Client().get(offer.play_url())
         self.assertEqual(anon_page.status_code, 200)
+        # The parked number is not public: no title, card or share link names it.
+        self.assertNotContains(anon_page, '№{}'.format(link.number))
+        self.assertContains(anon_page, 'Типы музыкальных коллективов')
         self.assertEqual(Client().get('/salad/{}/'.format(link.number)).status_code, 404)
 
         client = Client()
@@ -414,6 +417,16 @@ class WordSaladOfferFlowTests(TestCase):
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
+        card = ''.join((allowed.json().get('update_task_html_new') or {}).values())
+        self.assertIn('data-task-id', card)
+        self.assertNotIn('№{}'.format(link.number), card)
+        self.assertNotIn('/salad/{}/'.format(link.number), card)
+        # The result-share card links the share hash, not the parked number.
+        from games.site.views.game.render import _task_card_public_identity
+        self.assertEqual(
+            _task_card_public_identity(link.game, offer.task_group, link),
+            (offer.share_hash, 'Типы музыкальных коллективов'),
+        )
 
     def test_schedule_created_salad_has_hash_page_and_staff_number(self):
         from games.console.games.salad import create_word_salad
