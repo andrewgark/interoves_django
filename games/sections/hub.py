@@ -230,6 +230,7 @@ SECTION_HUB_META = {
         'ph_icon': 'key',
         'title': 'Криптики',
         'nav_title': 'Криптик',
+        'archive_item_label': 'Криптик',
         'description': 'Одна хитрая словесная загадка в день',
         'cta_today': 'Сегодняшний криптик',
         'cta_latest': 'Последний криптик',

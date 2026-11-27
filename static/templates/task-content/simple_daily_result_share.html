@@ -1,2 +1,2 @@
 {# Share lines of a solved advent / cryptic day, one <div> per line (daily_share_actions.js). #}
-<div class="new-raddle-result__title">{{ daily_share.emoji }} {{ daily_share.title }}</div>{% if daily_share.squares %}<div class="new-raddle-result__squares">{{ daily_share.squares }}</div>{% endif %}{% if daily_share.elapsed %}<div class="new-raddle-result__squares">⏱️ {{ daily_share.elapsed }}</div>{% endif %}<div class="new-raddle-result__link">🔗 {{ daily_share.link }}</div>
+<div class="new-raddle-result__title">{{ daily_share.emoji }} {{ daily_share.title }}</div>{% for line in daily_share.lines %}<div class="new-raddle-result__squares">{{ line }}</div>{% endfor %}<div class="new-raddle-result__link">🔗 {{ daily_share.link }}</div>

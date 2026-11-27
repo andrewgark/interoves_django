@@ -33,6 +33,8 @@
     salad: '#2F6F4E',
     alphabetty: '#3B6EA5',
     censorly: '#6B5424',
+    cryptic: '#6B45B5',
+    advent: '#1F6B4A',
   };
 
   var cache = { key: '', blob: null };
@@ -138,6 +140,10 @@
       }
     } else if (kind === 'censorly') {
       censorlyDecor(parts, rng);
+    } else if (kind === 'cryptic') {
+      crypticDecor(parts, rng, accent);
+    } else if (kind === 'advent') {
+      adventDecor(parts, rng, accent);
     } else {
       alphabettyDecor(parts, payload, rng, accent);
     }
@@ -155,6 +161,61 @@
       var x = rng() < 0.5 ? -36 : WIDTH - w + 36;
       var y = 240 + rng() * 1280;
       parts.push(roundedRect(x, y, w, h, 3, ink, 'opacity="0.08"'));
+    }
+  }
+
+  // Corners of a crossword: small grids of white and filled cells off the edges.
+  function crypticDecor(parts, rng, accent) {
+    var cell = 54;
+    var spots = [
+      { x: -cell * 1.6, y: 300 + rng() * 120 },
+      { x: WIDTH - cell * 3.4, y: 760 + rng() * 160 },
+      { x: -cell * 1.2, y: 1240 + rng() * 140 },
+    ];
+    spots.forEach(function (spot) {
+      var r;
+      var c;
+      for (r = 0; r < 5; r += 1) {
+        for (c = 0; c < 5; c += 1) {
+          var x = spot.x + c * cell;
+          var y = spot.y + r * cell;
+          var dark = rng() < 0.3;
+          parts.push(
+            '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + cell + '" height="' + cell +
+            '" fill="' + (dark ? accent : 'none') + '" stroke="' + accent + '" stroke-width="3" opacity="' +
+            (dark ? '0.08' : '0.10') + '"/>'
+          );
+        }
+      }
+    });
+  }
+
+  // Snow and a few fir trees along the edges; a red stripe under the green one.
+  function adventDecor(parts, rng, accent) {
+    var i;
+    parts.push('<rect y="10" width="' + WIDTH + '" height="5" fill="' + PALETTE.red + '"/>');
+    for (i = 0; i < 46; i += 1) {
+      var r = 4 + rng() * 9;
+      parts.push(
+        '<circle cx="' + (rng() * WIDTH).toFixed(1) + '" cy="' + (220 + rng() * 1340).toFixed(1) +
+        '" r="' + r.toFixed(1) + '" fill="' + accent + '" opacity="' + (0.05 + rng() * 0.07).toFixed(2) + '"/>'
+      );
+    }
+    for (i = 0; i < 4; i += 1) {
+      var h = 170 + rng() * 120;
+      var w = h * 0.62;
+      var x = i % 2 ? WIDTH - w * 0.55 : -w * 0.45;
+      var y = 380 + i * 300 + rng() * 80;
+      var tiers = '';
+      var t;
+      for (t = 0; t < 3; t += 1) {
+        var top = y + t * h * 0.24;
+        var half = w * (0.3 + t * 0.1);
+        tiers += 'M' + (x + w / 2).toFixed(1) + ' ' + top.toFixed(1) +
+          ' L' + (x + w / 2 + half).toFixed(1) + ' ' + (top + h * 0.42).toFixed(1) +
+          ' L' + (x + w / 2 - half).toFixed(1) + ' ' + (top + h * 0.42).toFixed(1) + ' Z ';
+      }
+      parts.push('<path d="' + tiers + '" fill="' + accent + '" opacity="0.09"/>');
     }
   }
 
@@ -236,7 +297,7 @@
 
   function headerBlock(payload, accent) {
     var dateLines = wrapText(payload.date_label || '', 28);
-    var headlineLines = wrapText(payload.headline || '', 32);
+    var headlineLines = wrapText(payload.headline || '', 28);
     var y = 210;
     var parts = [];
     if (dateLines[0]) {
@@ -739,6 +800,168 @@
     return parts.join('');
   }
 
+  var SERIF = 'DejaVu Serif, Noto Serif, Georgia, Times New Roman, serif';
+
+  // Rough advance width of a serif line, in em: narrow letters and spaces count less.
+  function serifWidth(text, fontSize) {
+    var w = 0;
+    Array.from(String(text || '')).forEach(function (ch) {
+      if (ch === ' ') w += 0.3;
+      else if (/[.,:;!'’|()\-]/.test(ch)) w += 0.32;
+      else if (/[ШЩЖМЮшщжмю]/.test(ch)) w += 0.82;
+      else if (/[А-ЯЁA-Z]/.test(ch)) w += 0.68;
+      else w += 0.55;
+    });
+    return w * fontSize;
+  }
+
+  function wrapByWidth(words, maxWidth, fontSize) {
+    var lines = [];
+    var current = [];
+    words.forEach(function (word) {
+      var trial = current.concat([word]).join(' ');
+      if (current.length && serifWidth(trial, fontSize) > maxWidth) {
+        lines.push(current);
+        current = [word];
+      } else {
+        current.push(word);
+      }
+    });
+    if (current.length) lines.push(current);
+    return lines;
+  }
+
+  function crypticCellFill(hints) {
+    var n = Math.max(0, Number(hints) || 0);
+    if (n <= 0) return PALETTE.green;
+    if (n === 1) return PALETTE.yellow;
+    return PALETTE.red;
+  }
+
+  // Empty answer cells by the enumeration: «2-3» is two cells, a hyphen, three.
+  function crypticCells(payload, centerX, y, maxWidth) {
+    var groups = Array.isArray(payload.answer_groups) ? payload.answer_groups : [];
+    if (!groups.length) return { svg: '', height: 0 };
+    var letters = 0;
+    var seps = 0;
+    groups.forEach(function (g, i) {
+      letters += Math.max(1, Number(g[0]) || 1);
+      if (i < groups.length - 1) seps += 1;
+    });
+    var gap = 8;
+    var size = 92;
+    var sepW = function (s) { return s * 0.62; };
+    var total = function (s) {
+      return letters * s + (letters - seps - 1) * gap + seps * (sepW(s) + gap * 2);
+    };
+    while (size > 30 && total(size) > maxWidth) size -= 2;
+    gap = Math.max(4, Math.round(size * 0.09));
+    var rows = [groups];
+    if (total(size) > maxWidth) {
+      // Very long answers: one word per row.
+      rows = groups.map(function (g) { return [g]; });
+    }
+    var fill = crypticCellFill(payload.hint_count);
+    var parts = [];
+    var rowY = y;
+    rows.forEach(function (row) {
+      var rowLetters = 0;
+      var rowSeps = row.length - 1;
+      row.forEach(function (g) { rowLetters += Math.max(1, Number(g[0]) || 1); });
+      var rowW = rowLetters * size + (rowLetters - rowSeps - 1) * gap + rowSeps * (sepW(size) + gap * 2);
+      var x = centerX - rowW / 2;
+      row.forEach(function (g, gi) {
+        var n = Math.max(1, Number(g[0]) || 1);
+        var k;
+        for (k = 0; k < n; k += 1) {
+          parts.push(roundedRect(x.toFixed(1), rowY, size, size, Math.round(size * 0.16), fill, ''));
+          x += size + (k < n - 1 ? gap : 0);
+        }
+        if (gi < row.length - 1) {
+          x += gap;
+          if (g[1] === '-') {
+            parts.push(roundedRect(
+              (x + sepW(size) * 0.18).toFixed(1), (rowY + size / 2 - size * 0.05).toFixed(1),
+              (sepW(size) * 0.64).toFixed(1), (size * 0.1).toFixed(1), size * 0.05, PALETTE.muted, ''
+            ));
+          }
+          x += sepW(size) + gap;
+        }
+      });
+      rowY += size + gap * 2;
+    });
+    return { svg: parts.join(''), height: rowY - y - gap * 2 };
+  }
+
+  function crypticVisual(payload, top, bottom) {
+    var accent = kindAccent('cryptic');
+    var clue = String(payload.clue || '');
+    var enumText = payload.enumeration ? '(' + payload.enumeration + ')' : '';
+    if (!clue && !enumText) return '';
+    var marginX = 72;
+    var cardW = WIDTH - marginX * 2;
+    var padX = 60;
+    var innerW = cardW - padX * 2;
+    var areaTop = top + 8;
+    var maxCardH = Math.max(420, bottom - areaTop - 8);
+    var words = clue.split(/\s+/).filter(Boolean);
+    if (enumText) words.push(enumText);
+    var fontSize = 64;
+    var lines = wrapByWidth(words, innerW, fontSize);
+    while (fontSize > 34 && lines.length > 5) {
+      fontSize -= 4;
+      lines = wrapByWidth(words, innerW, fontSize);
+    }
+    if (lines.length > 7) {
+      lines = lines.slice(0, 7);
+      lines[6].push('…');
+    }
+    var lh = Math.round(fontSize * 1.3);
+    var markSize = 30;
+    var markBlock = markSize + 42;
+    var clueH = lines.length * lh;
+    var cellsProbe = crypticCells(payload, WIDTH / 2, 0, innerW);
+    var cellsGap = cellsProbe.height ? 64 : 0;
+    var padY = 64;
+    var contentH = markBlock + clueH + cellsGap + cellsProbe.height;
+    var cardH = Math.min(maxCardH, contentH + padY * 2);
+    var cardX = marginX;
+    var cardY = areaTop + Math.max(0, Math.floor((maxCardH - cardH) / 2));
+    var parts = [
+      '<defs><filter id="cryptic-sheet" x="-15%" y="-15%" width="130%" height="130%">' +
+      '<feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1A1A1A" flood-opacity="0.10"/>' +
+      '</filter></defs>',
+      roundedRect(cardX + 18, cardY + 18, cardW, cardH, 28, PALETTE.empty, ''),
+      roundedRect(
+        cardX, cardY, cardW, cardH, 28, '#FFFFFF',
+        'stroke="' + PALETTE.line + '" stroke-width="2" filter="url(#cryptic-sheet)"'
+      ),
+      roundedRect(cardX, cardY + 48, 10, cardH - 96, 5, accent, ''),
+    ];
+    var y = cardY + padY;
+    parts.push(
+      '<text x="' + (WIDTH / 2) + '" y="' + (y + markSize * 0.8) + '" text-anchor="middle" font-family="' + FONT +
+      '" font-size="' + markSize + '" font-weight="700" letter-spacing="6" fill="' + accent + '">' +
+      esc((payload.locale || 'ru') === 'en' ? 'CLUE' : 'ЗАГАДКА') + '</text>'
+    );
+    y += markBlock;
+    lines.forEach(function (line, i) {
+      var baseline = y + i * lh + fontSize * 0.95;
+      var last = line[line.length - 1];
+      var hasEnum = enumText && last === enumText && i === lines.length - 1;
+      var main = (hasEnum ? line.slice(0, -1) : line).join(' ');
+      parts.push(
+        '<text x="' + (WIDTH / 2) + '" y="' + baseline.toFixed(1) + '" text-anchor="middle" font-family="' + SERIF +
+        '" font-size="' + fontSize + '" fill="' + PALETTE.ink + '">' + esc(main) +
+        (hasEnum ? '<tspan fill="' + PALETTE.muted + '">' + (main ? ' ' : '') + esc(enumText) + '</tspan>' : '') +
+        '</text>'
+      );
+    });
+    y += clueH + cellsGap;
+    parts.push(crypticCells(payload, WIDTH / 2, Math.round(y), innerW).svg);
+    return parts.join('');
+  }
+
   function alphabettyVisual(payload, top, bottom) {
     var accent = kindAccent(payload.kind || 'alphabetty');
     var cy = (top + bottom) / 2;
@@ -772,6 +995,7 @@
     if (kind === 'ladder') visual = ladderVisual(payload, visualTop, visualBottom);
     else if (kind === 'salad') visual = saladVisual(payload, visualTop, visualBottom);
     else if (kind === 'censorly') visual = censorlyVisual(payload, visualTop, visualBottom);
+    else if (kind === 'cryptic') visual = crypticVisual(payload, visualTop, visualBottom);
     else visual = alphabettyVisual(payload, visualTop, visualBottom);
     return (
       '<svg xmlns="http://www.w3.org/2000/svg" width="' + WIDTH + '" height="' + HEIGHT +

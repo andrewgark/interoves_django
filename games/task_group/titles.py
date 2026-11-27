@@ -23,8 +23,18 @@ def raddle_share_title(game, task_group_number, task_number) -> str:
     return 'Лесенка {}.{}'.format(group_number, task_number)
 
 
+# A section named in the plural titles one edition in the singular:
+# «Криптик №14» in the section «Криптики».
+_EDITION_TITLES = {'cryptic': 'Криптик'}
+
+
+def edition_game_title(game) -> str:
+    """Name of one numbered edition of the game, before its «№N»."""
+    return _EDITION_TITLES.get(str(game.pk)) or game.outside_name or game.name or str(game.pk)
+
+
 def task_group_page_title(game, placement) -> str:
-    game_title = game.outside_name or game.name or game.pk
+    game_title = edition_game_title(game)
     if str(game.pk) in NUMBERED_EDITION_GAME_IDS:
         return '{} №{}'.format(game_title, placement.number)
     return '{}: {}'.format(game_title, placement.name)
@@ -34,7 +44,7 @@ def daily_edition_title(game, placement, play_number) -> str:
     """Title of one daily play page: the numbered edition, or a random/share-link play."""
     if placement is not None:
         return task_group_page_title(game, placement)
-    return '{} #{}'.format(game.outside_name or game.name or game.pk, play_number)
+    return '{} #{}'.format(edition_game_title(game), play_number)
 
 
 def task_display_name(game, task, *, placement=None) -> str:

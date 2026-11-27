@@ -491,11 +491,13 @@
             }
             if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form)) {
               restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
-              openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
+              if (!skipsAttemptsPopover(form)) {
+                openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
+              }
             }
             return;
           }
-          if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form)) {
+          if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form) && !skipsAttemptsPopover(form)) {
             rememberAttemptsPopoverAfterReload(
               data.task_id || attemptFeedbackTaskId,
               data.attempt_id,
@@ -521,7 +523,9 @@
         // Ниже — только не-raddle формы: Лесенка вышла из этого потока выше.
         if (data.status === 'duplicate') {
           if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
-          openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
+          if (!skipsAttemptsPopover(form)) {
+            openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
+          }
           return;
         }
         if (data.status === 'not_all_required_hints_taken') {
@@ -3277,6 +3281,11 @@
 
   function shouldShowOrdinaryAttemptFeedback(status) {
     return !!ordinaryAttemptFeedback[status];
+  }
+  // Криптик, как Лесенка: неверный ответ виден в строке под полем, список
+  // попыток сам не открывается.
+  function skipsAttemptsPopover(form) {
+    return !!(form && form.getAttribute && form.getAttribute('data-skip-attempts-open') === '1');
   }
   function shouldShowOrdinaryAttemptFeedbackForForm(status, form) {
     if (form && form.getAttribute('data-html-forms-form') === '1') {

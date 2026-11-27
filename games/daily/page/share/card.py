@@ -26,6 +26,8 @@ KIND_LADDER = 'ladder'
 KIND_SALAD = 'salad'
 KIND_ALPHABETTY = 'alphabetty'
 KIND_CENSORLY = 'censorly'
+KIND_CRYPTIC = 'cryptic'
+KIND_ADVENT = 'advent'
 
 HEADLINE_COMPACT = 'compact'
 HEADLINE_SOLVED_IN = 'solved_in'
@@ -46,6 +48,8 @@ _SOLVED_VERB = {
     KIND_SALAD: {'ru': 'решён за', 'en': 'solved in'},
     KIND_ALPHABETTY: {'ru': 'решена за', 'en': 'solved in'},
     KIND_CENSORLY: {'ru': 'решена за', 'en': 'solved in'},
+    KIND_CRYPTIC: {'ru': 'решён за', 'en': 'solved in'},
+    KIND_ADVENT: {'ru': 'решено за', 'en': 'solved in'},
 }
 
 
@@ -564,6 +568,119 @@ def build_censorly_share_payload(
     return payload
 
 
+def _answer_groups(enumeration) -> list[list]:
+    """«2-3» → [[2, '-'], [3, '']]: cell counts and what stands after each word."""
+    import re
+
+    groups = []
+    for length, sep in re.findall(r'(\d+)\s*([-,]?)\s*', str(enumeration or '')):
+        n = int(length)
+        if 0 < n <= 30:
+            groups.append([n, '-' if sep == '-' else ('' if not sep else ' ')])
+    if groups:
+        groups[-1][1] = ''
+    return groups
+
+
+def build_cryptic_share_payload(
+    *,
+    number: int | str | None = None,
+    date_value: date | datetime | str | None = None,
+    elapsed_seconds: int | None = None,
+    attempts: int = 0,
+    hints: int = 0,
+    hint_total: int = 0,
+    clue: str = '',
+    enumeration: str = '',
+    author: str = '',
+    locale: str = 'ru',
+    headline_style: str = HEADLINE_SOLVED_IN,
+    brand_host: str = BRAND_HOST,
+    play_path: str | None = None,
+) -> dict[str, Any]:
+    """Story card: the clue and empty answer cells. The answer stays hidden.
+
+    The cells are coloured like a ladder word: green without hints, yellow
+    with one, red with the full breakdown.
+    """
+    loc = normalize_locale(locale)
+    attempt_count = max(0, int(attempts or 0))
+    hint_count = max(0, int(hints or 0))
+    stats = [_attempts_label(attempt_count, loc)]
+    if hint_total:
+        stats.append(_hints_label(hint_count, loc))
+    display_number = str(number or '').strip()
+    title = 'Криптик' if loc == 'ru' else 'Cryptic'
+    payload = _base_payload(
+        kind=KIND_CRYPTIC,
+        number=number,
+        locale=locale,
+        date_value=date_value,
+        elapsed_seconds=elapsed_seconds,
+        headline_style=headline_style,
+        brand_host=brand_host,
+        extra_stats=stats,
+        seed=number,
+        title_override='{} №{}'.format(title, display_number) if display_number else title,
+        play_path=play_path,
+    )
+    payload['attempts'] = attempt_count
+    payload['hint_count'] = hint_count
+    payload['hint_total'] = max(0, int(hint_total or 0))
+    clue_text = _share_text(clue)
+    if clue_text:
+        payload['clue'] = clue_text
+    groups = _answer_groups(enumeration)
+    if groups:
+        payload['enumeration'] = _share_text(enumeration)
+        payload['answer_groups'] = groups
+    author_text = _share_text(author)
+    if author_text:
+        payload['author'] = author_text
+    return payload
+
+
+def build_advent_share_payload(
+    *,
+    title: str,
+    number: int | str | None = None,
+    date_value: date | datetime | str | None = None,
+    elapsed_seconds: int | None = None,
+    attempts: int = 0,
+    author: str = '',
+    locale: str = 'ru',
+    headline_style: str = HEADLINE_SOLVED_IN,
+    brand_host: str = BRAND_HOST,
+    play_path: str | None = None,
+) -> dict[str, Any]:
+    """Story card of an advent day: the attempts in a ring, as on an alphabetty card.
+
+    The task text is a whole puzzle, often with pictures, so it stays off the card.
+    """
+    loc = normalize_locale(locale)
+    attempt_count = max(0, int(attempts or 0))
+    display_number = str(number or '').strip()
+    payload = _base_payload(
+        kind=KIND_ADVENT,
+        number=number,
+        locale=locale,
+        date_value=date_value,
+        elapsed_seconds=elapsed_seconds,
+        headline_style=headline_style,
+        brand_host=brand_host,
+        extra_stats=(),
+        seed=number,
+        title_override='{} №{}'.format(title, display_number) if display_number else title,
+        play_path=play_path,
+    )
+    payload['attempts'] = attempt_count
+    payload['attempts_word'] = _attempts_word(attempt_count, loc)
+    author_text = _share_text(author)
+    if author_text:
+        payload['author'] = author_text
+    return payload
+
+
 # Start/end are public given words. Middle placeholders make a renderer leak obvious.
 _SYNTHETIC_LADDER = {
     'lengths': [5, 9, 7, 4, 6, 14, 9, 9, 7, 3, 6, 4, 5],
@@ -776,6 +893,50 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             article_title_runs=_SYNTHETIC_CENSORLY_TITLE,
             article_lead_runs=_SYNTHETIC_CENSORLY_LEAD,
             locale='en',
+        ),
+        build_cryptic_share_payload(
+            number=14,
+            date_value=date_value,
+            elapsed_seconds=95,
+            attempts=1,
+            hints=0,
+            hint_total=2,
+            clue='Пьяный мужчина же сокровище',
+            enumeration='9',
+            author='Синтетический автор',
+            locale='ru',
+        ),
+        build_cryptic_share_payload(
+            number=15,
+            date_value=date_value,
+            elapsed_seconds=431,
+            attempts=4,
+            hints=1,
+            hint_total=2,
+            clue='Спор внутри центра Сколково',
+            enumeration='2-3',
+            locale='ru',
+        ),
+        build_cryptic_share_payload(
+            number=16,
+            date_value=date_value,
+            elapsed_seconds=1260,
+            attempts=12,
+            hints=2,
+            hint_total=2,
+            clue='Длинная подсказка, чтобы проверить перенос строк: старый моряк, '
+                 'потерявший голову, возвращается к началу пути без компаса',
+            enumeration='5, 4-6',
+            locale='ru',
+        ),
+        build_advent_share_payload(
+            title='New Year Hunt',
+            number=3,
+            date_value=date_value,
+            elapsed_seconds=1840,
+            attempts=5,
+            author='Синтетический автор',
+            locale='ru',
         ),
     ]
     for payload in items:

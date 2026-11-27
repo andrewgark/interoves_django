@@ -9314,12 +9314,13 @@ html.is-age-gated .new-wrap {
   .new-daily-statistics__summary--alphabet,
   .new-daily-statistics__summary--censorly { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .new-daily-statistics__summary--cryptic { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .new-daily-statistics__summary--no-hints { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 919px) {
   /* Three tiles stay on one row; the comparison needs the widest column. */
-  .new-daily-statistics__summary:not(.new-daily-statistics__summary--alphabet):not(.new-daily-statistics__summary--censorly):not(.new-daily-statistics__summary--cryptic) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); }
+  .new-daily-statistics__summary:not(.new-daily-statistics__summary--alphabet):not(.new-daily-statistics__summary--censorly):not(.new-daily-statistics__summary--cryptic):not(.new-daily-statistics__summary--advent) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); }
   /* Five tiles in two columns: «Решили» takes the first row alone. */
-  .new-daily-statistics__summary--cryptic > :first-child { grid-column: 1 / -1; }
+  .new-daily-statistics__summary--cryptic:not(.new-daily-statistics__summary--no-hints) > :first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 919px) {
   .new-daily-finish,
@@ -14516,13 +14517,9 @@ html.new-ui-dark {
   padding: 0 0.55rem;
   font-size: 1.15rem;
 }
-.new-attempt-row .cryptic-hint-btn.new-raddle-assist-btn--answer .ph + .ph { margin-left: -0.45em; }
-.cryptic-hint-btn__cost {
-  margin-left: 0.3rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
+/* Две лампочки разбора стоят раздельно, и на телефоне тоже (у Лесенки там нахлёст). */
+.new-attempt-row .cryptic-hint-btn.new-raddle-assist-btn--answer { gap: 0.2rem; }
+.new-attempt-row .cryptic-hint-btn.new-raddle-assist-btn--answer .ph + .ph { margin-left: 0; }
 .cx-box__title {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;

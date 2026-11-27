@@ -268,18 +268,31 @@
       console.error('Unable to render the attempts histogram.', error);
     }
   }
+  // Криптики and the advent hunt: one answer a day, the same statistics.
+  function isSingleAnswer(data) {
+    return data.kind === 'cryptic' || data.kind === 'advent';
+  }
+  function hasAttempts(data) {
+    return data.kind === 'alphabet' || data.kind === 'censorly' || isSingleAnswer(data);
+  }
   function render(root, data) {
     var summary = data.summary || {};
     var html = '<h2 class="new-daily-statistics__title">Статистика</h2>';
     if (data.exclusion_notice) {
       html += '<p class="new-daily-statistics__exclusion" role="note">' + esc(data.exclusion_notice) + '</p>';
     }
-    html += '<div class="new-daily-statistics__summary new-daily-statistics__summary--' + esc(data.kind || '') + '">' +
+    // A day without hints (every advent day, a cryptic without a breakdown) has four tiles.
+    var noHints = isSingleAnswer(data) && summary.without_hints_percent == null;
+    html += '<div class="new-daily-statistics__summary new-daily-statistics__summary--' + esc(data.kind || '') +
+      (noHints ? ' new-daily-statistics__summary--no-hints' : '') + '">' +
       metric('Решили', summary.solved || data.solved || 0) +
       timeMetric(data, summary);
-    if (data.kind === 'alphabet' || data.kind === 'censorly' || data.kind === 'cryptic') html += attemptsMetric(data, summary);
-    if (data.kind === 'cryptic') html += metric('С первой попытки', percent(summary.first_try_percent));
-    html += metric('Без подсказок', percent(summary.without_hints_percent)) + '</div>';
+    if (hasAttempts(data)) html += attemptsMetric(data, summary);
+    if (isSingleAnswer(data)) html += metric('С первой попытки', percent(summary.first_try_percent));
+    if (!noHints) {
+      html += metric('Без подсказок', percent(summary.without_hints_percent));
+    }
+    html += '</div>';
     if (data.kind === 'salad') {
       html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как среднее значение порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
@@ -296,7 +309,7 @@
         ((data.above_words || []).length ? section('Слово сверху перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.above_words) + '</ul>') : '') +
         ((data.below_words || []).length ? section('Слово снизу перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.below_words) + '</ul>') : '') +
         '</div>';
-    } else if (data.kind === 'cryptic') {
+    } else if (isSingleAnswer(data)) {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
         ((data.guesses || []).length ? section('Популярные неверные ответы', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.guesses) + '</ul>') : '') +
@@ -311,7 +324,7 @@
     root.innerHTML = html;
     root.hidden = false;
     shareAchievements(root, data);
-    if (data.kind === 'alphabet' || data.kind === 'censorly' || data.kind === 'cryptic') {
+    if (hasAttempts(data)) {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
   }

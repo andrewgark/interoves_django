@@ -368,7 +368,7 @@ class CrypticTests(TestCase):
         self.assertEqual(response.json().get('attempt_status'), 'Ok')
         page = client.get('/cryptic/1/')
         self.assertContains(page, 'Ваш результат')
-        self.assertContains(page, '🔑 Криптики №1')
+        self.assertContains(page, '🔑 Криптик №1')
         self.assertNotContains(page, 'data-answer-format')
 
     def test_mask_format(self):
@@ -411,7 +411,8 @@ class PublicPagesTests(TestCase):
         self.assertContains(page, 'Ваш результат')
         self.assertContains(page, '🌲 New Year Hunt №1')
         self.assertContains(page, '/advent/1</div>')
-        self.assertNotContains(page, 'data-share-copy-image')
+        self.assertContains(page, '🔄 1 попытка')
+        self.assertContains(page, 'data-share-copy-image')
 
 
 class HubAndNavTests(TestCase):

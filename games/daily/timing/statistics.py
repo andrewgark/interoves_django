@@ -14,7 +14,7 @@ from django.core.cache import caches
 from django.db import connection, transaction
 from django.db.models import Func, Min, Q, TextField
 
-from games.daily.page.section import CRYPTIC_SCHEDULE
+from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
 from games.daily.registry import DAILY_GAME_REGISTRY
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.puzzles.alphabetty.core import normalize_word
@@ -24,6 +24,7 @@ from games.puzzles.alphabetty.play import (
     secret_from_task,
     split_ladder,
 )
+from games.puzzles.core.check_runtime import KEEP_GOING_STATE
 from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, resolve_assist_tiers
 from games.puzzles.salad.rules import (
     load_state as load_salad_state,
@@ -33,6 +34,9 @@ from games.puzzles.salad.rules import (
 
 CACHE_VERSION = 25
 CRYPTIC_GAME_ID = CRYPTIC_SCHEDULE.game_id
+# Simple daily games, one ordinary task a day: Криптики and the advent hunt
+# share the cryptic statistics (attempts, hints, popular wrong answers).
+SINGLE_ANSWER_GAME_IDS = frozenset({CRYPTIC_GAME_ID, ADVENT_SCHEDULE.game_id})
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -294,14 +298,13 @@ def _personal_comparison(value, median_value, others):
 
 def personal_attempt_count(game, task_group, *, actor_key):
     """Count official guesses even for players excluded from public results."""
-    if game.id == CRYPTIC_GAME_ID:
+    if game.id in SINGLE_ANSWER_GAME_IDS:
         task = Task.objects.filter(task_group=task_group).order_by('id').first()
         if task is None:
             return None
-        rows, solved = _cryptic_guesses(
+        return single_answer_attempt_count(
             _attempt_rows(task, game, [actor_key], CRYPTIC_STATUSES).only('id', 'status'),
         )
-        return len(rows) if solved else None
     task = Task.objects.filter(
         task_group=task_group, task_type__in=('alphabetty', 'censorly'),
     ).order_by('id').first()
@@ -1192,6 +1195,16 @@ def _cryptic_guesses(rows):
     return taken, False
 
 
+def single_answer_attempt_count(rows):
+    """Guesses of a криптик or advent day as its statistics count them.
+
+    Rows in time order; only real verdicts, through the first right answer.
+    None when the day is not solved. «Ваш результат» shows the same number.
+    """
+    taken, solved = _cryptic_guesses([row for row in rows if row.status in CRYPTIC_STATUSES])
+    return len(taken) if solved else None
+
+
 def _cryptic_hint_takers(task, game, actors):
     """Actor keys that took at least one of the task's hints."""
     from games.models import HintAttempt
@@ -1212,7 +1225,11 @@ def _cryptic_hint_takers(task, game, actors):
 
 
 def _cryptic(task, game, actors):
-    """Криптик: попытки до решения, подсказки и популярные неверные ответы."""
+    """Криптик или адвент: попытки до решения, подсказки и популярные неверные ответы.
+
+    ``kind`` is the game id, so the page tells the two apart. A task without
+    hints (the advent) has no «Без подсказок» figure.
+    """
     attempts = _attempts_for(task, game, actors, statuses=CRYPTIC_STATUSES)
     hint_takers = _cryptic_hint_takers(task, game, actors)
     answer = cryptic_answer_key(task.answer)
@@ -1232,7 +1249,9 @@ def _cryptic(task, game, actors):
             perfect.append(actor)
         for row in rows:
             key = cryptic_answer_key(row.text)
-            if key and key != answer and row.status != 'Ok':
+            # A «keep going» answer of the advent is Wrong in the table, but
+            # the player was on the right track: not a popular wrong answer.
+            if key and key != answer and row.status == 'Wrong' and row.state != KEEP_GOING_STATE:
                 wrong_players[key].add(actor)
                 wrong_forms[key][_cryptic_shown(row.text)] += 1
     total = len(actors)
@@ -1241,16 +1260,18 @@ def _cryptic(task, game, actors):
         {**item, 'word': wrong_forms[item['word']].most_common(1)[0][0]}
         for item in _popular_word_rows(wrong_players, limit=POPULAR_LIMIT)
     ]
-    return {
-        'kind': 'cryptic',
+    summary = {
         'solved': total,
-        'summary': {
-            'solved': total,
-            'median_attempts': _median(attempt_counts),
-            'median_time_seconds': _median(list(solve_times.values())),
-            'first_try_percent': _pct(sum(1 for n in attempt_counts if n == 1), total),
-            'without_hints_percent': _pct(total - len(hint_takers), total),
-        },
+        'median_attempts': _median(attempt_counts),
+        'median_time_seconds': _median(list(solve_times.values())),
+        'first_try_percent': _pct(sum(1 for n in attempt_counts if n == 1), total),
+    }
+    if task.get_hints():
+        summary['without_hints_percent'] = _pct(total - len(hint_takers), total)
+    return {
+        'kind': game.id,
+        'solved': total,
+        'summary': summary,
         'distribution': build_attempt_histogram(attempt_counts, tail_from=CRYPTIC_HISTOGRAM_TAIL),
         RANKING_KEY: {'times': solve_times, 'attempts': actor_attempts, 'perfect': perfect},
         'guesses': guesses,
@@ -1456,7 +1477,7 @@ def _build_daily_statistics_payload(game, task_group, *, published_at=None):
         for definition in DAILY_GAME_REGISTRY.all()
         if definition.capabilities.statistics and definition.statistics_adapter_key
     )
-    if game.id == CRYPTIC_GAME_ID:
+    if game.id in SINGLE_ANSWER_GAME_IDS:
         # A simple daily game outside the registry: one ordinary task a day.
         task = Task.objects.filter(task_group=task_group).order_by('id').first()
         if task is None:

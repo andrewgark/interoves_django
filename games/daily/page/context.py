@@ -1,6 +1,6 @@
 """Shared presentation metadata for daily-game play pages."""
 
-from games.daily.page.section import CRYPTIC_SCHEDULE
+from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
 from games.daily.registry import get_daily_game
 
 
@@ -21,7 +21,7 @@ def build_daily_page_context(game_id, *, fallback_label=None,
 
 
 # Simple daily games outside the registry that still have post-solve statistics.
-STATISTICS_EXTRA_GAME_IDS = frozenset({CRYPTIC_SCHEDULE.game_id})
+STATISTICS_EXTRA_GAME_IDS = frozenset({CRYPTIC_SCHEDULE.game_id, ADVENT_SCHEDULE.game_id})
 
 
 def has_daily_statistics(game_id):

@@ -245,3 +245,17 @@ function payload(overrides) {
   assert.ok(headline !== -1 && pill > headline);
   assert.ok(svg.indexOf('🎯 Без лишних попыток!') > pill);
 })();
+
+(function testCrypticCardShowsClueAndEmptyCells() {
+  var svg = card.buildShareCardSvg(payload({
+    kind: 'cryptic', game_kind: 'cryptic', steps: [],
+    headline: 'Криптик №14 решён за 0:03',
+    clue: 'Спор внутри центра Сколково', enumeration: '2-3',
+    answer_groups: [[2, '-'], [3, '']], hint_count: 1,
+  }));
+  assert.ok(svg.indexOf('Спор внутри центра') !== -1);
+  assert.ok(svg.indexOf('(2-3)') !== -1);
+  assert.ok(svg.indexOf('Криптик №14 решён за 0:03') !== -1);
+  // Five yellow cells for one hint, no letters in them.
+  assert.strictEqual(svg.split('fill="' + card.PALETTE.yellow + '"').length - 1, 5);
+})();

@@ -87,7 +87,7 @@ from games.site.pages.results.compute import _public_exclusion_notice
 from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 from games.site.session.replay import _official_exists, active_replay
 from games.task_group.task_group_context import build_task_group_task_context_dicts
-from games.task_group.titles import task_group_page_title
+from games.task_group.titles import edition_game_title, task_group_page_title
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -199,7 +199,7 @@ def daily_statistics(request, game_id, number):
             personal_perfect = personal_censorly_perfect(
                 game, placement.task_group, actor_key=actor_key, attempts=personal_attempts,
             )
-        elif in_cohort and payload.get('kind') == 'cryptic':
+        elif in_cohort and payload.get('kind') in ('cryptic', 'advent'):
             personal_perfect = personal_cryptic_perfect(
                 game, placement.task_group, actor_key=actor_key, attempts=personal_attempts,
             )
@@ -562,7 +562,7 @@ def task_group_page(
     elif draft_offer is not None:
         if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
-                game.outside_name or game.name,
+                edition_game_title(game),
                 draft_offer.accepted_link.number,
             )
         else:

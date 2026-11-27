@@ -70,7 +70,10 @@ def _page_title_and_description(path):
         description += ' ' + meta['soon_text']
     if len(parts) == 1:
         return '{} — {}'.format(meta['title'], SITE_TITLE), description
-    name = ONBOARDING_GAME_META.get(game_id, {}).get('title') or meta.get('pager_label') or meta['title']
+    name = (
+        ONBOARDING_GAME_META.get(game_id, {}).get('title') or meta.get('nav_title')
+        or meta.get('pager_label') or meta['title']
+    )
     edition = parts[1]
     if _EDITION_RE.match(edition) and game_id in NUMBERED_EDITION_GAME_IDS:
         return '{} №{} — {}'.format(name, edition, SITE_TITLE), description

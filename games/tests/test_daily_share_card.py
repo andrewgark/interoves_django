@@ -11,12 +11,16 @@ from games.daily.page.share.card import (
     CARD_HEIGHT,
     CARD_WIDTH,
     HEADLINE_SOLVED_IN,
+    KIND_ADVENT,
     KIND_ALPHABETTY,
     KIND_CENSORLY,
+    KIND_CRYPTIC,
     KIND_LADDER,
     KIND_SALAD,
+    build_advent_share_payload,
     build_alphabetty_share_payload,
     build_censorly_share_payload,
+    build_cryptic_share_payload,
     build_ladder_share_payload,
     build_salad_share_payload,
     dumps_payload,
@@ -244,7 +248,7 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         items = synthetic_preview_payloads()
         self.assertGreaterEqual(len(items), 6)
         kinds = {item['kind'] for item in items}
-        self.assertEqual(kinds, {KIND_LADDER, KIND_SALAD, KIND_ALPHABETTY, KIND_CENSORLY})
+        self.assertEqual(kinds, {KIND_LADDER, KIND_SALAD, KIND_ALPHABETTY, KIND_CENSORLY, KIND_CRYPTIC, KIND_ADVENT})
         locales = {item['locale'] for item in items}
         self.assertEqual(locales, {'ru', 'en'})
         self.assertTrue(all(item.get('synthetic') for item in items))
@@ -280,6 +284,39 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         self.assertIn('подсказ', payload['stats_line'])
         self.assertEqual(payload['filename'], 'interoves-censorly-12.png')
         self.assertEqual(payload['brand'], 'interoves.com/censorly/12')
+
+    def test_cryptic_payload_has_clue_and_cells_not_answer(self):
+        payload = build_cryptic_share_payload(
+            number=14,
+            date_value=date(2026, 11, 27),
+            elapsed_seconds=3,
+            attempts=3,
+            hints=0,
+            hint_total=2,
+            clue='Спор внутри центра Сколково',
+            enumeration='2-3',
+            locale='ru',
+            play_path='cryptic/14',
+        )
+        self.assertEqual(payload['kind'], KIND_CRYPTIC)
+        self.assertEqual(payload['headline'], 'Криптик №14 решён за 0:03')
+        self.assertEqual(payload['stats_line'], '3 попытки, без подсказок')
+        self.assertEqual(payload['answer_groups'], [[2, '-'], [3, '']])
+        self.assertEqual(payload['clue'], 'Спор внутри центра Сколково')
+        self.assertEqual(payload['brand'], 'interoves.com/cryptic/14')
+        self.assertNotIn('ссора', dumps_payload(payload).lower())
+        no_hints = build_cryptic_share_payload(number=1, attempts=1, clue='x', enumeration='5, 4')
+        self.assertEqual(no_hints['stats_line'], '1 попытка')
+        self.assertEqual(no_hints['answer_groups'], [[5, ' '], [4, '']])
+
+    def test_advent_payload_counts_attempts(self):
+        payload = build_advent_share_payload(
+            title='New Year Hunt', number=3, elapsed_seconds=125, attempts=4, play_path='advent/3',
+        )
+        self.assertEqual(payload['kind'], KIND_ADVENT)
+        self.assertEqual(payload['headline'], 'New Year Hunt №3 решено за 2:05')
+        self.assertEqual((payload['attempts'], payload['attempts_word']), (4, 'попытки'))
+        self.assertEqual(payload['brand'], 'interoves.com/advent/3')
 
     def test_brand_is_the_task_link(self):
         from types import SimpleNamespace

@@ -658,8 +658,13 @@ def get_available_referents(game, team):
 
 @register.simple_tag
 def simple_daily_share(game, task, ai, tg_number, share_host):
-    """«Ваш результат» для адвента и криптиков: эмодзи, номер, время, ссылка."""
+    """«Ваш результат» для адвента и криптиков, строки как у Алфавитки.
+
+    🔑 Криптик №14, 🔄 попытки, 💡 подсказки (только взятые), ⏱️ время, 🔗 ссылка.
+    """
     from games.daily.catalog.simple_daily import is_simple_daily_game
+    from games.puzzles.alphabetty.play import format_hints_label, ru_attempt_word
+    from games.task_group.titles import edition_game_title
 
     game_id = getattr(game, 'id', None)
     if not is_simple_daily_game(game_id) or ai is None or not ai.is_solved():
@@ -670,24 +675,84 @@ def simple_daily_share(game, task, ai, tg_number, share_host):
     from games.sections.hub import SECTION_HUB_META
 
     meta = SECTION_HUB_META.get(game_id) or {}
+    from games.daily.timing.statistics import single_answer_attempt_count
+
+    attempts = list(ai.attempts or [])
+    attempt_count = single_answer_attempt_count(attempts) or 0
     try:
-        elapsed = elapsed_label_for_complete_attempts(list(ai.attempts or []), game=game, task=task)
+        elapsed = elapsed_label_for_complete_attempts(attempts, game=game, task=task)
     except Exception:
         elapsed = ''
     if elapsed in ('0:00', '00:00'):
         elapsed = ''
-    # Как квадратик слова в Лесенке: 🟩 без подсказок, 🟨 с одной, 🟥 с разбором.
-    squares = ''
-    if task is not None and task.get_hints():
-        taken = len(ai.get_hint_numbers())
-        squares = '🟩' if not taken else ('🟨' if taken == 1 else '🟥')
-    return {
+    lines = []
+    if attempt_count:
+        lines.append('🔄 {} {}'.format(attempt_count, ru_attempt_word(attempt_count)))
+    hint_total = len(task.get_hints()) if task is not None else 0
+    taken = len(ai.get_hint_numbers()) if hint_total else 0
+    if taken:
+        lines.append(format_hints_label(taken))
+    if elapsed:
+        lines.append('⏱️ {}'.format(elapsed))
+    share = {
         'emoji': meta.get('icon') or '',
-        'title': '{} №{}'.format(game.outside_name or game.name or meta.get('title') or '', tg_number),
-        'squares': squares,
-        'elapsed': elapsed,
+        'title': '{} №{}'.format(edition_game_title(game), tg_number),
+        'lines': lines,
         'link': '{}/{}/{}'.format(share_host or 'interoves.com', game_id, tg_number),
+        'card_json': _simple_daily_share_card_json(
+            game, task, attempts, tg_number, share_host,
+            attempt_count=attempt_count, hints=taken, hint_total=hint_total,
+        ),
     }
+    return share
+
+
+def _simple_daily_share_card_json(game, task, attempts, tg_number, share_host, *,
+                                  attempt_count, hints, hint_total):
+    """Картинка «Ваш результат»: у криптика загадка и пустые клетки, у адвента попытки."""
+    from games.daily.catalog.cryptic import task_enumeration
+    from games.daily.page.share.card import (
+        build_advent_share_payload,
+        build_cryptic_share_payload,
+        dumps_payload,
+        elapsed_seconds_for,
+        publish_date_for,
+    )
+    from games.task_group.titles import edition_game_title
+
+    try:
+        first = attempts[0] if attempts else None
+        tags = getattr(task, 'tags', None) or {}
+        common = {
+            'number': tg_number,
+            'date_value': publish_date_for(game, int(tg_number)),
+            'elapsed_seconds': elapsed_seconds_for(
+                game=game, task=task, user=getattr(first, 'user', None),
+                anon_key=getattr(first, 'anon_key', None), attempts=attempts,
+            ),
+            'attempts': attempt_count,
+            'author': str(tags.get('author') or ''),
+            'brand_host': share_host or 'interoves.com',
+            'play_path': '{}/{}'.format(game.id, tg_number),
+        }
+        if game.id == 'cryptic':
+            payload = build_cryptic_share_payload(
+                hints=hints,
+                hint_total=hint_total,
+                clue=str(tags.get('cryptic_clue') or ''),
+                enumeration=task_enumeration(task),
+                **common,
+            )
+        else:
+            payload = build_advent_share_payload(title=edition_game_title(game), **common)
+    except Exception:
+        # The text result still shows; only the picture button is gone.
+        import logging
+        logging.getLogger('application').exception(
+            'simple_daily_share_card_failed game=%s number=%s', getattr(game, 'id', ''), tg_number,
+        )
+        return ''
+    return dumps_payload(payload)
 
 
 @register.simple_tag

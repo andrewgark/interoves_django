@@ -94,16 +94,34 @@ class CrypticHintPlayTests(TestCase):
         self.assertEqual(info.get_result_points(), 1)
         page = client.get('/cryptic/1/')
         self.assertNotContains(page, 'cx-explain--hint')
-        self.assertContains(page, '🟥')
+        self.assertContains(page, '💡💡 Взято 2 подсказки')
+        self.assertNotContains(page, '🟥')
 
-    def test_share_square_counts_hints(self):
-        for name, numbers, square in (('clean', (), '🟩'), ('one', ('1',), '🟨')):
+    def test_share_lines_count_attempts_and_hints(self):
+        for name, numbers, line in (('clean', (), '🔄 2 попытки'), ('one', ('1',), '💡 Взята 1 подсказка')):
             client = Client()
             client.force_login(_user('cryptic_' + name))
             for number in numbers:
                 client.post('/send_hint_attempt/{}/'.format(self.task.pk), {'hint_number': number, 'game_id': 'cryptic'})
+            client.post('/send_attempt/{}/'.format(self.task.pk), {'text': 'жемчуг', 'game_id': 'cryptic'})
             client.post('/send_attempt/{}/'.format(self.task.pk), {'text': 'жемчужина', 'game_id': 'cryptic'})
-            self.assertContains(client.get('/cryptic/1/'), square)
+            page = client.get('/cryptic/1/')
+            self.assertContains(page, '🔑 Криптик №1')
+            self.assertContains(page, '🔄 2 попытки')
+            self.assertContains(page, line)
+            self.assertNotContains(page, '🟩')
+            self.assertNotContains(page, 'Без подсказок')
+            self.assertContains(page, 'data-share-card=')
+            self.assertContains(page, 'data-share-copy-image')
+
+    def test_wrong_answer_keeps_attempts_list_closed(self):
+        client = Client()
+        client.force_login(_user('cryptic_wrong'))
+        page = client.get('/cryptic/1/')
+        self.assertContains(page, 'data-skip-attempts-open="1"')
+        self.assertNotContains(page, 'cryptic-hint-btn__cost')
+        self.assertContains(page, 'Криптик №1')
+        self.assertNotContains(page, 'Криптики №1')
 
 
 class CrypticHintEditorTests(TestCase):
