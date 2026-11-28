@@ -8,6 +8,7 @@ from django.test import Client, SimpleTestCase, TestCase
 from games.console.games.simple_daily_sections import console_for
 from games.daily.catalog.cryptic import CRYPTIC_GAME_ID
 from games.models import Task
+from games.puzzles.core.check_runtime import KEEP_GOING_STATE
 from games.tests.test_advent import _advent_day, _advent_game, _cryptic_game, _user
 from games.tests.test_cryptic_hints import CLUE, FORMULA, MARKUP
 
@@ -95,7 +96,7 @@ class AdventStatisticsTests(TestCase):
     def test_statistics_and_result_block(self):
         for index in range(5):
             # «шишка» is a «keep going» answer, not a wrong one.
-            self._play('wrong{}'.format(index), guesses=['сосна', 'шишка'])
+            stepper = self._play('wrong{}'.format(index), guesses=['сосна', 'шишка'])
         me = self._play('first')
 
         data = me.get('/daily-statistics/advent/1/').json()
@@ -104,6 +105,8 @@ class AdventStatisticsTests(TestCase):
         self.assertEqual(data['summary']['first_try_percent'], 16.7)
         self.assertNotIn('without_hints_percent', data['summary'])
         self.assertEqual(data['guesses'], [{'word': 'СОСНА', 'players': 5}])
+        # сосна, шишка, ёлка: «шишка» is not an attempt.
+        self.assertEqual(data['summary']['median_attempts'], 2)
         self.assertTrue(data['comparison']['attempts']['perfect'])
 
         page = me.get('/advent/1/')
@@ -112,6 +115,7 @@ class AdventStatisticsTests(TestCase):
         self.assertContains(page, '🔄 1 попытка')
         self.assertContains(page, 'data-share-copy-image')
         self.assertNotContains(page, 'Взят')
+        self.assertContains(stepper.get('/advent/1/'), '🔄 2 попытки')
 
 
 class SingleAnswerAttemptCountTests(SimpleTestCase):
@@ -120,6 +124,9 @@ class SingleAnswerAttemptCountTests(SimpleTestCase):
 
         from games.daily.timing.statistics import single_answer_attempt_count
 
-        rows = [SimpleNamespace(status=s) for s in ('Wrong', 'Pending', 'Partial', 'Ok', 'Wrong')]
+        rows = [SimpleNamespace(status=s, state=None) for s in ('Wrong', 'Pending', 'Partial', 'Ok', 'Wrong')]
         self.assertEqual(single_answer_attempt_count(rows), 3)
         self.assertIsNone(single_answer_attempt_count(rows[:2]))
+        # An advent «keep going» answer is a step, not a guess.
+        step = SimpleNamespace(status='Wrong', state=KEEP_GOING_STATE)
+        self.assertEqual(single_answer_attempt_count([step] + rows), 3)

@@ -300,7 +300,10 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         )
         self.assertEqual(payload['kind'], KIND_CRYPTIC)
         self.assertEqual(payload['headline'], 'Криптик №14 решён за 0:03')
-        self.assertEqual(payload['stats_line'], '3 попытки, без подсказок')
+        # Like the text result: hints only when taken.
+        self.assertEqual(payload['stats_line'], '3 попытки')
+        hinted = build_cryptic_share_payload(number=14, attempts=2, hints=1, hint_total=2, clue='x', enumeration='5')
+        self.assertEqual(hinted['stats_line'], '2 попытки, 1 подсказка')
         self.assertEqual(payload['answer_groups'], [[2, '-'], [3, '']])
         self.assertEqual(payload['clue'], 'Спор внутри центра Сколково')
         self.assertEqual(payload['brand'], 'interoves.com/cryptic/14')

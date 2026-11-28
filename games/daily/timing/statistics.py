@@ -303,7 +303,7 @@ def personal_attempt_count(game, task_group, *, actor_key):
         if task is None:
             return None
         return single_answer_attempt_count(
-            _attempt_rows(task, game, [actor_key], CRYPTIC_STATUSES).only('id', 'status'),
+            _attempt_rows(task, game, [actor_key], CRYPTIC_STATUSES).only('id', 'status', 'state'),
         )
     task = Task.objects.filter(
         task_group=task_group, task_type__in=('alphabetty', 'censorly'),
@@ -1186,9 +1186,15 @@ def _cryptic_shown(text):
 
 
 def _cryptic_guesses(rows):
-    """Attempts through the first solve, the solving one included, and whether it solved."""
+    """Attempts through the first solve, the solving one included, and whether it solved.
+
+    An advent «keep going» answer (Wrong with a state) is a step on the
+    right track, not a guess: it is not counted.
+    """
     taken = []
     for row in rows:
+        if row.state == KEEP_GOING_STATE:
+            continue
         taken.append(row)
         if row.status == 'Ok':
             return taken, True
@@ -1198,7 +1204,8 @@ def _cryptic_guesses(rows):
 def single_answer_attempt_count(rows):
     """Guesses of a криптик or advent day as its statistics count them.
 
-    Rows in time order; only real verdicts, through the first right answer.
+    Rows in time order; only real verdicts (no «keep going»), through the
+    first right answer.
     None when the day is not solved. «Ваш результат» shows the same number.
     """
     taken, solved = _cryptic_guesses([row for row in rows if row.status in CRYPTIC_STATUSES])
@@ -1249,9 +1256,7 @@ def _cryptic(task, game, actors):
             perfect.append(actor)
         for row in rows:
             key = cryptic_answer_key(row.text)
-            # A «keep going» answer of the advent is Wrong in the table, but
-            # the player was on the right track: not a popular wrong answer.
-            if key and key != answer and row.status == 'Wrong' and row.state != KEEP_GOING_STATE:
+            if key and key != answer and row.status == 'Wrong':
                 wrong_players[key].add(actor)
                 wrong_forms[key][_cryptic_shown(row.text)] += 1
     total = len(actors)

@@ -842,34 +842,34 @@
   function crypticCells(payload, centerX, y, maxWidth) {
     var groups = Array.isArray(payload.answer_groups) ? payload.answer_groups : [];
     if (!groups.length) return { svg: '', height: 0 };
-    var letters = 0;
-    var seps = 0;
-    groups.forEach(function (g, i) {
-      letters += Math.max(1, Number(g[0]) || 1);
-      if (i < groups.length - 1) seps += 1;
-    });
-    var gap = 8;
-    var size = 92;
     var sepW = function (s) { return s * 0.62; };
-    var total = function (s) {
-      return letters * s + (letters - seps - 1) * gap + seps * (sepW(s) + gap * 2);
+    var gapFor = function (s) { return Math.max(4, Math.round(s * 0.09)); };
+    var widthOf = function (row, s) {
+      var n = 0;
+      row.forEach(function (g) { n += Math.max(1, Number(g[0]) || 1); });
+      var rowSeps = row.length - 1;
+      var gap = gapFor(s);
+      return n * s + (n - rowSeps - 1) * gap + rowSeps * (sepW(s) + gap * 2);
     };
-    while (size > 30 && total(size) > maxWidth) size -= 2;
-    gap = Math.max(4, Math.round(size * 0.09));
+    // The largest cell (up to 92) at which every row fits.
+    var fitSize = function (rowList) {
+      var s = 92;
+      while (s > 12 && rowList.some(function (row) { return widthOf(row, s) > maxWidth; })) s -= 2;
+      return s;
+    };
     var rows = [groups];
-    if (total(size) > maxWidth) {
-      // Very long answers: one word per row.
+    var size = fitSize(rows);
+    if (size < 44 && groups.length > 1) {
+      // Long answers: one word per row, so the cells stay readable.
       rows = groups.map(function (g) { return [g]; });
+      size = fitSize(rows);
     }
+    var gap = gapFor(size);
     var fill = crypticCellFill(payload.hint_count);
     var parts = [];
     var rowY = y;
     rows.forEach(function (row) {
-      var rowLetters = 0;
-      var rowSeps = row.length - 1;
-      row.forEach(function (g) { rowLetters += Math.max(1, Number(g[0]) || 1); });
-      var rowW = rowLetters * size + (rowLetters - rowSeps - 1) * gap + rowSeps * (sepW(size) + gap * 2);
-      var x = centerX - rowW / 2;
+      var x = centerX - widthOf(row, size) / 2;
       row.forEach(function (g, gi) {
         var n = Math.max(1, Number(g[0]) || 1);
         var k;
@@ -913,8 +913,10 @@
       lines = wrapByWidth(words, innerW, fontSize);
     }
     if (lines.length > 7) {
+      // Cut the clue, never the enumeration after it.
       lines = lines.slice(0, 7);
       lines[6].push('…');
+      if (enumText) lines[6].push(enumText);
     }
     var lh = Math.round(fontSize * 1.3);
     var markSize = 30;

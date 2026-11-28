@@ -607,7 +607,8 @@ def build_cryptic_share_payload(
     attempt_count = max(0, int(attempts or 0))
     hint_count = max(0, int(hints or 0))
     stats = [_attempts_label(attempt_count, loc)]
-    if hint_total:
+    # Like the text result: hints only when taken, no «без подсказок».
+    if hint_total and hint_count:
         stats.append(_hints_label(hint_count, loc))
     display_number = str(number or '').strip()
     title = 'Криптик' if loc == 'ru' else 'Cryptic'

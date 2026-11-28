@@ -259,3 +259,22 @@ function payload(overrides) {
   // Five yellow cells for one hint, no letters in them.
   assert.strictEqual(svg.split('fill="' + card.PALETTE.yellow + '"').length - 1, 5);
 })();
+
+(function testCrypticLongAnswerCellsStayInsideTheCard() {
+  // 28 letters in one word, and two 15-letter words that get a row each.
+  [[[28, '']], [[15, ' '], [15, '']]].forEach(function (groups) {
+    var svg = card.buildShareCardSvg(payload({
+      kind: 'cryptic', game_kind: 'cryptic', steps: [],
+      headline: 'Криптик №1 решён за 0:03', clue: 'Длинный ответ', enumeration: '28',
+      answer_groups: groups, hint_count: 0,
+    }));
+    var re = new RegExp('<rect x="([0-9.]+)" y="[0-9.]+" width="([0-9.]+)"[^>]*fill="' + card.PALETTE.green + '"', 'g');
+    var m;
+    var cells = 0;
+    while ((m = re.exec(svg))) {
+      cells += 1;
+      assert.ok(Number(m[1]) >= 72 && Number(m[1]) + Number(m[2]) <= 1080 - 72, 'cell inside the sheet');
+    }
+    assert.strictEqual(cells, groups.reduce(function (a, g) { return a + g[0]; }, 0));
+  });
+})();
