@@ -1815,6 +1815,26 @@ html.new-ui-dark .daily-archive__day--locked > a { color: #17130a; font-weight: 
 .new-tg-pager__link:has(.ph-lock-key) { color: #6b5500; }
 .new-hub-group__heading-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .new-hub-group__heading-row .new-hub-group__title { margin-bottom: .85rem; }
+.new-hub-group__title-wrap { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: .75rem; min-width: 0; }
+.new-hub-next-release {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  margin: 0 0 .85rem;
+  padding: .15rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.new-hub-next-release .ph { font-size: .95rem; }
+.new-hub-next-release__time { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .new-hub-group__title-wrap:has(.new-hub-next-release) .new-hub-group__title { margin-bottom: .45rem; }
+}
 .club-subscription-cta {
   width: var(--btn-height-mini);
   min-width: var(--btn-height-mini);

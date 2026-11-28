@@ -88,6 +88,8 @@ def hub(request):
             'page_title': 'Interoves',
             'show_sections_nav': True,
             'live_next_transition_at': live_next_transition_at,
+            'hub_next_release_at': live_next_transition_at,
+            'hub_next_release_in': _countdown_label(live_next_transition_at),
             'show_desyatochki_pay_cta': True,
             'show_order_banner': True,
             'desyatochki_participants_chat_url': members_chat_url(MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL, request.user),
@@ -105,6 +107,18 @@ def hub(request):
 
         set_hub_entry_cookie(response, hub_entry_cookie)
     return response
+
+
+def _countdown_label(moment):
+    """``H:MM:SS`` (``M:SS`` under an hour) left until ``moment``, as the hub timer ticks."""
+    if moment is None:
+        return ''
+    from django.utils import timezone
+
+    left = max(0, int((moment - timezone.now()).total_seconds() + 0.999))
+    hours, rest = divmod(left, 3600)
+    minutes, seconds = divmod(rest, 60)
+    return f'{hours}:{minutes:02d}:{seconds:02d}' if hours else f'{minutes}:{seconds:02d}'
 
 
 def _hub_entry_experiment(request, hub_groups, onboarding_salad_url):

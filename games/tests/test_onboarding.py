@@ -231,6 +231,28 @@ class OnboardingPageTests(TestCase):
         self.assertIn('>Как играть</button>', body)
         self.assertIn('id="desyatochki-rules-modal"', body)
 
+    def test_home_counts_down_to_the_next_daily_release(self):
+        release = timezone.now() + timezone.timedelta(hours=5, minutes=7, seconds=42)
+        with patch(
+            'games.site.pages.hub.pages.hub_link_cache.next_content_transition',
+            return_value=release,
+        ):
+            body = self.client.get('/').content.decode()
+
+        self.assertIn('Новые выпуски через', body)
+        self.assertIn(f'data-hub-next-release-at="{release.astimezone(ZoneInfo("Europe/Moscow")).isoformat()}"', body)
+        self.assertRegex(body, r'data-hub-next-release-time>5:07:4[12]</time>')
+        self.assertLess(body.index('id="hub-daily-heading"'), body.index('Новые выпуски через'))
+
+    def test_home_hides_the_countdown_without_a_scheduled_release(self):
+        with patch(
+            'games.site.pages.hub.pages.hub_link_cache.next_content_transition',
+            return_value=None,
+        ):
+            body = self.client.get('/').content.decode()
+
+        self.assertNotIn('Новые выпуски через', body)
+
     def test_unknown_internal_section_does_not_break_or_enter_public_navigation(self):
         for path in ('/', '/start/'):
             with self.subTest(path=path):

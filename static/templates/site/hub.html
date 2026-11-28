@@ -15,7 +15,10 @@
 {% if daily_hub_cards %}
 <section class="new-hub-group" aria-labelledby="hub-daily-heading">
   <div class="new-hub-group__heading-row{% if club_archive_gating_enabled %} new-hub-group__heading-row--with-subscription{% endif %}">
-    <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
+    <div class="new-hub-group__title-wrap">
+      <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
+      {% if hub_next_release_at %}<p class="new-hub-next-release" data-hub-next-release-at="{{ hub_next_release_at|date:'c' }}" data-tooltip="Новые выпуски выходят в полночь по Москве"><i class="ph ph-clock" aria-hidden="true"></i><span>Новые выпуски через <time class="new-hub-next-release__time" datetime="{{ hub_next_release_at|date:'c' }}" data-hub-next-release-time>{{ hub_next_release_in }}</time></span></p>{% endif %}
+    </div>
     {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/" aria-label="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}" data-tooltip="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}">{% if club_archive_has_access %}<i class="ph ph-crown" aria-hidden="true"></i>{% else %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% endif %}</a>{% endif %}
   </div>
   {% if daily_hub_grid_cards %}
@@ -90,6 +93,26 @@
     {% endfor %}
   </div>
 </section>
+{% endif %}
+
+{% if hub_next_release_at %}
+<script>
+(function () {
+  var box = document.querySelector('[data-hub-next-release-at]');
+  var out = box && box.querySelector('[data-hub-next-release-time]');
+  var at = box ? Date.parse(box.getAttribute('data-hub-next-release-at') || '') : NaN;
+  if (!out || !Number.isFinite(at)) return;
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function tick() {
+    var left = Math.max(0, Math.ceil((at - Date.now()) / 1000));
+    var h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
+    out.textContent = (h ? h + ':' + pad(m) : String(m)) + ':' + pad(s);
+    // track_ws.js reloads the page at this boundary; until then keep 0:00.
+    if (left > 0) setTimeout(tick, 1000 - (Date.now() % 1000) + 20);
+  }
+  tick();
+})();
+</script>
 {% endif %}
 
 {% if hub_section_cards %}
