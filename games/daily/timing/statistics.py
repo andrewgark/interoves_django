@@ -531,12 +531,16 @@ def _completed_actors(game, task_group, published_at=None, only_keys=None):
         task_ids = list(
             Task.objects.filter(task_group=task_group).values_list('id', flat=True)
         )
+        # Only "first attempt before publication" matters to the eligibility
+        # check, so later attempts are not read: MIN(time) over every attempt
+        # of a popular Цензурка edition read 12k rows per build (2026-11-28).
         first_attempts = Attempt.manager.filter(
             game=game,
             task_id__in=task_ids,
             skip=False,
             status__in=('Ok', 'Partial', 'Wrong'),
             replay_slot__isnull=True,
+            time__lt=published_at,
         ).values(
             'team_id', 'user_id', 'anon_key',
         ).annotate(first_attempt=Min('time'))

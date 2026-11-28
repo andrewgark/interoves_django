@@ -213,10 +213,20 @@ class DailyStatisticsTests(TestCase):
         Attempt.manager.filter(pk=attempt.pk).update(
             time=published_at - timedelta(seconds=1),
         )
+        # Started after publication: only earlier attempts are read, and none.
+        later = self.users[1]
+        self._complete(tg, later)
+        later_attempt = Attempt.manager.create(
+            user=later, game=self.game, task=task, text='СЛОВО', status='Ok',
+            state=json.dumps({'guesses': ['СЛОВО'], 'won': True}),
+        )
+        Attempt.manager.filter(pk=later_attempt.pk).update(
+            time=published_at + timedelta(seconds=1),
+        )
 
         self.assertEqual(
             build_daily_statistics(self.game, tg, published_at=published_at)['solved'],
-            0,
+            1,
         )
 
     def test_concurrent_cache_misses_share_one_statistics_build(self):
