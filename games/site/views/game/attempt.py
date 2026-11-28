@@ -11,7 +11,7 @@ from games.gameplay.client_events import parse_client_event_id
 from games.gameplay.effects import apply_move_effects
 from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, MoveInput, submit_move
 from games.identity import ActorRefusal, resolve_gameplay_actor
-from games.models import Attempt
+from games.models import Attempt, Task
 from games.ops.analytics.events import (
     is_task_completion_state,
 )
@@ -307,6 +307,17 @@ def _process_word_salad_sync_finds(request, ctx):
     return result
 
 
+def _salad_duplicate_response(task_id, attempt_id):
+    """Duplicate для салатика: что засчитал прежний такой же путь (см. queuedSaladVerdict)."""
+    task = Task.objects.filter(pk=task_id).only('task_type').first()
+    if task is None or task.task_type != 'word_salad':
+        return {}
+    from games.puzzles.salad.submission import duplicate_verdict
+
+    verdict = duplicate_verdict(attempt_id)
+    return {} if verdict is None else {'word_salad_duplicate_of': verdict}
+
+
 def _raddle_duplicate_response(request, task_id):
     """Duplicate для raddle: синхронизируем UI только если слово уже решено (лаг сети)."""
     task = get_public_task_or_404(task_id)
@@ -348,9 +359,13 @@ def send_attempt(request, task_id):
         if getattr(exc, 'attempt_id', None) is not None:
             response['attempt_id'] = exc.attempt_id
         response.update(_raddle_duplicate_response(request, task_id))
+        response.update(_salad_duplicate_response(task_id, response.get('attempt_id')))
         audit_duplicate_verdict(
             task_id, request.POST,
-            already_solved=response.get('raddle_duplicate_solved') is True,
+            already_solved=(
+                response.get('raddle_duplicate_solved') is True
+                or response.get('word_salad_duplicate_of') == 'Ok'
+            ),
         )
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}

@@ -170,11 +170,31 @@ class InstantSaladPageTests(_ClientEventFixture):
         self.assertIn('server=Wrong', ' '.join(logs.output))
         self.assertEqual(notify.call_args.kwargs['kind'], 'verdict_divergence')
 
-    def test_page_claiming_a_repeated_path_is_reported(self):
+    @patch('games.gameplay.client_checks._alert')
+    def test_repeat_of_a_path_that_solved_the_word_is_quiet(self, alert):
+        # 2026-11-28, task 7447: a direct check and the queued send of one
+        # path raced; the first credited the word. The page was right, late.
         self._post_path(self.words[0])
-        with self.assertLogs('games.offline', 'WARNING') as logs:
-            response = self._post_path(self.words[0])
+        response = self._post_path(self.words[0])
         self.assertEqual(response['status'], 'duplicate')
+        self.assertEqual(response['word_salad_duplicate_of'], 'Ok')
+        alert.assert_not_called()
+
+    def test_page_claiming_a_repeated_off_theme_path_is_reported(self):
+        # The earlier send of this path found no answer: the page's 'Ok' is wrong.
+        path = find_paths(self.grid, self.words[0], limit=1)[0][:3]
+        data = {
+            'game_id': self.game.id, 'anon_key': self.anon_key, 'path': json.dumps(path),
+            'client_verdict': 'Ok', 'client_event_id': str(uuid.uuid4()),
+        }
+        url = '/send_attempt/{}/'.format(self.salad.id)
+        first = self.client.post(url, data, HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()
+        self.assertNotEqual(first['status'], 'duplicate')
+        data['client_event_id'] = str(uuid.uuid4())
+        with self.assertLogs('games.offline', 'WARNING') as logs:
+            response = self.client.post(url, data, HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()
+        self.assertEqual(response['status'], 'duplicate')
+        self.assertNotEqual(response.get('word_salad_duplicate_of'), 'Ok')
         self.assertIn('server=Duplicate', ' '.join(logs.output))
 
     @patch('games.ops.telegram.bot.notify.notify_admin_offline_play')

@@ -145,6 +145,24 @@ def client_verdict_of(attempt, persisted):
     return 'Ok'
 
 
+def duplicate_verdict(attempt_id):
+    """What the earlier attempt with this exact path counted, as a page verdict.
+
+    A path repeated by the same actor is a duplicate; when that earlier path
+    already solved the answer word (another send of it, from this page or
+    another tab, got there first), a page that called the repeat 'Ok' was
+    right, only late. None when the earlier attempt is unknown.
+    """
+    if attempt_id is None:
+        return None
+    from games.models import Attempt
+
+    other = Attempt.manager.filter(pk=attempt_id).only('status', 'comment').first()
+    if other is None:
+        return None
+    return client_verdict_of(other, True)
+
+
 def include_task_html(result):
     """A wrong salad path stays on the client. A credited word needs fresh HTML."""
     return bool(result.get('word_salad_correct'))

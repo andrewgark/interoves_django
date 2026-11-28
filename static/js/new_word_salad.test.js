@@ -475,6 +475,11 @@ console.log('new_word_salad.test.js: ok');
   }), 'diverged');
   assert.strictEqual(verdict(answer, { status: 'ok', word_salad_correct: false }), 'diverged');
   assert.strictEqual(verdict(answer, { status: 'duplicate' }), 'diverged');
+  // A direct check of the same path got there first and counted the same.
+  assert.strictEqual(verdict(answer, { status: 'duplicate', word_salad_duplicate_of: 'Ok' }), 'known');
+  assert.strictEqual(verdict(rare, { status: 'duplicate', word_salad_duplicate_of: 'Partial' }), 'known');
+  assert.strictEqual(verdict(answer, { status: 'duplicate', word_salad_duplicate_of: 'Wrong' }), 'diverged');
+  assert.strictEqual(verdict(rare, { status: 'duplicate', word_salad_duplicate_of: 'Ok' }), 'diverged');
   assert.strictEqual(verdict(answer, null), 'diverged');
 })();
 

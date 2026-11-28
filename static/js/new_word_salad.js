@@ -742,11 +742,16 @@
   // 'credited' — this send counted the word; 'known' — the server already had
   // it from another send of the same word under another client_event_id (two
   // sends racing): the page was right, only late, so its board stays;
-  // 'diverged' — the server disagrees and the page reloads. A 'duplicate'
-  // stays diverged: the earlier attempt with that path may not have been the
-  // word the page counted.
+  // 'diverged' — the server disagrees and the page reloads. A 'duplicate' is
+  // 'known' only when the server says the earlier send of this path counted
+  // what the page counted (word_salad_duplicate_of): a direct check and a
+  // queued send of one path can race. Otherwise it stays diverged.
   // A rare find leaves the board as it is: the server only confirms it.
   function queuedSaladVerdict(entry, data) {
+    if (data && data.status === 'duplicate') {
+      var counted = entry && entry.kind === 'rare' ? 'Partial' : 'Ok';
+      return data.word_salad_duplicate_of === counted ? 'known' : 'diverged';
+    }
     if (!data || data.status !== 'ok') return 'diverged';
     if (entry && entry.kind === 'rare' ? data.word_salad_rare : data.word_salad_correct) return 'credited';
     if (data.word_salad_comment === SALAD_ALREADY_FOUND_COMMENT) return 'known';
