@@ -23,6 +23,17 @@ class RequestTimingMiddlewareTests(TestCase):
         for name in ('interoves.request_timing', 'application', 'daphne'):
             self.assertIs(loggers[name].get('propagate'), False, name)
 
+    def test_counts_automatic_reloads_by_reason(self):
+        with self.assertLogs('interoves.auto_reload', level='INFO') as cm:
+            self.middleware(self.factory.get('/', {'_reload': 'daily-return'}))
+        self.assertEqual(len(cm.output), 1)
+        self.assertIn('auto_reload reason=daily-return path=/ status=200', cm.output[0])
+
+    def test_ignores_unknown_reload_reasons(self):
+        with self.assertNoLogs('interoves.auto_reload', level='INFO'):
+            self.middleware(self.factory.get('/', {'_reload': '<script>'}))
+            self.middleware(self.factory.get('/'))
+
     def test_logs_slow_send_attempt(self):
         request = self.factory.post('/send_attempt/1/')
         self.middleware.slow_ms = 0

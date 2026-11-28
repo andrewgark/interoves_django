@@ -111,8 +111,19 @@
   function tick() {
     var left = Math.max(0, Math.ceil((at - Date.now() - offset) / 1000));
     if (!left) {
-      // track_ws.js reloads the page within DAILY_TRANSITION_JITTER_MS.
-      out.parentNode.textContent = 'Новые выпуски вышли';
+      // track_ws.js reloads a visible hub within DAILY_TRANSITION_JITTER_MS;
+      // the button saves the wait.
+      var label = out.parentNode;
+      label.textContent = 'Новые выпуски вышли';
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'new-hub-next-release__reload';
+      button.textContent = 'Обновить';
+      button.addEventListener('click', function () {
+        if (window.InterovesTrack) window.InterovesTrack.reloadWithReason('button');
+        else window.location.reload();
+      });
+      label.parentNode.appendChild(button);
       return;
     }
     var h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;

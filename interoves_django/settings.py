@@ -1194,6 +1194,12 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': False,
         },
+        # One line per automatic reload (track_ws.js ``?_reload=<reason>``).
+        'interoves.auto_reload': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'interoves.analytics_timing': {
             'handlers': ['stderr'],
             'level': 'INFO',

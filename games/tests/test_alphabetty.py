@@ -692,6 +692,15 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertContains(response, 'href="/create_alphabetty/"')
         self.assertEqual(publish_at.call_count, 1)
         self.assertIn('live_next_transition_at', response.context)
+        # The section page reloads at midnight; only puzzle pages show a notice.
+        self.assertIsNone(response.context.get('live_next_transition_notice_url'))
+
+    def test_play_page_offers_the_new_edition_instead_of_reloading(self):
+        _ensure_login_modal_deps()
+        response = self.client.get('/alphabetty/1/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['live_next_transition_notice_url'], '/alphabetty/last/')
 
     def test_hub_shows_attempts_and_elapsed_when_solved(self):
         _ensure_login_modal_deps()

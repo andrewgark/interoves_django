@@ -1832,6 +1832,51 @@ html.new-ui-dark .daily-archive__day--locked > a { color: #17130a; font-weight: 
 }
 .new-hub-next-release .ph { font-size: .95rem; }
 .new-hub-next-release__time { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.new-hub-next-release__reload {
+  margin-left: .2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.new-hub-next-release__reload:hover { color: var(--accent-hover); }
+/* Midnight on a puzzle page: the puzzle stays, the new edition is one tap away. */
+.new-edition-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  max-width: calc(100vw - 2rem);
+  padding: .3rem .35rem .3rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .14);
+  transform: translateX(-50%);
+}
+.new-edition-notice__link { display: inline-flex; align-items: center; gap: .35rem; color: var(--accent); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.new-edition-notice__link:hover { color: var(--accent-hover); }
+.new-edition-notice__close {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.new-edition-notice__close:hover { background: var(--tile); color: var(--text); }
 @media (max-width: 560px) {
   .new-hub-group__title-wrap:has(.new-hub-next-release) .new-hub-group__title { margin-bottom: .45rem; }
 }

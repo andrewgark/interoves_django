@@ -53,7 +53,13 @@ from games.sections.hub import (
     onboarding_followup_context,
     section_format_credit_context,
 )
-from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
+from games.sections.paths import (
+    section_hub_path,
+    section_last_path,
+    section_play_path,
+    section_replay_path,
+    section_results_path,
+)
 from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.http.request_util import get_public_task_or_404
@@ -508,6 +514,7 @@ def _render_play(request, *, game, task, load_meta):
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if not is_random else None
         ),
+        'live_next_transition_notice_url': section_last_path(CENSORLY_GAME_ID),
         'section_results_url': section_results_path(CENSORLY_GAME_ID),
         'task_results_url': f'{play_path}results/',
         'can_see_results': not is_random and game.has_access('see_results', team=team),

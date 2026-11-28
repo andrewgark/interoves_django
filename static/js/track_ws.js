@@ -7,6 +7,12 @@
   // Spread recovery traffic across clients after a shared outage.
   var RECONNECT_JITTER_MS = 5000;
   var DAILY_TRANSITION_JITTER_MS = 20000;
+  // A tab hidden at midnight reloads only once the player looks at it again.
+  var DAILY_RETURN_JITTER_MS = 3000;
+  // Automatic reloads carry ``?_reload=<reason>`` so the server can count
+  // them (``auto_reload`` log); the parameter is dropped from the address bar
+  // as soon as the page loads.
+  var RELOAD_REASON_PARAM = '_reload';
   var GAME_TRANSITION_JITTER_MS = 3000;
 
   function proto() {
@@ -22,7 +28,43 @@
   var RELOAD_COOLDOWN_MS = 30000;
   var pendingReloadTimer = null;
   var pendingReloadKey = '';
-  function reloadTrackEventOnce(key) {
+  function withoutReloadReason(search) {
+    var q = String(search || '').replace(/^\?/, '');
+    var parts = q.split('&').filter(function (part) {
+      return part && part.indexOf(RELOAD_REASON_PARAM + '=') !== 0;
+    });
+    return parts.length ? '?' + parts.join('&') : '';
+  }
+
+  function urlWithReloadReason(loc, reason) {
+    var search = withoutReloadReason(loc.search);
+    search += (search ? '&' : '?') + RELOAD_REASON_PARAM + '=' + encodeURIComponent(reason);
+    return loc.pathname + search + (loc.hash || '');
+  }
+
+  function reloadWithReason(reason) {
+    var loc = global.location;
+    if (reason && typeof loc.replace === 'function' && typeof loc.pathname === 'string') {
+      loc.replace(urlWithReloadReason(loc, reason));
+    } else {
+      loc.reload();
+    }
+  }
+
+  function stripReloadReason() {
+    var loc = global.location;
+    var history = global.history;
+    if (!loc || !history || typeof history.replaceState !== 'function') return;
+    var search = String(loc.search || '');
+    if (search.indexOf(RELOAD_REASON_PARAM + '=') < 0) return;
+    try {
+      history.replaceState(
+        history.state, '', loc.pathname + withoutReloadReason(search) + (loc.hash || '')
+      );
+    } catch (e) {}
+  }
+
+  function reloadTrackEventOnce(key, reason) {
     var now = Date.now();
     if (key === lastReloadKey && now - lastReloadAt < 2000) return;
     try {
@@ -33,7 +75,7 @@
     } catch (e) {}
     lastReloadKey = key;
     lastReloadAt = now;
-    window.location.reload();
+    reloadWithReason(reason);
   }
 
   function randomDelayMs(maxJitterMs, randomValue) {
@@ -43,14 +85,14 @@
     return Math.floor(random * (max + 1));
   }
 
-  function scheduleReload(key, maxJitterMs) {
+  function scheduleReload(key, maxJitterMs, reason) {
     if (key === lastReloadKey || (pendingReloadTimer && pendingReloadKey === key)) return;
     if (pendingReloadTimer) clearTimeout(pendingReloadTimer);
     pendingReloadKey = key;
     pendingReloadTimer = setTimeout(function () {
       pendingReloadTimer = null;
       pendingReloadKey = '';
-      reloadTrackEventOnce(key);
+      reloadTrackEventOnce(key, reason);
     }, randomDelayMs(maxJitterMs));
   }
 
@@ -194,6 +236,68 @@
     }
   }
 
+  function isDailyTransition(root, transitionAt) {
+    return transitionJitterMs(root, transitionAt) === DAILY_TRANSITION_JITTER_MS;
+  }
+
+  function showNewEditionNotice(url) {
+    var doc = global.document;
+    if (!doc || typeof doc.createElement !== 'function' || !doc.body) return;
+    if (doc.querySelector('[data-new-edition-notice]')) return;
+    var box = doc.createElement('div');
+    box.className = 'new-edition-notice';
+    box.setAttribute('role', 'status');
+    box.setAttribute('data-new-edition-notice', '');
+    var link = doc.createElement('a');
+    link.className = 'new-edition-notice__link';
+    link.href = url;
+    link.textContent = 'Вышел новый выпуск';
+    var arrow = doc.createElement('i');
+    arrow.className = 'ph ph-arrow-right';
+    arrow.setAttribute('aria-hidden', 'true');
+    link.appendChild(arrow);
+    var close = doc.createElement('button');
+    close.type = 'button';
+    close.className = 'new-edition-notice__close';
+    close.setAttribute('aria-label', 'Скрыть');
+    close.innerHTML = '<i class="ph ph-x" aria-hidden="true"></i>';
+    close.addEventListener('click', function () { box.remove(); });
+    box.appendChild(link);
+    box.appendChild(close);
+    doc.body.appendChild(box);
+  }
+
+  // Midnight costs one document request per open tab, so only a page whose
+  // content actually changes reloads, and only when someone looks at it.
+  function handleDailyTransition(root, key) {
+    var noticeUrl = root.getAttribute('data-live-next-transition-notice-url');
+    if (noticeUrl) {
+      // A puzzle page keeps its puzzle: reloading mid-solve changes nothing
+      // on screen but the navigation.
+      showNewEditionNotice(noticeUrl);
+      return;
+    }
+    var doc = global.document;
+    if (!doc || doc.visibilityState !== 'hidden' || typeof doc.addEventListener !== 'function') {
+      scheduleReload(key, DAILY_TRANSITION_JITTER_MS, 'daily');
+      return;
+    }
+    function onVisible() {
+      if (doc.visibilityState !== 'visible') return;
+      doc.removeEventListener('visibilitychange', onVisible);
+      scheduleReload(key, DAILY_RETURN_JITTER_MS, 'daily-return');
+    }
+    doc.addEventListener('visibilitychange', onVisible);
+  }
+
+  function handlePhaseBoundary(root, transitionAt, key) {
+    if (isDailyTransition(root, transitionAt)) {
+      handleDailyTransition(root, key);
+    } else {
+      scheduleReload(key, GAME_TRANSITION_JITTER_MS);
+    }
+  }
+
   function transitionJitterMs(root, transitionAt) {
     var gameStartAt = Date.parse(root.getAttribute('data-game-start-at') || '');
     var gameEndAt = Date.parse(root.getAttribute('data-game-end-at') || '');
@@ -213,7 +317,7 @@
     if (missedAt !== null && claimMissedPhaseReload(missedAt)) {
       // Own key: an early reload for this boundary (see below) already holds
       // the 'game-phase:' cooldown and must not block this recovery.
-      scheduleReload('game-phase-missed:' + missedAt, transitionJitterMs(root, missedAt));
+      handlePhaseBoundary(root, missedAt, 'game-phase-missed:' + missedAt);
     }
     function schedule() {
       var now = serverNow();
@@ -228,7 +332,7 @@
           schedule();
           return;
         }
-        scheduleReload('game-phase:' + transitionAt, transitionJitterMs(root, transitionAt));
+        handlePhaseBoundary(root, transitionAt, 'game-phase:' + transitionAt);
       }, Math.min(remaining, MAX_DELAY_MS));
     }
     schedule();
@@ -628,7 +732,10 @@
     transitionJitterMs: transitionJitterMs,
     scheduleGamePhaseReload: scheduleGamePhaseReload,
     serverClockOffsetMs: serverClockOffsetMs,
+    reloadWithReason: reloadWithReason,
+    urlWithReloadReason: urlWithReloadReason,
     collectTaskIds: collectTaskIds,
     reconcileTaskGroup: reconcileTaskGroup,
   };
+  stripReloadReason();
 })(window);

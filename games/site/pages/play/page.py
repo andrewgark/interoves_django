@@ -55,6 +55,7 @@ from games.sections.hub import (
     section_nav_title,
     section_tagline,
 )
+from games.sections.paths import section_last_path
 from games.sections.placement_share import may_open_unpublished_number
 from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.site.pages import (
@@ -832,6 +833,8 @@ def task_group_page(
             None if draft_offer is not None
             else next_daily_content_transition_for_game(game)
         ),
+        # A puzzle page offers the new edition at midnight instead of reloading.
+        'live_next_transition_notice_url': section_last_path(game.id),
         **(
             onboarding_followup_context(game.id)
             if draft_offer is None else {}

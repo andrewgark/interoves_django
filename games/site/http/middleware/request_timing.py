@@ -13,6 +13,10 @@ from django.conf import settings
 from django.db import connection
 
 logger = logging.getLogger('interoves.request_timing')
+auto_reload_logger = logging.getLogger('interoves.auto_reload')
+
+# ``?_reload=<reason>`` that track_ws.js puts on the reloads it makes itself.
+AUTO_RELOAD_REASONS = frozenset({'daily', 'daily-return', 'button'})
 
 _ALPHABETTY_GUESS = re.compile(r'^/alphabetty/[^/]+/guess/?$')
 # Task numbers and permanent share hashes both occupy one URL segment. Censorly
@@ -106,6 +110,13 @@ class RequestTimingMiddleware:
         finally:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             request._interoves_elapsed_ms = elapsed_ms
+            reload_reason = request.GET.get('_reload')
+            if reload_reason in AUTO_RELOAD_REASONS:
+                auto_reload_logger.info(
+                    'auto_reload reason=%s path=%s status=%s duration_ms=%.0f',
+                    reload_reason, path,
+                    getattr(response, 'status_code', 'exception'), elapsed_ms,
+                )
             if elapsed_ms >= self.slow_ms:
                 resolver_match = getattr(request, 'resolver_match', None)
                 endpoint = (

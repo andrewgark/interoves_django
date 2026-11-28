@@ -171,6 +171,69 @@ assert.strictEqual(window.InterovesTrack.serverClockOffsetMs({
     return name === 'data-server-now' ? String(Date.parse('2026-08-17T00:00:00Z') / 1000) : '';
   },
 }, fakeNow), 0);
+
+// Midnight: a hidden tab waits until it is looked at, then reloads within
+// DAILY_RETURN_JITTER_MS and says why.
+function midnightRoot(extra) {
+  return {
+    getAttribute: function (name) {
+      return Object.assign({
+        'data-live-next-transition-at': '2026-08-21T00:00:00+03:00',
+      }, extra || {})[name] || '';
+    },
+  };
+}
+fakeNow = Date.parse('2026-08-22T20:59:59Z');
+window.document.visibilityState = 'hidden';
+var visibilityCount = visibilityHandlers.length;
+phaseTimerCount = timeoutCallbacks.length;
+window.InterovesTrack.scheduleGamePhaseReload(midnightRoot({
+  'data-live-next-transition-at': '2026-08-23T00:00:00+03:00',
+}));
+fakeNow += 1000;
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 1, 'hidden tab schedules no reload');
+assert.strictEqual(visibilityHandlers.length, visibilityCount + 1);
+visibilityHandlers[visibilityHandlers.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 1, 'still hidden');
+window.document.visibilityState = 'visible';
+visibilityHandlers[visibilityHandlers.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 2);
+assert(timeoutDelays[timeoutDelays.length - 1] <= 3000);
+visibilityHandlers.splice(visibilityCount);
+var replaced = [];
+window.location.pathname = '/salad/';
+window.location.search = '?page=2&_reload=daily';
+window.location.hash = '#top';
+window.location.replace = function (url) { replaced.push(url); };
+window.sessionStorage = {getItem: function () { return null; }, setItem: function () {}};
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert.deepStrictEqual(replaced, ['/salad/?page=2&_reload=daily-return#top']);
+
+// A puzzle page is not reloaded: it offers the new edition instead.
+var appended = [];
+window.document.body = {appendChild: function (el) { appended.push(el); }};
+window.document.querySelector = function () { return appended.length ? appended[0] : null; };
+window.document.createElement = function (tag) {
+  return {
+    tag: tag, children: [], attributes: {},
+    setAttribute: function (name, value) { this.attributes[name] = value; },
+    appendChild: function (child) { this.children.push(child); },
+    addEventListener: function () {},
+  };
+};
+fakeNow = Date.parse('2026-08-21T20:59:59Z');
+phaseTimerCount = timeoutCallbacks.length;
+window.InterovesTrack.scheduleGamePhaseReload(midnightRoot({
+  'data-live-next-transition-at': '2026-08-22T00:00:00+03:00',
+  'data-live-next-transition-notice-url': '/salad/last/',
+}));
+fakeNow += 1000;
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 1, 'no reload on a puzzle page');
+assert.strictEqual(appended.length, 1);
+assert.strictEqual(appended[0].children[0].href, '/salad/last/');
+assert.strictEqual(appended[0].children[0].textContent, 'Вышел новый выпуск');
 Date.now = realDateNow;
 assert.deepStrictEqual(window.InterovesTrack.collectTaskIds({
   querySelectorAll: function () {
