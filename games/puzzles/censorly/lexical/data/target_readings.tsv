@@ -28,3 +28,4 @@ surface	article_lemma	allowed	mode	note
 цветам	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
 цветами	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
 цветах	цветок	цветок	filter	flower plural beside plant parts (complaint 367)
+социал	социала	социал	substitute	«Социал-» of социал-демократ split at the hyphen; pymorphy guesses a noun социала (complaint 369 follow-up)

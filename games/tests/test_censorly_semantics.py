@@ -1462,6 +1462,17 @@ class SemanticsTests(SimpleTestCase):
             '',
         )
 
+    def test_social_family_opens_prefixed_words_and_hyphen_part(self):
+        # Complaint 369 follow-up: социальность, асоциальный and «Социал-» had no root.
+        # «Социал-» keeps pymorphy's stored lemma социала; the reading maps it to социал.
+        tokens = tokenize_text('Социал-демократы, асоциальный тип и социальность.')
+        for guess in ('социализм', 'социальный'):
+            with self.subTest(guess=guess):
+                opened = matching_lemmas(tokens, guess)
+                self.assertTrue({'социала', 'асоциальный', 'социальность'} <= opened, opened)
+        self.assertEqual(matching_lemmas(tokens, 'демократ'), {'демократ'})
+        self.assertEqual(matching_lemmas(tokens, 'общество'), set())
+
     def test_flower_plural_beside_plant_parts_does_not_open_colour(self):
         # Complaint 367 (Мухомор красный): «цветок» opened «цвета» through
         # «без листьев, цветов и плодов» stored under the lemma цвет.
