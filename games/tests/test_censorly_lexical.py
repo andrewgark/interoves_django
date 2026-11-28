@@ -736,9 +736,13 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
-    def test_russian_language_stub_opens_russian(self):
+    def test_russian_language_label_guess_opens_russian_only_beside_the_label(self):
+        # «рус» is also русый: like «нем», it reads as русский only where the
+        # article uses the label.
         tokens = [{'kind': 'content', 'surface': 'русский', 'lemma': 'русский'}]
-        self.assertEqual(matching_lemmas(tokens, 'рус'), {'русский'})
+        self.assertEqual(matching_lemmas(tokens, 'рус'), set())
+        labelled = tokenize_text('Москва (рус. Москва). Русский язык.')
+        self.assertIn('русский', matching_lemmas(labelled, 'рус'))
 
     def test_guess_prefers_citation_reading_over_inflected_homonym(self):
         tokens = [

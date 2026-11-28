@@ -1,12 +1,12 @@
 label	lemma	kind	note
 англ	английский	stub	language label without a competing ordinary word; carries the root of its full form
-рус	русский	stub	language label without a competing ordinary word; carries the root of its full form
+рус	русский	language_label	homographic language label (русый, Франц, греча); only in label position before a gloss or after «др.-»
 фр	французский	stub	language label without a competing ordinary word; carries the root of its full form
-франц	французский	stub	language label without a competing ordinary word; carries the root of its full form
+франц	французский	language_label	homographic language label (русый, Франц, греча); only in label position before a gloss or after «др.-»
 нем	немецкий	stub	language label without a competing ordinary word; carries the root of its full form
 итал	итальянский	stub	language label without a competing ordinary word; carries the root of its full form
 исп	испанский	stub	language label without a competing ordinary word; carries the root of its full form
-греч	греческий	stub	language label without a competing ordinary word; carries the root of its full form
+греч	греческий	language_label	homographic language label (русый, Франц, греча); only in label position before a gloss or after «др.-»
 яп	японский	stub	language label without a competing ordinary word; carries the root of its full form
 укр	украинский	stub	language label without a competing ordinary word; carries the root of its full form
 юго	юг	combining	first half of a hyphenated compound (юго-западный)

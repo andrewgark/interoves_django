@@ -138,9 +138,6 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
         for guess, target in (
             ('франция', 'фр'),
             ('француз', 'фр'),
-            ('франция', 'франц'),
-            ('россия', 'рус'),
-            ('русь', 'рус'),
             ('англия', 'англ'),
             ('германия', 'нем'),
             ('немец', 'нем'),
@@ -149,14 +146,33 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
             ('япония', 'яп'),
             ('украина', 'укр'),
             ('фр', 'франция'),
-            ('рус', 'россия'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertEqual(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target)), 'root')
 
-    def test_greek_label_opens_through_the_proper_name_pair(self):
-        self.assertEqual(MATCHER.relation(ANALYZER.guess('греция'), ANALYZER.target('греч')), 'proper')
-        self.assertEqual(explain('греция', 'греч'), 'proper')
+    def test_homographic_stub_labels_open_only_as_labels(self):
+        # «греч» is also греча (gen. pl.), «рус» русый, «франц» the name Франц:
+        # гречка opened «др.-греч.», французский opened «Франц Кафка».
+        labelled = tokenize_text(
+            'Электрон (от др.-греч. ἤλεκτρον), Москва (рус. Москва), '
+            'Париж (франц. Paris), слово (от др.-рус. слова).'
+        )
+        markers = {label: LANGUAGE_LABELS[label].marker for label in ('греч', 'рус', 'франц')}
+        for guess, label in (
+            ('греческий', 'греч'), ('греция', 'греч'), ('грек', 'греч'),
+            ('русский', 'рус'), ('россия', 'рус'), ('русь', 'рус'),
+            ('французский', 'франц'), ('франция', 'франц'),
+        ):
+            with self.subTest(guess=guess):
+                self.assertIn(markers[label], matching_lemmas(labelled, guess))
+        for guess in ('гречка', 'греча', 'русый', 'гречневый'):
+            with self.subTest(ordinary=guess):
+                self.assertFalse(matching_lemmas(labelled, guess) & set(markers.values()))
+        plain = tokenize_text('Купили много греч. Франц Кафка писал по-немецки.')
+        for guess in ('греческий', 'французский', 'франция'):
+            with self.subTest(plain=guess):
+                self.assertFalse(matching_lemmas(plain, guess))
+        self.assertIn('греча', matching_lemmas(plain, 'гречка'))
 
     def test_homographic_stubs_do_not_inherit_the_country_family(self):
         for guess, target in (('китаец', 'кит'), ('кит', 'китай')):

@@ -569,12 +569,19 @@ def _is_preposition_governing_pronoun(
 def _is_language_label_position(
     tokens: list[dict[str, Any]], previous: int, next_word: int,
 ) -> bool:
-    """Recognize «(кит. …», «; лат. …», «от лат. …» or a non-Cyrillic gloss."""
+    """Recognize «(кит. …», «; лат. …», «от лат. …», «др.-греч.» or a non-Cyrillic gloss."""
     if previous >= 0:
         token = tokens[previous]
         surface = token.get('surface') or ''
         if token.get('kind') == 'punct' and surface.endswith(('(', ',', ';')):
             return True
+        # «др.-греч.», «др.-рус.»: the second half of a compound label.
+        if token.get('kind') == 'punct' and surface.endswith('-'):
+            before = _previous_nonspace(tokens, previous)
+            if surface == '-' and before >= 0 and tokens[before].get('surface') == '.':
+                before = _previous_nonspace(tokens, before)
+            if before >= 0 and tokens[before].get('lemma') == DR_ANCIENT.marker:
+                return True
         if normalize_surface(surface) in {'от', 'из'}:
             return True
     if next_word < len(tokens):
