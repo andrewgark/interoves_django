@@ -88,6 +88,18 @@ class AttemptManager(models.Manager):
     def _namespace(self, queryset, replay_slot=None):
         return queryset.filter(replay_slot=replay_slot)
 
+    def in_task_group(self, task_group):
+        """Attempts on the tasks of ``task_group``, by their ids, not a JOIN.
+
+        Through ``task__task_group`` MySQL reaches attempts by a ``task_id``
+        it does not know yet and picks ``games_att_task_team_scope_idx`` for
+        ``team_id IS NULL``: by index statistics ~9 rows, in fact every
+        non-team attempt of the task (8k rows read for one player's EXISTS,
+        2026-11-28). Constant ids let it pick the player's own index.
+        """
+        task_ids = list(Task.objects.filter(task_group=task_group).values_list('pk', flat=True))
+        return self.filter(task_id__in=task_ids)
+
     def get_all_task_attempts(self, task, exclude_skip=True, game=None, replay_slot=None):
         queryset = super().get_queryset().filter(task=task).select_related('team', 'user')
         if game is not None:

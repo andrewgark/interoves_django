@@ -107,9 +107,8 @@ def _has_prior_statistical_activity(*, game, task_group, actor, replay_slot=None
     from games.models import Attempt, HintAttempt
 
     identity = {key: value for key, value in actor.items() if key != 'replay_slot'}
-    attempts_exist = Attempt.manager.filter(
-        game=game, task__task_group=task_group, skip=False,
-        replay_slot__isnull=True, **identity,
+    attempts_exist = Attempt.manager.in_task_group(task_group).filter(
+        game=game, skip=False, replay_slot__isnull=True, **identity,
     ).exists()
     if attempts_exist:
         return True
@@ -1128,9 +1127,8 @@ def _apply_timing_event_once(
             game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
         ):
             from games.models import Attempt
-            legacy_attempts = list(Attempt.manager.filter(
+            legacy_attempts = list(Attempt.manager.in_task_group(task_group).filter(
                 game=game,
-                task__task_group=task_group,
                 skip=False,
                 replay_slot__isnull=True,
                 **filters,

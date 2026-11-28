@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Q
 from django.utils import timezone
 
@@ -110,11 +111,13 @@ def daily_releases(actor, *, now=None):
         )
     if not game_ids:
         return []
+    # Only the site's author inherits unauthored releases: everyone else
+    # skips the scan of every task's tags behind ``credited_elsewhere``.
     unauthored = (
         TaskGroup.objects.filter(authors__isnull=True)
-        .exclude(pk__in=credited_elsewhere_group_ids())
+        .exclude(pk__in=_cached_credited_elsewhere_group_ids())
         .values('pk')
-    )
+    ) if default_game_ids else None
     out = []
     for game in Game.objects.filter(pk__in=game_ids):
         mine = Q(task_group_id__in=authored)
@@ -145,6 +148,26 @@ def daily_releases(actor, *, now=None):
         ))
     out.sort(key=lambda game: (-len(game.items), game.name))
     return out
+
+
+def _cached_credited_elsewhere_group_ids() -> set[int]:
+    """``credited_elsewhere_group_ids`` shared by a process for a few minutes.
+
+    It reads ``tags`` of every task (a 7 s full scan of ``games_task`` on
+    prod, 2026-11-28) and changes only when a text author or an offer is
+    recorded, so the site author's profile may show that a little late.
+    """
+    seconds = float(getattr(settings, 'CREDITED_ELSEWHERE_CACHE_SECONDS', 600))
+    if seconds <= 0:
+        return credited_elsewhere_group_ids()
+    ids = cache.get(_CREDITED_ELSEWHERE_CACHE_KEY)
+    if ids is None:
+        ids = credited_elsewhere_group_ids()
+        cache.set(_CREDITED_ELSEWHERE_CACHE_KEY, ids, seconds)
+    return ids
+
+
+_CREDITED_ELSEWHERE_CACHE_KEY = 'authorship:credited-elsewhere-group-ids:v1'
 
 
 def credited_elsewhere_group_ids() -> set[int]:

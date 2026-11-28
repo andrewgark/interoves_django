@@ -691,7 +691,23 @@ class DailyStatisticsTests(TestCase):
         return game, tg, task
 
     def _censorly_solve(self, game, tg, task, user, rows):
-        for text, status, state in rows:
+        """``rows`` are ``(text, status, lemma)``; states grow as in play.
+
+        Every guess appends ``{word, lemma}`` to the history and the attempt
+        stores the whole state so far; ``#hint:`` rows only count a hint.
+        """
+        from games.puzzles.censorly.play import dump_state
+        from games.puzzles.censorly.text.normalize import normalize_surface
+
+        guesses, hints = [], 0
+        for text, status, lemma in rows:
+            if text.startswith('#hint:'):
+                hints += 1
+            else:
+                guesses.append({'word': normalize_surface(text), 'lemma': lemma, 'hits': 0})
+            state = dump_state({
+                'guesses': list(guesses), 'hints_taken': hints, 'won': status == 'Ok',
+            })
             Attempt.manager.create(
                 user=user, game=game, task=task, text=text, status=status, state=state,
             )
@@ -701,23 +717,34 @@ class DailyStatisticsTests(TestCase):
             result=PlayerCompletedGame.RESULT_SOLVED,
         )
 
-    def test_censorly_lemmas_come_from_attempt_state_without_loading_it(self):
+    def test_censorly_lemmas_come_from_player_state_not_attempt_states(self):
         from games.daily.timing import statistics as daily_statistics
+        from games.puzzles.censorly.play import dump_state
 
         game, tg, task = self._censorly_task('censorly state lemmas')
-        history = [{'lemma': 'кошка'}]
-        self._censorly_solve(game, tg, task, self.users[0], [
-            # The resolver lemma groups guesses, but is not a display label.
-            ('кошек', 'Wrong', json.dumps({'guesses': history})),
-            # Unreadable states fall back to the typed word.
-            ('собаки', 'Wrong', '{not json'),
-            ('столы', 'Wrong', json.dumps({'guesses': []})),
-            ('окна', 'Partial', json.dumps({'guesses': [{'lemma': None}]})),
-            ('реки', 'Ok', json.dumps({'guesses': history + [{'lemma': 'река'}], 'won': True})),
-        ])
+        for text, status in (('кошек', 'Wrong'), ('собаки', 'Wrong'), ('окна', 'Partial'), ('реки', 'Ok')):
+            # Attempt states are never read: a stale one must not matter.
+            Attempt.manager.create(
+                user=self.users[0], game=game, task=task, text=text, status=status,
+                state='{not json',
+            )
+        PlayerCompletedGame.objects.create(
+            user=self.users[0], game=game, task_group=tg, game_kind='censorly',
+            game_instance_id='censorly:{}'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
         ChainTaskState.objects.create(
             user=self.users[0], game=game, task=task, game_mode='general',
-            state=json.dumps({'guesses': history, 'won': True}),
+            state=dump_state({
+                # The resolver lemma groups guesses, but is not a display
+                # label; «собаки» is missing and falls back to its own lemma.
+                'guesses': [
+                    {'word': 'кошек', 'lemma': 'кошка', 'hits': 0},
+                    {'word': 'окна', 'lemma': 'окно', 'hits': 1},
+                    {'word': 'реки', 'lemma': 'река', 'hits': 1},
+                ],
+                'won': True,
+            }),
         )
         loaded = []
         grouped = daily_statistics._grouped_by_actor
@@ -733,7 +760,7 @@ class DailyStatisticsTests(TestCase):
         self.assertTrue(loaded)
         self.assertTrue(all('state' in row.get_deferred_fields() for row in loaded))
         words = {row['word'] for row in data['popular_words']}
-        self.assertEqual(words, {'кошек', 'собаки', 'столы', 'окна', 'реки'})
+        self.assertEqual(words, {'кошек', 'собаки', 'окна', 'реки'})
         self.assertEqual(data['last_words'], [{'word': 'окна', 'players': 1}])
 
     def test_censorly_statistics_display_only_submitted_forms(self):
@@ -751,8 +778,8 @@ class DailyStatisticsTests(TestCase):
                 game, tg, task = self._censorly_task('submitted forms')
                 for user, form in zip(self.users, forms):
                     self._censorly_solve(game, tg, task, user, [
-                        (form, 'Partial', json.dumps({'guesses': [{'lemma': lemma}]})),
-                        ('Тест', 'Ok', json.dumps({'guesses': [{'lemma': 'тест'}], 'won': True})),
+                        (form, 'Partial', lemma),
+                        ('Тест', 'Ok', 'тест'),
                     ])
                 data = build_daily_statistics(game, tg)
                 self.assertEqual(data['last_words'], [{'word': expected, 'players': 3}])
@@ -763,10 +790,9 @@ class DailyStatisticsTests(TestCase):
     def test_censorly_last_word_uses_form_frequencies_from_all_guesses(self):
         game, tg, task = self._censorly_task('shared form frequencies')
         self._censorly_solve(game, tg, task, self.users[0], [
-            (form, 'Partial', json.dumps({'guesses': [{'lemma': 'кошка'}]}))
-            for form in ('кошек', 'КОШЕК', 'кошки')
+            (form, 'Partial', 'кошка') for form in ('кошек', 'КОШЕК', 'кошки')
         ] + [
-            ('Тест', 'Ok', json.dumps({'guesses': [{'lemma': 'тест'}], 'won': True})),
+            ('Тест', 'Ok', 'тест'),
         ])
 
         data = build_daily_statistics(game, tg)
@@ -777,18 +803,19 @@ class DailyStatisticsTests(TestCase):
         ])
 
     def test_censorly_actor_without_chain_state_uses_latest_attempt_state(self):
-        from games.puzzles.censorly.play import dump_state
-
         game, tg, task = self._censorly_task('censorly no chain state')
         self._censorly_solve(game, tg, task, self.users[0], [
-            ('#hint:кошка', 'Partial', dump_state({'guesses': [], 'hints_taken': 1})),
-            ('кошка', 'Ok', dump_state({'guesses': [{'lemma': 'кошка'}], 'hints_taken': 1, 'won': True})),
+            ('#hint:кошка', 'Partial', None),
+            ('собачки', 'Partial', 'собака'),
+            ('кошка', 'Ok', 'кошка'),
         ])
         self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
 
         data = build_daily_statistics(game, tg)
 
         self.assertEqual(data['summary']['without_hints_percent'], 0.0)
+        # Lemmas come from the latest attempt state when no chain state exists.
+        self.assertEqual(data['last_words'], [{'word': 'собачки', 'players': 1}])
 
     def test_censorly_attempt_distribution_includes_wrong_guesses(self):
         game = Game.objects.filter(id='censorly', project=self.project).first()
@@ -824,21 +851,19 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['distribution'][-1]['label'], '151+')
 
     def test_censorly_perfect_solve_needs_minimal_attempts_and_no_hints(self):
-        from games.puzzles.censorly.play import dump_state
         from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
         game, tg, task = self._censorly_task('censorly perfect solve')
         task.checker_data = json.dumps(build_puzzle_payload(wiki_title='Тест', body_text='Текст статьи.'))
         task.save(update_fields=['checker_data'])
-        won = dump_state({'guesses': [{'lemma': 'тест'}], 'won': True})
-        self._censorly_solve(game, tg, task, self.users[0], [('тест', 'Ok', won)])
+        self._censorly_solve(game, tg, task, self.users[0], [('тест', 'Ok', 'тест')])
         self._censorly_solve(game, tg, task, self.users[1], [
-            ('кошка', 'Wrong', dump_state({'guesses': [{'lemma': 'кошка'}]})),
-            ('тест', 'Ok', won),
+            ('кошка', 'Wrong', 'кошка'),
+            ('тест', 'Ok', 'тест'),
         ])
         self._censorly_solve(game, tg, task, self.users[2], [
-            ('#hint:тест', 'Partial', dump_state({'hints_taken': 1})),
-            ('тест', 'Ok', dump_state({'guesses': [{'lemma': 'тест'}], 'hints_taken': 1, 'won': True})),
+            ('#hint:тест', 'Partial', None),
+            ('тест', 'Ok', 'тест'),
         ])
 
         ranking = build_daily_statistics(game, tg)[RANKING_KEY]

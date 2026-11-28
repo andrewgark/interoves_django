@@ -152,9 +152,8 @@ def daily_statistics(request, game_id, number):
             if request.user.is_authenticated
             else {'anon_key': str(anon_key), 'user__isnull': True, 'team__isnull': True}
         )
-        legacy_attempts = list(Attempt.manager.filter(
+        legacy_attempts = list(Attempt.manager.in_task_group(placement.task_group).filter(
             game=game,
-            task__task_group=placement.task_group,
             skip=False,
             replay_slot__isnull=True,
             **legacy_actor,

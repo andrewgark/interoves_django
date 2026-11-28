@@ -579,18 +579,22 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(response.json()['attempts'], 5)
         self.assertEqual(response.json()['example_label'], 'G1')
         quote = connection.ops.quote_name
-        history_queries = [
+        payload_queries = [
             row['sql'] for row in queries
             if 'FROM {}'.format(quote('games_attempt')) in row['sql']
-            and 'JOIN {}'.format(quote('games_task')) in row['sql']
+            or 'FROM {}'.format(quote('games_task')) in row['sql']
         ]
-        self.assertEqual(len(history_queries), 1)
-        for table, field in (
-            ('games_task', 'tags'), ('games_task', 'checker_data'),
-            ('games_task', 'text'), ('games_attempt', 'state'),
-            ('games_attempt', 'text'),
-        ):
-            self.assertNotIn('{}.{}'.format(quote(table), quote(field)), history_queries[0])
+        self.assertTrue(payload_queries)
+        for sql in payload_queries:
+            # Joined to tasks, MySQL reaches attempts through the team index.
+            if 'FROM {}'.format(quote('games_attempt')) in sql:
+                self.assertNotIn('JOIN {}'.format(quote('games_task')), sql)
+            for table, field in (
+                ('games_task', 'tags'), ('games_task', 'checker_data'),
+                ('games_task', 'text'), ('games_attempt', 'state'),
+                ('games_attempt', 'text'),
+            ):
+                self.assertNotIn('{}.{}'.format(quote(table), quote(field)), sql)
 
     def test_migrate_count_example_resolves_legacy_attempt_without_game(self):
         Attempt.manager.filter(anon_key=self.anon_key).update(game=None)

@@ -16,8 +16,10 @@ from games.identity import has_profile
 from games.models import (
     Attempt,
     ChainTaskState,
+    Game,
     GameTaskGroup,
     HintAttempt,
+    Task,
 )
 from games.ops.analytics.identity import (
     browser_anon_key,
@@ -165,17 +167,22 @@ def anon_migrate_count(request):
     example = None
     if unsolved_task_ids:
         # Only the link fields: full related tasks repeat large puzzle JSON
-        # for every attempt and can exhaust a web host's RAM.
-        examples = (
+        # for every attempt and can exhaust a web host's RAM. Tasks and games
+        # come in their own queries: joined to them, MySQL reached attempts
+        # by ``team_id IS NULL`` and read 109k rows for 351 (2026-11-28).
+        examples = list(
             Attempt.manager.filter(
                 anon_key=anon_key, user__isnull=True, team__isnull=True,
                 task_id__in=unsolved_task_ids,
             )
-            .select_related('task', 'game')
-            .only('task__task_group_id', 'game__name')
+            .only('task_id', 'game_id')
             .order_by('time')
         )
-        for attempt in examples.iterator(chunk_size=100):
+        tasks = Task.objects.only('task_group_id').in_bulk({a.task_id for a in examples})
+        games = Game.objects.only('name').in_bulk({a.game_id for a in examples if a.game_id})
+        for attempt in examples:
+            attempt.task = tasks.get(attempt.task_id)
+            attempt.game = games.get(attempt.game_id)
             example = _anon_task_group_link(attempt)
             if example is not None:
                 break

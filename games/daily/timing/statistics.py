@@ -12,7 +12,7 @@ from typing import Callable
 
 from django.core.cache import caches
 from django.db import connection, transaction
-from django.db.models import Func, Min, Q, TextField
+from django.db.models import Min, Q
 
 from games.daily.page.section import ADVENT_SCHEDULE, CRYPTIC_SCHEDULE
 from games.daily.registry import DAILY_GAME_REGISTRY
@@ -666,34 +666,6 @@ def _attempts_for(task, game, actors, statuses=('Ok', 'Partial')):
     ), actors)
 
 
-class _LastGuessLemma(Func):
-    """``state.guesses[-1].lemma`` of an attempt, computed by the database.
-
-    Every Цензурка attempt stores the whole game state so far: one popular
-    edition holds 14k attempts and ~60 MB of state JSON, which the
-    statistics worker loaded into memory only to read this one string.
-    Invalid JSON, an empty history or a non-string lemma give NULL.
-    """
-
-    output_field = TextField()
-    _MYSQL = (
-        "CASE WHEN JSON_VALID(%(expressions)s) AND JSON_TYPE(JSON_EXTRACT("
-        "%(expressions)s, '$.guesses[last].lemma')) = 'STRING' THEN JSON_UNQUOTE("
-        "JSON_EXTRACT(%(expressions)s, '$.guesses[last].lemma')) END"
-    )
-    _SQLITE = (
-        "CASE WHEN json_valid(%(expressions)s) AND json_type(%(expressions)s, "
-        "'$.guesses[#-1].lemma') = 'text' THEN json_extract(%(expressions)s, "
-        "'$.guesses[#-1].lemma') END"
-    )
-
-    def as_mysql(self, compiler, connection, **extra_context):
-        return self.as_sql(compiler, connection, template=self._MYSQL, **extra_context)
-
-    def as_sqlite(self, compiler, connection, **extra_context):
-        return self.as_sql(compiler, connection, template=self._SQLITE, **extra_context)
-
-
 def _completed_time_map(game, task_group, actors):
     """Actor key -> canonical solve seconds for completed players."""
     if not actors:
@@ -739,9 +711,8 @@ def _completed_time_map(game, task_group, actors):
 
         attempts_by_actor = defaultdict(list)
         # The same attempts as the results table (leaderboard fallback).
-        attempts = Attempt.manager.filter(
-            game=game, task__task_group=task_group, skip=False,
-            replay_slot__isnull=True,
+        attempts = Attempt.manager.in_task_group(task_group).filter(
+            game=game, skip=False, replay_slot__isnull=True,
         ).filter(_actor_q(missing_timing_keys)).only(
             'team_id', 'user_id', 'anon_key', 'time',
         ).order_by('time', 'id')
@@ -1066,8 +1037,7 @@ def _censorly(task, game, actors):
     statuses = ('Ok', 'Partial', 'Wrong')
     attempts = _grouped_by_actor(
         _attempt_rows(task, game, actors, statuses)
-        .only('id', 'team_id', 'user_id', 'anon_key', 'text', 'status', 'time')
-        .annotate(last_guess_lemma=_LastGuessLemma('state')),
+        .only('id', 'team_id', 'user_id', 'anon_key', 'text', 'status', 'time'),
         actors,
     ) if actors else {}
     states = _chain_states(task, game, actors) if actors else {}
@@ -1094,9 +1064,6 @@ def _censorly(task, game, actors):
     submitted_forms = set()
     no_hints = 0
 
-    def lemma_from_row(row):
-        return row.last_guess_lemma or lemma_of(normalize_surface(row.text or ''))
-
     for actor in actors:
         rows = attempts.get(actor, [])
         if not any(row.status == 'Ok' for row in rows):
@@ -1108,6 +1075,19 @@ def _censorly(task, game, actors):
         attempt_counts.append(len(real_guesses))
         actor_attempts[actor] = len(real_guesses)
         state = load_censorly_state(states.get(actor))
+        # Each guess attempt stores its normalized word as ``text`` and the
+        # history refuses repeats, so the player's one current state maps a
+        # word to the article lemma it opened. Reading every attempt's own
+        # state instead pulled ~120 MB of JSON per popular edition through
+        # the 512 MB buffer pool on each rebuild (2026-11-28).
+        guess_lemmas = {
+            guess['word']: guess['lemma'] for guess in state.get('guesses') or []
+        }
+
+        def lemma_from_row(row, guess_lemmas=guess_lemmas):
+            word = normalize_surface(row.text or '')
+            return guess_lemmas.get(word) or lemma_of(word)
+
         if censorly_hint_count(state) == 0:
             no_hints += 1
             # A guess from outside the article may beat the computed minimum.

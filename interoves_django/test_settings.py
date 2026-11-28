@@ -31,5 +31,8 @@ DAILY_DEFAULT_AUTHOR_USER_ID = None
 # reuse game ids; its own tests enable it with override_settings.
 HUB_LINK_CACHE_SECONDS = 0
 
+# The site author's "credited elsewhere" set would outlive each test's tasks.
+CREDITED_ELSEWHERE_CACHE_SECONDS = 0
+
 # Process-level SocialApp lookups would leak OAuth apps between tests.
 SOCIAL_APPS_CACHE_SECONDS = 0
