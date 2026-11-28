@@ -126,6 +126,19 @@ def _is_initially_open_word(surface: str) -> bool:
     return initially_open(surface, include_pronouns=open_pronouns_enabled())
 
 
+def _is_open_guess(surface: str) -> bool:
+    """Whether a typed guess is an open word, by the readings it matches with.
+
+    Unlike the article token, a guess that is the citation form of a noun
+    («том», the volume) is not the open pronoun of the same spelling (тот).
+    """
+    if is_stop_word(surface):
+        return True
+    from games.puzzles.censorly.lexical.deciders.analyzer import ANALYZER
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
+    return ANALYZER.guess(surface, include_pronouns=open_pronouns_enabled()).service
+
+
 def _has_closed_exact_target(payload: dict[str, Any], guess: str) -> bool:
     """An open spelling may also name a closed, explicitly parsed reading."""
     normalized = normalize_surface(guess)
@@ -948,7 +961,7 @@ def apply_guess(
     # the guessable content-token set. Reject them before touching the actor
     # state so they never consume an attempt or create a history row.
     if (
-        _is_initially_open_word(normalized)
+        _is_open_guess(normalized)
         and not _has_closed_exact_target(payload, normalized)
     ):
         return move.view(
@@ -1020,7 +1033,7 @@ def minimal_title_attempts(payload: dict[str, Any], *, task: Task | None = None)
     index = {lemma: 1 << bit for bit, lemma in enumerate(sorted(hidden))}
     masks = set()
     for word in sorted(candidates):
-        if _is_initially_open_word(word) and not _has_closed_exact_target(payload, word):
+        if _is_open_guess(word) and not _has_closed_exact_target(payload, word):
             continue
         matched, _report = _guess_matches(
             payload, word, lemma_of(word), task=task, include_report=False,

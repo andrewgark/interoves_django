@@ -5,7 +5,7 @@ relation. Between them sit gates that close a pair regardless of later
 layers:
 
 ```
-exact spelling        (both open from the start, or the context refuses
+exact spelling        (the token is open from the start, or the context refuses
                        its own spelling → nothing to reveal)
 function-word gate    (an open function word opens only its own spelling;
                        pronouns and numerals go on)
@@ -67,7 +67,9 @@ class Matcher:
             return ''
         context = context_of(target.contextual_reading)
         if EXACT.opens(guess, target):
-            if guess.service and target.service:
+            # An open token has nothing to reveal, whatever the guess means
+            # (the volume «том» against the open pronoun «том»).
+            if target.service:
                 return ''
             return EXACT.name if context is None or context.exact_opens else ''
         if guess.service and not self.carries_meaning(guess):

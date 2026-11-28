@@ -212,7 +212,7 @@ class WordAnalyzer:
         return Word(
             surface=surface,
             fold=folded,
-            service=VISIBILITY.initially_open(surface, include_pronouns=include_pronouns),
+            service=self._guess_service(surface, reads, roots, contextual or fixed, include_pronouns),
             russian=bool(fixed) or self.is_russian(surface),
             reads=reads,
             lexemes={(item.para_id, item.lemma) for item in reads},
@@ -221,6 +221,19 @@ class WordAnalyzer:
             lexemes_by_fold={key: frozenset(value) for key, value in lexemes_by_fold.items()},
             is_guess=True,
         )
+
+    @staticmethod
+    def _guess_service(surface, reads, roots, contextual, include_pronouns) -> bool:
+        """An open spelling typed as the citation form of a word with a root.
+
+        «том» drops the pronoun тот for the volume and opens томах; «его»,
+        «того», «чего» keep only rootless readings and stay open words. A
+        reading the article context chose (в → век) does not count.
+        """
+        service = VISIBILITY.initially_open(surface, include_pronouns=include_pronouns)
+        if not service or contextual or not roots:
+            return service
+        return VISIBILITY.guess_open(surface, reads, include_pronouns=include_pronouns)
 
     @staticmethod
     def _families(folded: str, reads) -> set:

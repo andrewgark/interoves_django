@@ -1473,6 +1473,14 @@ class SemanticsTests(SimpleTestCase):
         self.assertEqual(matching_lemmas(tokens, 'демократ'), {'демократ'})
         self.assertEqual(matching_lemmas(tokens, 'общество'), set())
 
+    def test_alchemy_opens_alchemist(self):
+        # Complaint 228 (Нострадамус): алхимия had no root (Tikhonov: ал+хими).
+        tokens = tokenize_text('Алхимик изучал алхимию и алхимические трактаты.')
+        self.assertEqual(
+            matching_lemmas(tokens, 'алхимия'), {'алхимик', 'алхимия', 'алхимический'},
+        )
+        self.assertEqual(matching_lemmas(tokens, 'химия'), set())
+
     def test_flower_plural_beside_plant_parts_does_not_open_colour(self):
         # Complaint 367 (Мухомор красный): «цветок» opened «цвета» through
         # «без листьев, цветов и плодов» stored under the lemma цвет.

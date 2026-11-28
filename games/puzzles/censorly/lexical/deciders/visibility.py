@@ -90,6 +90,35 @@ class Visibility:
             return False
         return True
 
+    def guess_open(self, surface: str, reads, *, include_pronouns: bool = True) -> bool:
+        """Is a typed guess an open word, judged by the readings it matches with.
+
+        A guess that is the citation form of a content word keeps only that
+        reading (``READINGS.for_guess``), so «том» is the volume even though
+        the article's «том» is the open pronoun «тот». When the readings it
+        dropped are only pronouns, the guess is not open and links like any
+        noun (том → томах). A dropped preposition or numeral keeps it open:
+        «со» stays «с», «второе» stays the ordinal.
+        """
+        if not self.initially_open(surface, include_pronouns=include_pronouns):
+            return False
+        if not reads or fold(surface) in self._rules['always_open']:
+            return True
+        if any(self._opens_word(item) for item in reads):
+            return True
+        dropped = [item for item in READINGS.all(surface) if item not in reads]
+        return any(
+            self._opens_word(item) and not self.is_pronoun_reading(item)
+            for item in dropped
+        )
+
+    def _opens_word(self, reading) -> bool:
+        return (
+            reading.pos in _SERVICE_POS
+            or reading.lemma in self.initial_numbers
+            or self.is_pronoun_reading(reading)
+        )
+
     def open_in_article(
         self, surface: str, article_lemma: str, *, include_pronouns: bool = True,
     ) -> bool:

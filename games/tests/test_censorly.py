@@ -523,6 +523,25 @@ class CensorlyEngineTests(TestCase):
         self.assertIn(result['status'], {'hit', 'won'})
         self.assertEqual(set(result['guesses'][-1]['token_ids']), volume_ids)
 
+    @override_settings(CENSORLY_OPEN_PRONOUNS=True)
+    def test_tom_as_a_guess_is_the_volume(self):
+        # Complaint #258: «том» was refused as the open pronoun «тот» although
+        # the article had only «томах».
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Собрание сочинений',
+            body='Собрание сочинений вышло в двух томах.',
+        )
+        tokens = puzzle['title_tokens'] + puzzle['body_tokens']
+        volume_ids = {t['id'] for t in tokens if t['surface'] == 'томах'}
+
+        user = User.objects.create_user('cz_tom_guess', password='x')
+        result = apply_guess(game=game, task=task, word='том', user=user)
+        self.assertIn(result['status'], {'hit', 'won'})
+        self.assertEqual(set(result['guesses'][-1]['token_ids']), volume_ids)
+        for pronoun in ('тот', 'того', 'его'):
+            result = apply_guess(game=game, task=task, word=pronoun, user=user)
+            self.assertEqual(result['status'], 'initially_open', pronoun)
+
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):
