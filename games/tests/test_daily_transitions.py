@@ -54,6 +54,20 @@ class DailyContentTransitionTests(TestCase):
             datetime(2026, 8, 24, 0, 0, tzinfo=MOSCOW),
         )
 
+    def test_bounded_schedule_ignores_rows_after_its_last_day(self):
+        game = SimpleNamespace(id='advent', tags={
+            'advent_publish_start': '2026-12-01',
+            'advent_end_date': '2026-12-02',
+        })
+        now = datetime(2026, 12, 1, 12, 0, tzinfo=MOSCOW)
+
+        self.assertEqual(
+            next_daily_content_transition(game, ['1', '2', '3'], now=now),
+            datetime(2026, 12, 2, 0, 0, tzinfo=MOSCOW),
+        )
+        later = datetime(2026, 12, 2, 12, 0, tzinfo=MOSCOW)
+        self.assertIsNone(next_daily_content_transition(game, ['1', '2', '3'], now=later))
+
     def test_non_daily_game_has_no_transition(self):
         game = SimpleNamespace(id='ordinary', tags={})
         self.assertIsNone(next_daily_content_transition(game, ['1']))

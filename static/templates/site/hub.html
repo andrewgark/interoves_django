@@ -102,13 +102,22 @@
   var out = box && box.querySelector('[data-hub-next-release-time]');
   var at = box ? Date.parse(box.getAttribute('data-hub-next-release-at') || '') : NaN;
   if (!out || !Number.isFinite(at)) return;
+  // Count on the server clock, as track_ws.js does: a phone a few minutes
+  // off must not show a wrong time or hit zero before the release.
+  var rendered = Number(document.body.getAttribute('data-server-now')) * 1000;
+  var offset = rendered > 0 ? rendered - Date.now() : 0;
+  if (Math.abs(offset) > 12 * 3600 * 1000) offset = 0;
   function pad(n) { return n < 10 ? '0' + n : String(n); }
   function tick() {
-    var left = Math.max(0, Math.ceil((at - Date.now()) / 1000));
+    var left = Math.max(0, Math.ceil((at - Date.now() - offset) / 1000));
+    if (!left) {
+      // track_ws.js reloads the page within DAILY_TRANSITION_JITTER_MS.
+      out.parentNode.textContent = 'Новые выпуски вышли';
+      return;
+    }
     var h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
     out.textContent = (h ? h + ':' + pad(m) : String(m)) + ':' + pad(s);
-    // track_ws.js reloads the page at this boundary; until then keep 0:00.
-    if (left > 0) setTimeout(tick, 1000 - (Date.now() % 1000) + 20);
+    setTimeout(tick, 1000 - ((Date.now() + offset) % 1000) + 20);
   }
   tick();
 })();

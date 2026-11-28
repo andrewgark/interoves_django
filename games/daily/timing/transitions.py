@@ -7,13 +7,19 @@ from games.daily.page.section import publish_at_for, schedule_for
 
 def next_daily_content_transition(game, numbers, *, now=None):
     """Earliest future publish time among content rows that already exist."""
-    if schedule_for(getattr(game, 'id', None)) is None:
+    schedule = schedule_for(getattr(game, 'id', None))
+    if schedule is None:
         return None
     now = now or timezone.now()
     candidates = []
     for number in numbers:
         transition = publish_at_for(game, number)
-        if transition is not None and transition > now:
+        # A bounded schedule (advent, cryptic) never publishes rows past its
+        # last day: their dates are not releases and must not reload pages.
+        if (
+            transition is not None and transition > now
+            and schedule.is_published(game, number, now=transition)
+        ):
             candidates.append(transition)
     return min(candidates) if candidates else None
 

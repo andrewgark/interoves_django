@@ -77,7 +77,7 @@
   {% block og_meta %}{% if og or default_og %}{% include "site/partials/og_meta.html" with og=og|default:default_og %}{% endif %}{% endblock %}
   {% block extrahead %}{% endblock %}
 </head>
-<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-offline-actor="{{ offline_actor|default:'' }}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
+<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-offline-actor="{{ offline_actor|default:'' }}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} data-server-now="{% now 'U' %}" {% block body_attrs %}{% endblock %}>
   {% include "partials/yandex_metrika_noscript.html" %}
   {% if not user.is_authenticated %}
   <script>
@@ -1256,7 +1256,7 @@
     });
   })();
   </script>
-  <script src="{% static "js/track_ws.js" %}?11"></script>
+  <script src="{% static "js/track_ws.js" %}?12"></script>
   {% if user.is_authenticated and notifications_enabled %}<script src="{% static "js/notifications_bell.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>{% endif %}
   <script>
   (function () {

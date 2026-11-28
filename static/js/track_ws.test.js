@@ -146,6 +146,31 @@ fakeNow += 70;
 timeoutCallbacks[timeoutCallbacks.length - 1]();
 assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 3);
 assert(timeoutDelays[timeoutDelays.length - 1] <= 3000);
+// A client clock 90 s ahead of the server waits for the server's midnight
+// instead of reloading 90 s early into the same pre-boundary page.
+fakeNow = Date.parse('2026-08-20T21:00:30Z');
+var skewedRoot = {
+  getAttribute: function (name) {
+    return {
+      'data-live-next-transition-at': '2026-08-21T00:00:00+03:00',
+      'data-server-now': String(Date.parse('2026-08-20T20:59:00Z') / 1000),
+    }[name] || '';
+  },
+};
+assert.strictEqual(window.InterovesTrack.serverClockOffsetMs(skewedRoot, fakeNow), -90000);
+phaseTimerCount = timeoutCallbacks.length;
+window.InterovesTrack.scheduleGamePhaseReload(skewedRoot);
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 1);
+assert.strictEqual(timeoutDelays[timeoutDelays.length - 1], 60000);
+fakeNow += 60000;
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert(timeoutDelays[timeoutDelays.length - 1] <= 20000);
+// A stale offline copy rendered days ago does not shift the clock.
+assert.strictEqual(window.InterovesTrack.serverClockOffsetMs({
+  getAttribute: function (name) {
+    return name === 'data-server-now' ? String(Date.parse('2026-08-17T00:00:00Z') / 1000) : '';
+  },
+}, fakeNow), 0);
 Date.now = realDateNow;
 assert.deepStrictEqual(window.InterovesTrack.collectTaskIds({
   querySelectorAll: function () {

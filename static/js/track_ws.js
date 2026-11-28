@@ -149,6 +149,28 @@
     return missed;
   }
 
+  // Client clocks can be minutes off. A clock ahead of the server used to
+  // reload just before the boundary and then strand the tab on the old page:
+  // the fresh page's boundary already looked past and was never retried.
+  // ``data-server-now`` (epoch seconds of the render) maps client time onto
+  // the server clock; a page older than half a day (an offline copy) is
+  // ignored rather than trusted.
+  var MAX_SERVER_CLOCK_OFFSET_MS = 12 * 3600 * 1000;
+
+  function serverRenderedAtMs(root) {
+    if (!root || typeof root.getAttribute !== 'function') return null;
+    var raw = root.getAttribute('data-server-now');
+    var value = raw ? Number(raw) * 1000 : NaN;
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  function serverClockOffsetMs(root, clientNowMs) {
+    var renderedAt = serverRenderedAtMs(root);
+    if (renderedAt === null) return 0;
+    var offset = renderedAt - clientNowMs;
+    return Math.abs(offset) > MAX_SERVER_CLOCK_OFFSET_MS ? 0 : offset;
+  }
+
   function documentRequestedAtMs() {
     var perf = global.performance;
     if (!perf) return null;
@@ -184,14 +206,17 @@
 
   function scheduleGamePhaseReload(root) {
     var MAX_DELAY_MS = 2147483000;
-    var missedAt = missedGamePhaseAt(root, documentRequestedAtMs(), Date.now());
+    var offset = serverClockOffsetMs(root, Date.now());
+    function serverNow() { return Date.now() + offset; }
+    var requestedAt = offset ? serverRenderedAtMs(root) : documentRequestedAtMs();
+    var missedAt = missedGamePhaseAt(root, requestedAt, serverNow());
     if (missedAt !== null && claimMissedPhaseReload(missedAt)) {
       // Own key: an early reload for this boundary (see below) already holds
       // the 'game-phase:' cooldown and must not block this recovery.
       scheduleReload('game-phase-missed:' + missedAt, transitionJitterMs(root, missedAt));
     }
     function schedule() {
-      var now = Date.now();
+      var now = serverNow();
       var transitionAt = nextGamePhaseAt(root, now);
       if (transitionAt === null) return;
       var remaining = transitionAt - now;
@@ -199,7 +224,7 @@
         // Timers run on a monotonic clock, Date.now() on the wall clock; when
         // they drift (WSL, NTP step, sleep) the timer can fire before the
         // boundary and reload into the same pre-boundary page.
-        if (remaining > MAX_DELAY_MS || Date.now() < transitionAt) {
+        if (remaining > MAX_DELAY_MS || serverNow() < transitionAt) {
           schedule();
           return;
         }
@@ -602,6 +627,7 @@
     scheduleReload: scheduleReload,
     transitionJitterMs: transitionJitterMs,
     scheduleGamePhaseReload: scheduleGamePhaseReload,
+    serverClockOffsetMs: serverClockOffsetMs,
     collectTaskIds: collectTaskIds,
     reconcileTaskGroup: reconcileTaskGroup,
   };
