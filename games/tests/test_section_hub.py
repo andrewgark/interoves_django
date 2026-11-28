@@ -88,7 +88,7 @@ class LadderSectionHubCardTests(SimpleTestCase):
         card = get_ladder_section_hub_card(game, published_numbers={'1'}, now=now)
         self.assertTrue(card['is_today'])
         self.assertEqual(card['cta_label'], 'Сегодняшняя Лесенка')
-        self.assertEqual(card['soon_text'], 'Новая Лесенка — каждый день в полночь по Москве.')
+        self.assertEqual(card['soon_text'], 'Новая Лесенка — каждый день.')
         self.assertFalse(card['wide'])
 
     def test_latest_label(self):
