@@ -7238,9 +7238,11 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
   background: color-mix(in srgb, var(--tile) 70%, var(--surface));
   cursor: pointer;
 }
-.wall-tile-not-guessed:hover{
-  background: var(--surface);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+@media (hover: hover) {
+  .wall-tile-not-guessed:hover{
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  }
 }
 .wall-tile-stop-guessing{
   cursor: default;
@@ -7250,8 +7252,10 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
   background: color-mix(in srgb, var(--warning) 42%, var(--surface));
   border-color: color-mix(in srgb, var(--warning) 65%, var(--border));
 }
-.wall-tile-selected:hover{
-  background: color-mix(in srgb, var(--warning) 55%, var(--surface));
+@media (hover: hover) {
+  .wall-tile-selected:hover{
+    background: color-mix(in srgb, var(--warning) 55%, var(--surface));
+  }
 }
 /* Guessed groups: accent scale (not neon Wordle greens) */
 .wall-tile-guessed-0{
@@ -10270,8 +10274,10 @@ html.new-ui-dark .wall-tile-not-guessed {
   background: color-mix(in srgb, var(--tile) 80%, var(--bg));
 }
 
-html.new-ui-dark .wall-tile-not-guessed:hover {
-  background: color-mix(in srgb, var(--surface) 70%, var(--tile));
+@media (hover: hover) {
+  html.new-ui-dark .wall-tile-not-guessed:hover {
+    background: color-mix(in srgb, var(--surface) 70%, var(--tile));
+  }
 }
 
 html.new-ui-dark .wall-tile-selected {
@@ -10280,8 +10286,10 @@ html.new-ui-dark .wall-tile-selected {
   color: var(--text);
 }
 
-html.new-ui-dark .wall-tile-selected:hover {
-  background: color-mix(in srgb, var(--warning) 45%, var(--surface));
+@media (hover: hover) {
+  html.new-ui-dark .wall-tile-selected:hover {
+    background: color-mix(in srgb, var(--warning) 45%, var(--surface));
+  }
 }
 
 /* Accent-mix tiles from light rules; force readable fg in dark */
@@ -11430,9 +11438,11 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   border-radius: 0.15rem;
   line-height: 1.35;
 }
-.new-alphabetty__alpha-cell:hover {
-  background: color-mix(in srgb, var(--tile) 70%, transparent);
-  color: var(--text);
+@media (hover: hover) {
+  .new-alphabetty__alpha-cell:hover {
+    background: color-mix(in srgb, var(--tile) 70%, transparent);
+    color: var(--text);
+  }
 }
 
 .new-alphabetty__hint {
@@ -11899,9 +11909,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   cursor: pointer;
 }
 
-.new-word-salad__cell.is-active:hover {
-  background: color-mix(in srgb, var(--accent) 7%, var(--tile));
-  transform: translateY(-1px);
+/* Touch screens keep :hover on the tile where the finger lifted, so the last
+   letter of the previous word stayed tinted. */
+@media (hover: hover) {
+  .new-word-salad__cell.is-active:hover {
+    background: color-mix(in srgb, var(--accent) 7%, var(--tile));
+    transform: translateY(-1px);
+  }
 }
 
 .new-word-salad__cell.is-selected {
@@ -12922,12 +12936,14 @@ button.new-word-salad__hint-btn:disabled {
   touch-action: none;
 }
 
-.new-grid-puzzle__cell-hit:hover {
-  fill: color-mix(in srgb, var(--pal-accent, #7c3aed) 12%, transparent);
-}
+@media (hover: hover) {
+  .new-grid-puzzle__cell-hit:hover {
+    fill: color-mix(in srgb, var(--pal-accent, #7c3aed) 12%, transparent);
+  }
 
-.new-grid-puzzle__edge-hit:hover {
-  stroke: color-mix(in srgb, var(--pal-accent, #7c3aed) 22%, transparent);
+  .new-grid-puzzle__edge-hit:hover {
+    stroke: color-mix(in srgb, var(--pal-accent, #7c3aed) 22%, transparent);
+  }
 }
 
 .new-grid-puzzle__center-hit {
@@ -12938,8 +12954,10 @@ button.new-word-salad__hint-btn:disabled {
   touch-action: none;
 }
 
-.new-grid-puzzle__center-hit:hover {
-  fill: color-mix(in srgb, #7d8797 24%, transparent);
+@media (hover: hover) {
+  .new-grid-puzzle__center-hit:hover {
+    fill: color-mix(in srgb, #7d8797 24%, transparent);
+  }
 }
 
 .new-grid-puzzle.is-pan-mode .new-grid-puzzle__hits,
